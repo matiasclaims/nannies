@@ -1,0 +1,46 @@
+# === Secretos (NUNCA al repo — SEGURIDAD §6) ===
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*.json
+google-*.json
+service-account*.json
+# Scripts locales de bootstrap de BD (contienen la contraseña de dev local)
+infra/db/setup.sql
+infra/db/reset-and-setup.ps1
+
+# === Vercel ===
+.vercel
+
+# === Dependencias ===
+node_modules/
+.pnp
+.pnp.js
+
+# === Builds ===
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# === Prisma ===
+# el schema SÍ va al repo; los artefactos generados no
+apps/api/prisma/generated/
+
+# === Logs (SEGURIDAD §10: sin PII en logs) ===
+logs/
+*.log
+npm-debug.log*
+
+# === Sistema / editor ===
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# === Test / coverage ===
+coverage/

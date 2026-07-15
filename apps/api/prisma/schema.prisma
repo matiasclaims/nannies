@@ -1,0 +1,292 @@
+// ============================================================
+//  Nannies Child Care — Esquema de datos (Prisma + PostgreSQL)
+//  Alcance de este archivo: NÚCLEO de identidad + M1 (Calendario/
+//  Disponibilidad). Las tablas de M3/M4/M6 se agregan al construir
+//  cada módulo (módulo por módulo — README §4).
+//
+//  Cifras de negocio NO viven aquí: el tabulador de pago, cobros e
+//  incidencias son datos verificados contra fuente y se cablean en
+//  la lógica de M3/M4, no en el esquema.
+//
+//  Convención de seguridad: los campos PII de menores viven en `Nino`
+//  y el filtrado por rol se impone en el backend (serializadores),
+//  NO en el frontend (SEGURIDAD §2 y §3).
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------
+//  Enums
+// ------------------------------------------------------------
+
+enum Rol {
+  DIRECTORA // Paula — acceso total, ve margen y confirma consecuencias
+  SUBDIRECTORA // Jackeline — opera todo menos el margen
+  NANNIE // solo lo suyo; familias en vista operativa (sin PII de menores)
+}
+
+enum Plaza {
+  TOLUCA
+  QUERETARO
+  // precio único multi-plaza por ahora; la dimensión existe por si cambia
+}
+
+// Rango permanente por servicios acumulados de por vida (nunca se pierde)
+// 50→ROOKIE(+3%) · 80→JUNIOR(+7%) · 130→SENIOR(+10%)  (DATOS-FUENTE §4)
+enum RangoPermanente {
+  BASE
+  ROOKIE
+  JUNIOR
+  SENIOR
+}
+
+// Columnas del tabulador de PAGO (PE 2026, 5 niveles).
+// El nivel-tarifa MENSUAL se fija en el cierre de mes (M3) según el
+// umbral de 25 hrs; NO se recalcula servicio a servicio. La lógica de
+// derivación vive en M3 (pendiente de confirmar el caso "Salario 25hrs"
+// para rango BASE — ver nota a Matías).
+enum NivelTarifa {
+  BASE // Salario Base
+  TARIFA_25HRS // Salario 25hrs mensuales
+  ROOKIE
+  JUNIOR
+  SENIOR
+}
+
+enum EstadoNannie {
+  ACTIVA
+  PAUSA
+  PRUEBA // p.ej. calificación < 7.5 → 1 mes de prueba (incidencia #14)
+}
+
+enum EstadoFamilia {
+  ACTIVA
+  INACTIVA
+  SUSPENDIDA // p.ej. recontratación externa (Reglamento §8)
+}
+
+// Clase operativa del servicio (Reglamento PF §"Servicio / No. de niños").
+// NOTA (interpretación a confirmar): la fuente agrupa "Daycare/Nightcare"
+// en una fila; aquí se separan porque la distinción día/noche es real y
+// ya la captura el horario — mismo menú de precio.
+// "Paquetes de horas" NO es una clase aquí: es un FORMATO (ver Formato);
+// cada sesión de un paquete tiene su propia clase.
+enum TipoServicio {
+  DAYCARE // 1-3 niños
+  NIGHTCARE // 1-3 niños
+  ACOMPANAMIENTO_EVENTO // 1-3 niños
+  NANNIE_EXPRESS // 1-3 niños
+  NANNIE_FORANEA // 1-3 niños
+  NANNIE_FIESTA_PLAYDATE // 4-8 niños
+  LUDOTECA_MOVIL // 4-8 niños por estación
+}
+
+enum Formato {
+  INDIVIDUAL // cobro manual al realizarse
+  PAQUETE // modelo "saldo": cobro automático al asignar, se consume por servicio
+}
+
+enum EstadoServicio {
+  OFERTADO
+  ACEPTADO
+  RECHAZADO
+  COMPLETADO
+  CANCELADO
+}
+
+enum EstadoDisponibilidad {
+  DISPONIBLE
+  BLOQUEADO
+  TEMPORAL // bloqueo temporal con fecha de reintegro
+}
+
+enum RespuestaOferta {
+  ACEPTO
+  RECHAZO
+}
+
+enum EstadoPaquete {
+  ACTIVO // con saldo de horas disponible
+  CONSUMIDO // saldo agotado
+  CANCELADO
+}
+
+// ------------------------------------------------------------
+//  Identidad y acceso (transversal — roles desde el día 1)
+// ------------------------------------------------------------
+
+model Usuario {
+  id           String   @id @default(cuid())
+  nombre       String
+  email        String   @unique
+  passwordHash String // argon2/bcrypt — NUNCA texto plano (SEGURIDAD §4)
+  rol          Rol
+  activo       Boolean  @default(true)
+  // Si rol = NANNIE, enlaza con su ficha. La pertenencia (token.nannieId
+  // == recurso) se verifica en cada consulta de nannie (SEGURIDAD §4).
+  nannieId     String?  @unique
+  nannie       Nannie?  @relation(fields: [nannieId], references: [id])
+  creadoEn     DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  @@map("usuarios")
+}
+
+// ------------------------------------------------------------
+//  Nannies (identidad + nivel; expediente/documentos completos → M4)
+// ------------------------------------------------------------
+
+model Nannie {
+  id                  String          @id @default(cuid())
+  nombre              String
+  plaza               Plaza
+  zonas               String[] // zonas que cubre (perfil geográfico)
+  rangoPermanente     RangoPermanente @default(BASE)
+  serviciosAcumulados Int             @default(0) // contador de por vida (M4)
+  nivelTarifaMesActual NivelTarifa    @default(BASE) // lo fija M3 en el cierre de mes
+  estado              EstadoNannie    @default(PRUEBA)
+  creadoEn            DateTime        @default(now())
+  actualizadoEn       DateTime        @updatedAt
+
+  usuario         Usuario?
+  disponibilidad  Disponibilidad[]
+  servicios       Servicio[]
+  ofertas         OfertaRespuesta[]
+
+  @@map("nannies")
+}
+
+// ------------------------------------------------------------
+//  Familias y niños (M5 completo después; aquí el núcleo para M1)
+// ------------------------------------------------------------
+
+model Familia {
+  id            String        @id @default(cuid())
+  nombreContacto String
+  telefono      String?
+  email         String?
+  plaza         Plaza
+  zona          String?
+  estado        EstadoFamilia @default(ACTIVA)
+  fechaAlta     DateTime      @default(now())
+  actualizadoEn DateTime      @updatedAt
+
+  ninos     Nino[]
+  servicios Servicio[]
+  paquetes  Paquete[]
+
+  @@map("familias")
+}
+
+// PII de MENORES — máxima protección. El backend nunca envía estos campos
+// a un rol distinto de DIRECTORA; la nannie recibe solo la vista operativa
+// (rutinas/necesidades/salud) filtrada por serializador (SEGURIDAD §2/§3).
+model Nino {
+  id          String   @id @default(cuid())
+  familiaId   String
+  familia     Familia  @relation(fields: [familiaId], references: [id])
+  // --- Identificable: SOLO Directora ---
+  nombre      String
+  edad        Int?
+  genero      String?
+  // --- Operativo: visible a la nannie asignada ---
+  rutinas     String?
+  necesidades String?
+  salud       String? // alergias/condiciones — sensible; vista operativa acotada
+  creadoEn    DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  @@index([familiaId])
+  @@map("ninos")
+}
+
+// ------------------------------------------------------------
+//  M1 · Disponibilidad y Calendario
+// ------------------------------------------------------------
+
+model Disponibilidad {
+  id            String               @id @default(cuid())
+  nannieId      String
+  nannie        Nannie               @relation(fields: [nannieId], references: [id])
+  fecha         DateTime             @db.Date
+  horaInicio    String // "HH:mm"
+  horaFin       String
+  estado        EstadoDisponibilidad @default(DISPONIBLE)
+  fechaReintegro DateTime?           @db.Date // solo si estado = TEMPORAL
+  creadoEn      DateTime             @default(now())
+
+  @@index([nannieId, fecha])
+  @@map("disponibilidad")
+}
+
+// TABLA MAESTRA de asignaciones — vive en M1. M2 solo la escribe tras la
+// decisión de Paula; M2 no tiene tabla propia (ARQUITECTURA §4/§5).
+model Servicio {
+  id           String         @id @default(cuid())
+  familiaId    String
+  familia      Familia        @relation(fields: [familiaId], references: [id])
+  nannieId     String? // null mientras está por asignar
+  nannie       Nannie?        @relation(fields: [nannieId], references: [id])
+  plaza        Plaza
+  zona         String
+  tipoServicio TipoServicio
+  formato      Formato
+  paqueteId    String? // si formato = PAQUETE, contra qué saldo se consume
+  paquete      Paquete?       @relation(fields: [paqueteId], references: [id])
+  numNinos     Int // validación por tipo: 1-3 general, 4-8 fiesta/ludoteca
+  fecha        DateTime       @db.Date
+  horaInicio   String // "HH:mm"
+  horaFin      String
+  // Reglamento PF §15-16: solo horas completas, mínimo 3.
+  duracionHoras Int // se valida en el backend: entero, >= 3
+  estado       EstadoServicio @default(OFERTADO)
+  creadoEn     DateTime       @default(now())
+  actualizadoEn DateTime      @updatedAt
+
+  ofertas OfertaRespuesta[]
+
+  @@index([nannieId, fecha])
+  @@index([familiaId])
+  @@index([estado])
+  @@map("servicios")
+}
+
+// Registro de oferta→respuesta; alimenta la estadística de rechazo (M6)
+// y puede disparar incidencias (M4).
+model OfertaRespuesta {
+  id            String          @id @default(cuid())
+  servicioId    String
+  servicio      Servicio        @relation(fields: [servicioId], references: [id])
+  nannieId      String
+  nannie        Nannie          @relation(fields: [nannieId], references: [id])
+  respuesta     RespuestaOferta
+  fechaRespuesta DateTime        @default(now())
+
+  @@index([nannieId])
+  @@map("ofertas_respuesta")
+}
+
+// Modelo "saldo": se cobra al inicio (M3), se consume servicio a servicio.
+// El precio total viene de la tabla de cobro verificada (se cablea en M3).
+model Paquete {
+  id               String        @id @default(cuid())
+  familiaId        String
+  familia          Familia       @relation(fields: [familiaId], references: [id])
+  horasTotales     Int // 10 / 20 / 30 / 40 / 50
+  horasConsumidas  Int           @default(0)
+  precioTotal      Decimal       @db.Decimal(10, 2)
+  fechaContratacion DateTime      @default(now())
+  estado           EstadoPaquete @default(ACTIVO)
+
+  servicios Servicio[]
+
+  @@index([familiaId])
+  @@map("paquetes")
+}
