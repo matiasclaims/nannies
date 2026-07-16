@@ -23,9 +23,7 @@ export default function PanoramaPage() {
       {/* Banner de bienvenida (piel "Claro": degradado azul) */}
       <section className="rounded-2xl bg-gradient-to-r from-marca-azul to-[#3ad0e8] p-6 text-white shadow-card">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-bold md:text-2xl">
-            Hola, {sesion?.nombre ?? '…'} <span aria-hidden>👋</span>
-          </h1>
+          <h1 className="text-xl font-bold md:text-2xl">Hola, {sesion?.nombre ?? '…'}</h1>
           <span className="rounded-full bg-white/20 px-3 py-0.5 text-xs capitalize">{hoy}</span>
         </div>
         <p className="mt-1 text-sm text-white/90">Este es el panorama de tu operación hoy</p>

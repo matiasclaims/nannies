@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { Search, LogOut } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Logo } from '@/components/logo';
 
 /** Top bar: búsqueda (escritorio) + salir. En celular muestra la marca. */
 export function Topbar() {
@@ -16,9 +17,8 @@ export function Topbar() {
 
   return (
     <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-borde bg-panel/95 px-4 py-3 backdrop-blur">
-      <div className="flex items-center gap-2 md:hidden">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-marca-azul/10">🐣</span>
-        <span className="text-sm font-semibold">Nannies</span>
+      <div className="flex items-center md:hidden">
+        <Logo className="h-8 w-auto" />
       </div>
 
       <div className="relative hidden flex-1 md:block">

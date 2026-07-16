@@ -20,6 +20,7 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Aplica a las páginas; excluye el proxy /api y los assets estáticos.
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  // Aplica solo a páginas: excluye /api, artefactos de Next y cualquier
+  // archivo estático (rutas con punto/extensión, ej. /nannies-logo.png).
+  matcher: ['/((?!api|_next/static|_next/image|.*\\.).*)'],
 };

@@ -27,10 +27,40 @@ const config: Config = {
       },
       boxShadow: {
         card: '0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.05)',
+        marca: '0 20px 50px -12px rgba(203, 108, 230, 0.25)',
       },
       borderRadius: {
         xl: '0.9rem',
         '2xl': '1.25rem',
+      },
+      keyframes: {
+        'fade-up': {
+          '0%': { opacity: '0', transform: 'translateY(18px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'pop-in': {
+          '0%': { opacity: '0', transform: 'scale(0.9)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translate(0, 0)' },
+          '50%': { transform: 'translate(14px, -24px)' },
+        },
+        'float-alt': {
+          '0%, 100%': { transform: 'translate(0, 0)' },
+          '50%': { transform: 'translate(-18px, -16px)' },
+        },
+        bob: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-6px)' },
+        },
+      },
+      animation: {
+        'fade-up': 'fade-up 0.6s ease-out both',
+        'pop-in': 'pop-in 0.7s ease-out both',
+        float: 'float 9s ease-in-out infinite',
+        'float-alt': 'float-alt 11s ease-in-out infinite',
+        bob: 'bob 4.5s ease-in-out infinite',
       },
     },
   },
