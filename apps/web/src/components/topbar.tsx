@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, LogOut } from 'lucide-react';
+import { Search, LogOut, HelpCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Logo } from '@/components/logo';
 
@@ -29,9 +30,18 @@ export function Topbar() {
         />
       </div>
 
+      <Link
+        href="/manual"
+        aria-label="Manual de usuario"
+        title="Manual de usuario"
+        className="ml-auto grid h-9 w-9 place-items-center rounded-xl text-texto-suave transition hover:bg-fondo hover:text-marca-azul"
+      >
+        <HelpCircle className="h-5 w-5" />
+      </Link>
+
       <button
         onClick={salir}
-        className="ml-auto flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-texto-suave transition hover:bg-fondo hover:text-marca-rojo"
+        className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-texto-suave transition hover:bg-fondo hover:text-marca-rojo"
       >
         <LogOut className="h-4 w-4" />
         <span className="hidden sm:inline">Salir</span>
