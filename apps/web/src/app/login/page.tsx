@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { Logo } from '@/components/logo';
 
 export default function LoginPage() {
@@ -20,9 +20,13 @@ export default function LoginPage() {
       await api.login(email, password);
       router.push('/');
       router.refresh();
-    } catch {
-      // Mensaje genérico: no revela si el correo existe (SEGURIDAD §10).
-      setError('Credenciales inválidas.');
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        // Mensaje genérico: no revela si el correo existe (SEGURIDAD §10).
+        setError('Credenciales inválidas.');
+      } else {
+        setError('No se pudo conectar. El servidor puede estar despertando; espera unos segundos e intenta de nuevo.');
+      }
     } finally {
       setCargando(false);
     }

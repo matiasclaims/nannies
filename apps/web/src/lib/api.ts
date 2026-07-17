@@ -13,15 +13,30 @@ export interface Sesion {
   nannieId: string | null;
 }
 
+/** Error con código HTTP; status = 0 si ni siquiera se pudo conectar. */
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
-    ...init,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+      ...init,
+    });
+  } catch {
+    // Falla de red / servidor inalcanzable (ej. API despertando).
+    throw new ApiError(0, 'No se pudo conectar con el servidor.');
+  }
   if (!res.ok) {
     const cuerpo = (await res.json().catch(() => ({}))) as { message?: string };
-    throw new Error(cuerpo.message ?? `Error ${res.status}`);
+    throw new ApiError(res.status, cuerpo.message ?? `Error ${res.status}`);
   }
   return res.json() as Promise<T>;
 }
