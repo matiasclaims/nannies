@@ -15,8 +15,18 @@ export default function ManualPage() {
   }, []);
 
   const publico: Publico = sesion?.rol === 'NANNIE' ? 'nannie' : 'coordinacion';
-  const etiquetaPublico = publico === 'nannie' ? 'Nannie' : 'Coordinación';
-  const pdfHref = publico === 'nannie' ? '/manual-nannie.pdf' : '/manual-coordinacion.pdf';
+  // La etiqueta y el PDF reflejan el ROL real (Directora / Subdirectora /
+  // Nannie); el contenido de coordinación es común a Directora y Subdirectora.
+  const etiquetaRol = sesion
+    ? { DIRECTORA: 'Directora', SUBDIRECTORA: 'Subdirectora', NANNIE: 'Nannie' }[sesion.rol]
+    : '';
+  const pdfHref = sesion
+    ? {
+        DIRECTORA: '/manual-directora.pdf',
+        SUBDIRECTORA: '/manual-subdirectora.pdf',
+        NANNIE: '/manual-nannie.pdf',
+      }[sesion.rol]
+    : '#';
   const cap = MANUAL[modIdx];
 
   return (
@@ -26,7 +36,7 @@ export default function ManualPage() {
           <h1 className="text-lg font-semibold text-texto-fuerte">Manual de usuario</h1>
           <p className="text-sm text-texto-suave">
             Guía de uso del sistema. Muestra solo lo que corresponde a tu perfil
-            {sesion && <> · <span className="font-medium text-texto-fuerte">{etiquetaPublico}</span></>}.
+            {sesion && <> · <span className="font-medium text-texto-fuerte">{etiquetaRol}</span></>}.
           </p>
         </div>
         {sesion ? (
