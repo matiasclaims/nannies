@@ -86,6 +86,10 @@ async function main(): Promise<void> {
   await prisma.paquete.deleteMany({});
   await prisma.disponibilidad.deleteMany({});
 
+  // Ficha de nannie heredada de Paula: ya no opera como nannie (solo Directora).
+  // Se elimina aquí, cuando ya no quedan servicios/disponibilidad que la referencien.
+  await prisma.nannie.deleteMany({ where: { id: 'nannie-paula' } });
+
   // --- Paquete de horas de demo (M2) para "Familia Ejemplo" ---
   const paqueteDemo = await prisma.paquete.create({
     data: { familiaId: 'fam-demo', horasTotales: 30, horasConsumidas: 4, precioTotal: 3750 },
