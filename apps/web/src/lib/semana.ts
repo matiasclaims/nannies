@@ -1,4 +1,5 @@
-/** Utilidades de semana (lunes a domingo) para el calendario de M1. */
+/** Utilidades de semana (DOMINGO a SÁBADO) para el calendario de M1.
+ *  La semana empieza domingo y cierra sábado (el pago es sábado). */
 
 export interface DiaSemana {
   fecha: string; // YYYY-MM-DD
@@ -10,11 +11,10 @@ function iso(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Lunes de la semana que contiene `base`. */
+/** Domingo de la semana que contiene `base` (semana domingo→sábado). */
 export function inicioSemana(base: Date): Date {
   const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate()));
-  const dow = (d.getUTCDay() + 6) % 7; // 0 = lunes
-  d.setUTCDate(d.getUTCDate() - dow);
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // getUTCDay: 0 = domingo
   return d;
 }
 

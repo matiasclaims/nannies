@@ -37,9 +37,8 @@ async function main(): Promise<void> {
   const passSub = requireEnv('SEED_SUB_PASS');
   const passNan = requireEnv('SEED_NANNIE_PASS');
 
-  // --- Nannies (Paula y Jackie también fungen como nannies) ---
+  // --- Nannies (Jackie también funge como nannie; Paula es solo Directora) ---
   const nannies = [
-    { id: 'nannie-paula', nombre: 'Paula', plaza: 'TOLUCA' as const, zonas: ['Metepec'] },
     { id: 'nannie-jackie', nombre: 'Jackeline', plaza: 'TOLUCA' as const, zonas: ['Toluca Centro'] },
     { id: 'seed-nannie-01', nombre: 'Nannie Demo', plaza: 'TOLUCA' as const, zonas: ['Metepec'] },
     { id: 'seed-nannie-02', nombre: 'Beatriz', plaza: 'TOLUCA' as const, zonas: ['Toluca Centro'] },
@@ -55,7 +54,7 @@ async function main(): Promise<void> {
 
   // --- Usuarios (3 roles) ---
   const usuarios = [
-    { email: 'paula@nannies.mx', nombre: 'Paula', rol: Rol.DIRECTORA, pass: passDir, nannieId: 'nannie-paula' },
+    { email: 'paula@nannies.mx', nombre: 'Paula', rol: Rol.DIRECTORA, pass: passDir, nannieId: null },
     { email: 'jackeline@nannies.mx', nombre: 'Jackeline', rol: Rol.SUBDIRECTORA, pass: passSub, nannieId: 'nannie-jackie' },
     { email: 'nannie@nannies.mx', nombre: 'Nannie Demo', rol: Rol.NANNIE, pass: passNan, nannieId: 'seed-nannie-01' },
   ];
@@ -84,7 +83,13 @@ async function main(): Promise<void> {
   // --- Limpieza de datos de calendario (idempotencia) ---
   await prisma.ofertaRespuesta.deleteMany({});
   await prisma.servicio.deleteMany({});
+  await prisma.paquete.deleteMany({});
   await prisma.disponibilidad.deleteMany({});
+
+  // --- Paquete de horas de demo (M2) para "Familia Ejemplo" ---
+  const paqueteDemo = await prisma.paquete.create({
+    data: { familiaId: 'fam-demo', horasTotales: 30, horasConsumidas: 4, precioTotal: 3750 },
+  });
 
   // --- Disponibilidad de la semana ---
   const disp: {
@@ -148,7 +153,8 @@ async function main(): Promise<void> {
       estado: 'OFERTADO',
     },
   });
-  // C) Aceptado por Beatriz (se ve asignado en el calendario del equipo)
+  // C) Aceptado por Beatriz (se ve asignado en el calendario del equipo);
+  //    va contra el paquete de la familia (consume 4 h → saldo 26/30).
   const aceptado = await prisma.servicio.create({
     data: {
       familiaId: 'fam-demo',
@@ -156,7 +162,8 @@ async function main(): Promise<void> {
       plaza: 'TOLUCA',
       zona: 'Toluca Centro',
       tipoServicio: 'DAYCARE',
-      formato: 'INDIVIDUAL',
+      formato: 'PAQUETE',
+      paqueteId: paqueteDemo.id,
       numNinos: 2,
       fecha: dia(1),
       horaInicio: '08:00',

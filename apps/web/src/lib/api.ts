@@ -106,6 +106,51 @@ export interface NannieLite {
   estado: 'ACTIVA' | 'PAUSA' | 'PRUEBA';
 }
 
+// --- M2 · Asignación / M5 mínimo (Familias) ---
+
+export type Rango = 'BASE' | 'ROOKIE' | 'JUNIOR' | 'SENIOR';
+
+export interface PaqueteActivo {
+  id: string;
+  horasTotales: number;
+  horasConsumidas: number;
+  horasRestantes: number;
+}
+
+export interface FamiliaLite {
+  id: string;
+  nombreContacto: string;
+  plaza: Plaza;
+  zona: string | null;
+  paqueteActivo?: PaqueteActivo | null;
+}
+
+export interface Candidata {
+  nannieId: string;
+  nombre: string;
+  zonas: string[];
+  rango: Rango;
+  serviciosSemana: number;
+  bloque: string;
+  aproximada: boolean;
+  faltaInicioMin: number;
+  faltaFinMin: number;
+}
+
+export interface NuevoServicio {
+  familiaId: string;
+  plaza: Plaza;
+  zona: string;
+  tipoServicio: TipoServicio;
+  formato: Formato;
+  paqueteId?: string;
+  numNinos: number;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  duracionHoras: number;
+}
+
 function qs(params: Record<string, string | undefined>): string {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v) p.set(k, v);
@@ -145,4 +190,29 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ respuesta }),
     }),
+
+  // M5 mínimo · Familias (selector + alta rápida)
+  listarFamilias: () => req<FamiliaLite[]>('/familias'),
+  crearFamilia: (body: { nombreContacto: string; plaza: Plaza; zona?: string; telefono?: string }) =>
+    req<FamiliaLite>('/familias', { method: 'POST', body: JSON.stringify(body) }),
+  crearPaquete: (familiaId: string, horas: number) =>
+    req<PaqueteActivo>(`/familias/${familiaId}/paquetes`, {
+      method: 'POST',
+      body: JSON.stringify({ horas }),
+    }),
+
+  // M2 · Asignación
+  recomendar: (body: {
+    plaza: Plaza;
+    zona: string;
+    fecha: string;
+    horaInicio: string;
+    horaFin: string;
+    tipoServicio?: TipoServicio;
+  }) => req<{ candidatas: Candidata[]; total: number }>('/asignacion/recomendar', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }),
+  asignar: (body: NuevoServicio & { nannieId: string }) =>
+    req<Servicio>('/asignacion/asignar', { method: 'POST', body: JSON.stringify(body) }),
 };

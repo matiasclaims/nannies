@@ -101,4 +101,91 @@ export const MANUAL: CapituloModulo[] = [
       ],
     },
   },
+  {
+    modulo: 'M2',
+    nombre: 'Asignación y paquetes',
+    contenido: {
+      coordinacion: [
+        {
+          titulo: 'Asignación, de un vistazo',
+          intro:
+            'En "Asignación" capturas un servicio nuevo y el sistema te recomienda a las nannies que mejor encajan por zona y disponibilidad. Tú tomas la decisión final: el sistema sugiere, la persona decide.',
+        },
+        {
+          titulo: 'Capturar un servicio nuevo',
+          pasos: [
+            'Entra a "Asignación" en el menú.',
+            'Elige la familia. Si es nueva, usa el botón + para darla de alta al momento.',
+            'Elige el tipo de servicio, la plaza y la zona (al elegir la familia se rellenan solas si ya las tiene).',
+            'Indica la fecha, el horario (Desde/Hasta) y el número de niños.',
+            'El horario debe ser en horas completas y de mínimo 3 horas por visita.',
+          ],
+          nota: 'La duración se calcula sola y te avisa en rojo si no cumple el mínimo de 3 horas.',
+        },
+        {
+          titulo: 'Cobro: paquete o servicio suelto',
+          intro:
+            'Si la familia tiene un paquete de horas activo, aparece el bloque "Cobro del servicio" con dos opciones.',
+          pasos: [
+            '"Descontar del paquete": las horas del servicio se restan del saldo del paquete. Verás cuántas horas quedan.',
+            '"Servicio suelto": el servicio va fuera del paquete (su cobro se maneja en Finanzas).',
+          ],
+          nota: 'Si el servicio pide más horas de las que quedan en el paquete, el sistema te avisa y no deja ofertar: reduce el horario, renueva el paquete o cóbralo como suelto.',
+        },
+        {
+          titulo: 'Buscar y elegir nannie',
+          pasos: [
+            'Presiona "Buscar nannies disponibles".',
+            'Aparece la lista de candidatas, ordenada de la más recomendada a la menos. La primera lleva la etiqueta "Sugerida".',
+            'Cada tarjeta muestra su horario disponible, su rango y cuántos servicios lleva esa semana (para repartir carga).',
+            'Presiona "Ofertar" en la nannie elegida.',
+          ],
+          nota: 'También puedes asignar a cualquier otra nannie con el selector "Asignar a otra nannie (override)", aunque no esté en la recomendación.',
+        },
+        {
+          titulo: 'Coincidencias aproximadas (±1 hora)',
+          intro:
+            'Cuando ninguna nannie cubre el horario exacto, el sistema no las descarta por poco: incluye a las que quedan hasta 1 hora fuera en la entrada o la salida.',
+          pasos: [
+            'Estas aparecen con la etiqueta ámbar "Aproximada", debajo de las coincidencias exactas.',
+            'Debajo del nombre se explica el hueco, por ejemplo "empieza 1 h tarde" o "termina 1 h antes".',
+          ],
+          nota: 'Son una opción cuando no hay match exacto; tú decides si conviene ofertarles.',
+        },
+        {
+          titulo: 'Qué pasa al ofertar',
+          intro:
+            'Al ofertar, el servicio se le manda a la nannie y queda "Esperando su respuesta" (lo sigues en el Calendario, panel "Requieren tu decisión"). Si era contra paquete, las horas ya quedaron descontadas; si la nannie rechaza, esas horas se devuelven al saldo automáticamente.',
+        },
+        {
+          titulo: 'Registrar un paquete de horas (Familias)',
+          intro:
+            'Los paquetes se dan de alta en la sección "Familias". Un paquete es un bolsón de horas prepagadas que la familia va consumiendo servicio a servicio.',
+          pasos: [
+            'Entra a "Familias".',
+            'Ubica a la familia. Si no tiene paquete, verás un selector de tramo (10, 20, 30, 40 o 50 horas).',
+            'Elige el tramo y presiona "Registrar".',
+            'La familia mostrará su "Paquete activo" con una barra de saldo de horas.',
+          ],
+          nota: 'Una familia solo puede tener un paquete activo a la vez. Los paquetes no caducan: duran hasta agotar las horas. El cobro del paquete se maneja en Finanzas (M3).',
+        },
+      ],
+      nannie: [
+        {
+          titulo: 'Qué cambia para ti',
+          intro:
+            'Con la asignación asistida, coordinación elige a quién ofrecer cada servicio con ayuda del sistema. Para ti no cambia nada: te siguen llegando las ofertas igual que siempre.',
+        },
+        {
+          titulo: 'Recibir y responder ofertas',
+          pasos: [
+            'Cuando te ofertan un servicio, aparece en "Tienes N ofertas" en tu Calendario.',
+            'Revisa el día, el horario y la zona.',
+            'Presiona "Aceptar" o "Rechazar".',
+          ],
+          nota: 'Mantén tu disponibilidad al día: el sistema te recomienda con base en las horas que marcas. Si rechazas un servicio, no hay problema; la familia no pierde sus horas de paquete.',
+        },
+      ],
+    },
+  },
 ];

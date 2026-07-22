@@ -119,7 +119,39 @@ export class CalendarioService {
       duracionHoras: dto.duracionHoras,
       ...(dto.paqueteId ? { paquete: { connect: { id: dto.paqueteId } } } : {}),
     };
-    return this.prisma.servicio.create({ data });
+
+    // Servicio suelto: creación directa.
+    if (dto.formato !== 'PAQUETE') {
+      return this.prisma.servicio.create({ data });
+    }
+
+    // Servicio contra paquete (M2): valida saldo y descuenta horas en una
+    // sola transacción. El cobro/margen se cablea en M3.
+    return this.prisma.$transaction(async (tx) => {
+      const paquete = await tx.paquete.findUnique({ where: { id: dto.paqueteId } });
+      if (!paquete || paquete.estado !== 'ACTIVO') {
+        throw new BadRequestException('El paquete no existe o no está activo.');
+      }
+      if (paquete.familiaId !== dto.familiaId) {
+        throw new BadRequestException('El paquete no pertenece a esta familia.');
+      }
+      const restantes = paquete.horasTotales - paquete.horasConsumidas;
+      if (dto.duracionHoras > restantes) {
+        throw new BadRequestException(
+          `El paquete tiene ${restantes} h disponibles y el servicio pide ${dto.duracionHoras} h. ` +
+            'Renueva el paquete o cóbralo como horas sueltas (se habilita en Finanzas · M3).',
+        );
+      }
+      const consumidas = paquete.horasConsumidas + dto.duracionHoras;
+      await tx.paquete.update({
+        where: { id: paquete.id },
+        data: {
+          horasConsumidas: consumidas,
+          estado: consumidas >= paquete.horasTotales ? 'CONSUMIDO' : 'ACTIVO',
+        },
+      });
+      return tx.servicio.create({ data });
+    });
   }
 
   // ---------------- Ofertas y respuestas (1.3) ----------------
@@ -170,13 +202,29 @@ export class CalendarioService {
     const nuevoEstado: EstadoServicio = dto.respuesta === 'ACEPTO' ? 'ACEPTADO' : 'RECHAZADO';
     const nannieId = servicio.nannieId;
 
-    const [oferta] = await this.prisma.$transaction([
-      this.prisma.ofertaRespuesta.create({
+    return this.prisma.$transaction(async (tx) => {
+      const oferta = await tx.ofertaRespuesta.create({
         data: { servicioId, nannieId, respuesta: dto.respuesta },
-      }),
-      this.prisma.servicio.update({ where: { id: servicioId }, data: { estado: nuevoEstado } }),
-    ]);
-    return oferta;
+      });
+      await tx.servicio.update({ where: { id: servicioId }, data: { estado: nuevoEstado } });
+
+      // Si se rechaza un servicio de paquete, se devuelven sus horas al saldo
+      // (el consumo ocurrió al asignar; un rechazo no debe costarle a la familia).
+      if (dto.respuesta === 'RECHAZO' && servicio.formato === 'PAQUETE' && servicio.paqueteId) {
+        const paquete = await tx.paquete.findUnique({ where: { id: servicio.paqueteId } });
+        if (paquete) {
+          const consumidas = Math.max(0, paquete.horasConsumidas - servicio.duracionHoras);
+          await tx.paquete.update({
+            where: { id: paquete.id },
+            data: {
+              horasConsumidas: consumidas,
+              estado: paquete.estado === 'CONSUMIDO' ? 'ACTIVO' : paquete.estado,
+            },
+          });
+        }
+      }
+      return oferta;
+    });
   }
 }
 

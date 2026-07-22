@@ -34,7 +34,7 @@ const FASES: Fase[] = [
   { clave: 'Fase 0', nombre: 'Kickoff y levantamiento', entrega: '10 jul', ini: 5, fin: 9, progreso: 100 },
   { clave: 'Fase 1', nombre: 'Diseño visual', entrega: '24 jul', ini: 12, fin: 23, progreso: 100 },
   { clave: 'Fase 2', nombre: 'Arquitectura', entrega: '7 ago', ini: 26, fin: 37, progreso: 100 },
-  { clave: 'Fase 3', nombre: 'Núcleo (M1–M3)', entrega: '4 sep', ini: 40, fin: 65, progreso: 34 },
+  { clave: 'Fase 3', nombre: 'Núcleo (M1–M3)', entrega: '4 sep', ini: 40, fin: 65, progreso: 67 },
   { clave: 'Fase 4', nombre: 'Gestión (M4–M6)', entrega: '25 sep', ini: 68, fin: 86, progreso: 0 },
   { clave: 'Fase 5', nombre: 'Dashboard 360 (M7)', entrega: '2 oct', ini: 89, fin: 93, progreso: 0 },
   { clave: 'Fase 6', nombre: 'Pruebas y liberación', entrega: '16 oct', ini: 96, fin: 107, progreso: 0 },
@@ -90,7 +90,7 @@ export default function AvancePage() {
           />
         </div>
         <p className="mt-2 text-xs text-texto-suave">
-          Diseño, arquitectura y M1 completos — vamos adelantados respecto al cronograma.
+          Diseño, arquitectura, M1 y M2 completos — vamos adelantados respecto al cronograma.
         </p>
       </div>
 

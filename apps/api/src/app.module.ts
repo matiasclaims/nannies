@@ -5,6 +5,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './core/auth/auth.module';
 import { CalendarioModule } from './modules/calendario/calendario.module';
+import { AsignacionModule } from './modules/asignacion/asignacion.module';
+import { FamiliasModule } from './modules/familias/familias.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { CalendarioModule } from './modules/calendario/calendario.module';
     PrismaModule,
     AuthModule,
     CalendarioModule,
+    AsignacionModule,
+    FamiliasModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

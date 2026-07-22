@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   api,
   type Servicio,
@@ -8,16 +8,40 @@ import {
   type NannieLite,
   type Sesion,
 } from '@/lib/api';
-import { TIPO_LABEL, ESTADO_SERVICIO, ESTADO_DISPONIBILIDAD } from '@/lib/dominio';
+import { TIPO_LABEL, ESTADO_DISPONIBILIDAD } from '@/lib/dominio';
 import type { DiaSemana } from '@/lib/semana';
 import { cn } from '@/lib/utils';
 import { FormMarcarDisponibilidad } from './form-marcar-disponibilidad';
 
 const CERRADOS = ['ACEPTADO', 'COMPLETADO', 'CANCELADO'];
-
 type Modo = 'todas' | 'nannie';
 
-/** Vista de coordinación: panorama del equipo (Todas) o detalle con horas (Por nannie). */
+// Rejilla de horas
+const HORA_MIN = 7;
+const HORA_MAX = 24;
+const HORAS = Array.from({ length: HORA_MAX - HORA_MIN }, (_, i) => HORA_MIN + i);
+const ROW = 40; // px por hora
+const HEADER = 28; // px del encabezado de día
+
+interface Bloque {
+  id: string;
+  ini: string;
+  fin: string;
+  clase: string;
+  etiqueta: string;
+}
+
+// Colores estilo Google Calendar (ver dominio.ts).
+const CLASE_DISPONIBLE = 'bg-amber-100 border border-amber-300 text-amber-800';
+const CLASE_BLOQUEADO = 'bg-slate-200 border border-slate-300 text-slate-600';
+function claseServicio(estado: Servicio['estado']): string {
+  if (estado === 'OFERTADO') return 'bg-marca-azul/20 border border-marca-azul/40 text-marca-azul';
+  if (estado === 'ACEPTADO' || estado === 'COMPLETADO')
+    return 'bg-marca-rojo/20 border border-marca-rojo/50 text-[#a3312f]';
+  return 'bg-slate-200 border border-slate-300 text-slate-500';
+}
+
+/** Vista de coordinación: rejilla de horas del equipo (Todas) o de una nannie. */
 export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: Sesion }) {
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [dispon, setDispon] = useState<Disponibilidad[]>([]);
@@ -56,9 +80,58 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
   }
 
   const enDia = (iso: string, dia: string) => iso.slice(0, 10) === dia;
+  const primerNombre = (id: string) =>
+    (nannies.find((n) => n.id === id)?.nombre ?? 'Nannie').split(' ')[0];
   const porAsignar = servicios.filter((s) => !s.nannieId && !CERRADOS.includes(s.estado));
   const esperando = servicios.filter((s) => s.nannieId && s.estado === 'OFERTADO');
   const nannieActiva = nannies.find((n) => n.id === nannieSel) ?? nannies[0];
+
+  // "Todas": solo disponibilidad + servicios asignados (SIN bloqueos), con el nombre.
+  const bloquesTodas = (dia: string): Bloque[] => {
+    const disp = dispon
+      .filter((x) => x.estado === 'DISPONIBLE' && enDia(x.fecha, dia))
+      .map<Bloque>((x) => ({
+        id: 'd' + x.id,
+        ini: x.horaInicio,
+        fin: x.horaFin,
+        clase: CLASE_DISPONIBLE,
+        etiqueta: primerNombre(x.nannieId),
+      }));
+    const servs = servicios
+      .filter((s) => s.nannieId && (s.estado === 'OFERTADO' || s.estado === 'ACEPTADO') && enDia(s.fecha, dia))
+      .map<Bloque>((s) => ({
+        id: 's' + s.id,
+        ini: s.horaInicio,
+        fin: s.horaFin,
+        clase: claseServicio(s.estado),
+        etiqueta: `${primerNombre(s.nannieId!)} · ${TIPO_LABEL[s.tipoServicio]}`,
+      }));
+    return [...disp, ...servs];
+  };
+
+  // "Por nannie": todo lo de esa nannie (incluye bloqueos).
+  const bloquesNannie = (dia: string): Bloque[] => {
+    if (!nannieActiva) return [];
+    const disp = dispon
+      .filter((x) => x.nannieId === nannieActiva.id && enDia(x.fecha, dia))
+      .map<Bloque>((x) => ({
+        id: 'd' + x.id,
+        ini: x.horaInicio,
+        fin: x.horaFin,
+        clase: x.estado === 'DISPONIBLE' ? CLASE_DISPONIBLE : CLASE_BLOQUEADO,
+        etiqueta: ESTADO_DISPONIBILIDAD[x.estado].label,
+      }));
+    const servs = servicios
+      .filter((s) => s.nannieId === nannieActiva.id && enDia(s.fecha, dia))
+      .map<Bloque>((s) => ({
+        id: 's' + s.id,
+        ini: s.horaInicio,
+        fin: s.horaFin,
+        clase: claseServicio(s.estado),
+        etiqueta: `${TIPO_LABEL[s.tipoServicio]} ${s.horaInicio}–${s.horaFin}`,
+      }));
+    return [...disp, ...servs];
+  };
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_290px]">
@@ -111,49 +184,20 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
           <div className="h-40 animate-pulse rounded-xl bg-fondo" />
         ) : nannies.length === 0 ? (
           <p className="text-sm text-texto-suave">Aún no hay nannies registradas.</p>
-        ) : modo === 'todas' ? (
-          <div className="overflow-x-auto">
-            <div
-              className="grid min-w-[760px] gap-1.5 text-xs"
-              style={{ gridTemplateColumns: `108px repeat(${dias.length}, minmax(0, 1fr))` }}
-            >
-              <div />
-              {dias.map((d) => (
-                <div
-                  key={d.fecha}
-                  className={cn(
-                    'py-1 text-center capitalize',
-                    d.esHoy ? 'font-semibold text-marca-azul' : 'text-texto-suave',
-                  )}
-                >
-                  {d.etiqueta}
-                </div>
-              ))}
-              {nannies.map((n) => (
-                <FilaNannie
-                  key={n.id}
-                  nannie={n}
-                  dias={dias}
-                  serviciosDia={(dia) =>
-                    servicios.filter((s) => s.nannieId === n.id && enDia(s.fecha, dia))
-                  }
-                  disponDia={(dia) => dispon.filter((x) => x.nannieId === n.id && enDia(x.fecha, dia))}
-                />
-              ))}
-            </div>
-            <Leyenda />
-          </div>
-        ) : nannieActiva ? (
+        ) : modo === 'nannie' && !nannieActiva ? null : (
           <>
-            <RejillaHoras
-              nannie={nannieActiva}
-              dias={dias}
-              servicios={servicios.filter((s) => s.nannieId === nannieActiva.id)}
-              dispon={dispon.filter((x) => x.nannieId === nannieActiva.id)}
-            />
-            <Leyenda />
+            {modo === 'nannie' && nannieActiva && (
+              <p className="mb-2 text-sm font-medium text-texto-fuerte">
+                {nannieActiva.nombre}
+                {nannieActiva.zonas.length > 0 && (
+                  <span className="text-texto-suave"> · {nannieActiva.zonas.join(', ')}</span>
+                )}
+              </p>
+            )}
+            <Rejilla dias={dias} bloques={modo === 'todas' ? bloquesTodas : bloquesNannie} />
+            <Leyenda modo={modo} />
           </>
-        ) : null}
+        )}
       </div>
 
       {/* Columna derecha: selector (por nannie) + decisiones */}
@@ -207,194 +251,121 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
   );
 }
 
-// ---------- Modo "Por nannie": rejilla con horas ----------
+// ---------------- Rejilla de horas ----------------
 
-const HORA_MIN = 7;
-const HORA_MAX = 24;
-const HORAS = Array.from({ length: HORA_MAX - HORA_MIN }, (_, i) => HORA_MIN + i);
-
-function filaInicio(hhmm: string): number {
-  const h = parseInt(hhmm.slice(0, 2), 10);
-  const clamp = Math.max(HORA_MIN, Math.min(HORA_MAX, Number.isNaN(h) ? HORA_MIN : h));
-  return clamp - HORA_MIN + 2;
-}
-function filaFin(hhmm: string): number {
-  let h = parseInt(hhmm.slice(0, 2), 10);
-  const m = parseInt(hhmm.slice(3, 5), 10) || 0;
-  if (Number.isNaN(h)) h = HORA_MIN + 1;
-  if (h === 0) h = HORA_MAX; // medianoche = fin del día
-  const end = Math.max(HORA_MIN + 1, Math.min(HORA_MAX, m > 0 ? h + 1 : h));
-  return end - HORA_MIN + 2;
+function offset(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  const t = Math.max(HORA_MIN, Math.min(HORA_MAX, (h || 0) + (m || 0) / 60));
+  return t - HORA_MIN;
 }
 
-function claseDispon(estado: Disponibilidad['estado']): string {
-  if (estado === 'DISPONIBLE') return 'bg-marca-verde/15 text-[#3b6d11]';
-  if (estado === 'BLOQUEADO') return 'bg-slate-200 text-slate-500';
-  return 'bg-marca-rosa/15 text-marca-rosa';
+type BloqueColocado = Bloque & { carril: number; carriles: number };
+
+/** Asigna carriles a bloques que se traslapan, para mostrarlos lado a lado. */
+function carriles(items: Bloque[]): BloqueColocado[] {
+  const orden = [...items].sort((a, b) => offset(a.ini) - offset(b.ini) || offset(a.fin) - offset(b.fin));
+  const finPorCarril: number[] = [];
+  const colocados = orden.map((it) => {
+    const oi = offset(it.ini);
+    const of = offset(it.fin);
+    let carril = finPorCarril.findIndex((f) => f <= oi + 1e-6);
+    if (carril === -1) {
+      carril = finPorCarril.length;
+      finPorCarril.push(of);
+    } else {
+      finPorCarril[carril] = of;
+    }
+    return { it, carril };
+  });
+  const total = Math.max(1, finPorCarril.length);
+  return colocados.map(({ it, carril }) => ({ ...it, carril, carriles: total }));
 }
 
-function RejillaHoras({
-  nannie,
-  dias,
-  servicios,
-  dispon,
-}: {
-  nannie: NannieLite;
-  dias: DiaSemana[];
-  servicios: Servicio[];
-  dispon: Disponibilidad[];
-}) {
-  const filas = HORAS.length;
+function Rejilla({ dias, bloques }: { dias: DiaSemana[]; bloques: (fecha: string) => Bloque[] }) {
+  const alto = HORAS.length * ROW;
   return (
     <div className="overflow-x-auto">
-      <p className="mb-2 text-sm font-medium text-texto-fuerte">
-        {nannie.nombre}
-        {nannie.zonas.length > 0 && (
-          <span className="text-texto-suave"> · {nannie.zonas.join(', ')}</span>
-        )}
-      </p>
-      <div
-        className="grid min-w-[720px] text-xs"
-        style={{
-          gridTemplateColumns: `52px repeat(${dias.length}, minmax(0, 1fr))`,
-          gridTemplateRows: `28px repeat(${filas}, 38px)`,
-        }}
-      >
-        <div style={{ gridColumn: 1, gridRow: 1 }} />
-        {dias.map((d, i) => (
-          <div
-            key={d.fecha}
-            style={{ gridColumn: i + 2, gridRow: 1 }}
-            className={cn(
-              'text-center text-[11px] capitalize',
-              d.esHoy ? 'font-semibold text-marca-azul' : 'text-texto-suave',
-            )}
-          >
-            {d.etiqueta}
-          </div>
-        ))}
-
-        {HORAS.map((h, i) => (
-          <div
-            key={h}
-            style={{ gridColumn: 1, gridRow: i + 2 }}
-            className="pr-1.5 text-right text-[11px] text-texto-suave"
-          >
-            {String(h).padStart(2, '0')}:00
-          </div>
-        ))}
-
-        {dias.map((d, i) => (
-          <div
-            key={'bg' + d.fecha}
-            style={{
-              gridColumn: i + 2,
-              gridRow: `2 / ${filas + 2}`,
-              backgroundImage:
-                'repeating-linear-gradient(to bottom, #f7f9fc, #f7f9fc 37px, #e6edf5 37px, #e6edf5 38px)',
-            }}
-            className="mx-px rounded"
-          />
-        ))}
-
-        {dias.map((d, i) => {
-          const col = i + 2;
-          const disp = dispon.filter((x) => x.fecha.slice(0, 10) === d.fecha);
-          const servs = servicios.filter((s) => s.fecha.slice(0, 10) === d.fecha);
-          return (
-            <Fragment key={'bl' + d.fecha}>
-              {disp.map((b) => (
-                <div
-                  key={b.id}
-                  style={{
-                    gridColumn: col,
-                    gridRow: `${filaInicio(b.horaInicio)} / ${filaFin(b.horaFin)}`,
-                    zIndex: 1,
-                  }}
-                  className={cn(
-                    'm-px overflow-hidden rounded px-1.5 py-0.5 text-[11px] font-medium leading-tight',
-                    claseDispon(b.estado),
-                  )}
-                >
-                  {ESTADO_DISPONIBILIDAD[b.estado].label}
-                </div>
-              ))}
-              {servs.map((s) => (
-                <div
-                  key={s.id}
-                  style={{
-                    gridColumn: col,
-                    gridRow: `${filaInicio(s.horaInicio)} / ${filaFin(s.horaFin)}`,
-                    zIndex: 2,
-                  }}
-                  className={cn(
-                    'mx-1 my-px overflow-hidden rounded px-1.5 py-0.5 text-[11px] font-medium leading-tight',
-                    ESTADO_SERVICIO[s.estado].clase,
-                  )}
-                >
-                  {TIPO_LABEL[s.tipoServicio]}
-                  <br />
-                  <span className="font-normal">
-                    {s.horaInicio}–{s.horaFin}
-                  </span>
-                </div>
-              ))}
-            </Fragment>
-          );
-        })}
+      <div className="flex min-w-[720px]">
+        {/* Horas */}
+        <div className="w-12 shrink-0" style={{ paddingTop: HEADER }}>
+          {HORAS.map((h) => (
+            <div
+              key={h}
+              style={{ height: ROW }}
+              className="pr-1.5 text-right text-[11px] text-texto-suave"
+            >
+              {String(h).padStart(2, '0')}:00
+            </div>
+          ))}
+        </div>
+        {/* Días */}
+        <div className="flex flex-1">
+          {dias.map((d) => (
+            <div key={d.fecha} className="min-w-[92px] flex-1 border-l border-borde">
+              <div
+                style={{ height: HEADER }}
+                className={cn(
+                  'flex items-center justify-center text-[11px] capitalize',
+                  d.esHoy ? 'font-semibold text-marca-azul' : 'text-texto-suave',
+                )}
+              >
+                {d.etiqueta}
+              </div>
+              <div
+                className="relative"
+                style={{
+                  height: alto,
+                  backgroundImage: `repeating-linear-gradient(to bottom, #ffffff, #ffffff ${ROW - 1}px, #eef2f7 ${ROW - 1}px, #eef2f7 ${ROW}px)`,
+                }}
+              >
+                {carriles(bloques(d.fecha)).map((b) => (
+                  <div
+                    key={b.id}
+                    title={b.etiqueta}
+                    style={{
+                      position: 'absolute',
+                      top: offset(b.ini) * ROW,
+                      height: Math.max(offset(b.fin) - offset(b.ini), 0.5) * ROW - 2,
+                      left: `calc(${(b.carril / b.carriles) * 100}% + 1px)`,
+                      width: `calc(${100 / b.carriles}% - 2px)`,
+                    }}
+                    className={cn(
+                      'overflow-hidden rounded-md px-1 py-0.5 text-[10px] font-medium leading-tight',
+                      b.clase,
+                    )}
+                  >
+                    {b.etiqueta}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-// ---------- Modo "Todas": fila por nannie ----------
-
-function FilaNannie({
-  nannie,
-  dias,
-  serviciosDia,
-  disponDia,
-}: {
-  nannie: NannieLite;
-  dias: DiaSemana[];
-  serviciosDia: (dia: string) => Servicio[];
-  disponDia: (dia: string) => Disponibilidad[];
-}) {
+function Leyenda({ modo }: { modo: Modo }) {
+  const items = [
+    { c: 'bg-amber-200', t: 'Disponible' },
+    { c: 'bg-marca-rojo/40', t: 'Asignado' },
+    { c: 'bg-marca-azul/40', t: 'Ofertado' },
+    ...(modo === 'nannie' ? [{ c: 'bg-slate-300', t: 'Bloqueado' }] : []),
+  ];
   return (
-    <>
-      <div className="flex items-center gap-2 py-2">
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-marca-azul/10 text-[10px] font-semibold text-marca-azul">
-          {nannie.nombre.slice(0, 2).toUpperCase()}
+    <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-texto-suave">
+      {items.map((i) => (
+        <span key={i.t} className="flex items-center gap-1.5">
+          <span className={cn('inline-block h-2.5 w-4 rounded-sm', i.c)} />
+          {i.t}
         </span>
-        <span className="truncate text-texto-fuerte">{nannie.nombre}</span>
-      </div>
-      {dias.map((d) => {
-        const servs = serviciosDia(d.fecha);
-        const bloques = disponDia(d.fecha);
-        const tint = tinteDisponibilidad(bloques);
-        return (
-          <div key={d.fecha} className={cn('min-h-[92px] rounded-lg p-1.5', tint)}>
-            {servs.map((s) => (
-              <div
-                key={s.id}
-                className={cn(
-                  'mb-1 rounded px-1.5 py-1 text-[11px] font-medium leading-tight',
-                  ESTADO_SERVICIO[s.estado].clase,
-                )}
-              >
-                {TIPO_LABEL[s.tipoServicio]}
-                <br />
-                <span className="font-normal">
-                  {s.horaInicio}–{s.horaFin}
-                </span>
-              </div>
-            ))}
-          </div>
-        );
-      })}
-    </>
+      ))}
+    </div>
   );
 }
+
+// ---------------- Riel de decisiones ----------------
 
 function TarjetaOfertar({
   servicio,
@@ -461,35 +432,9 @@ function TarjetaEsperando({ servicio, nombre }: { servicio: Servicio; nombre: st
       <p className="mb-1.5 text-[11px] text-texto-suave">
         Ofertado a <span className="font-medium">{nombre}</span>
       </p>
-      <span className="inline-block rounded-full bg-marca-morado/15 px-2 py-0.5 text-[10px] font-medium text-marca-morado">
+      <span className="inline-block rounded-full bg-marca-azul/15 px-2 py-0.5 text-[10px] font-medium text-marca-azul">
         Esperando su respuesta
       </span>
-    </div>
-  );
-}
-
-function tinteDisponibilidad(bloques: Disponibilidad[]): string {
-  if (bloques.some((b) => b.estado === 'DISPONIBLE')) return 'bg-marca-verde/10';
-  if (bloques.some((b) => b.estado === 'BLOQUEADO')) return 'bg-slate-100';
-  if (bloques.some((b) => b.estado === 'TEMPORAL')) return 'bg-marca-rosa/10';
-  return '';
-}
-
-function Leyenda() {
-  const items = [
-    { c: 'bg-marca-verde/20', t: 'Disponible' },
-    { c: 'bg-slate-200', t: 'Bloqueado' },
-    { c: 'bg-marca-azul/15', t: 'Asignado' },
-    { c: 'bg-marca-morado/15', t: 'Ofertado' },
-  ];
-  return (
-    <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-texto-suave">
-      {items.map((i) => (
-        <span key={i.t} className="flex items-center gap-1.5">
-          <span className={cn('inline-block h-2.5 w-2.5 rounded-sm', i.c)} />
-          {i.t}
-        </span>
-      ))}
     </div>
   );
 }

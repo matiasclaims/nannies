@@ -10,12 +10,13 @@ export const TIPO_LABEL: Record<TipoServicio, string> = {
   LUDOTECA_MOVIL: 'Ludoteca móvil',
 };
 
-// Colores de estado con la paleta de marca (piel "Claro").
+// Colores estilo Google Calendar (para que las nannies migren fácil):
+// rojo = asignado · amarillo = disponible · gris = bloqueado · azul = ofertado.
 export const ESTADO_SERVICIO: Record<EstadoServicio, { label: string; clase: string }> = {
-  OFERTADO: { label: 'Ofertado', clase: 'bg-marca-morado/15 text-marca-morado' },
-  ACEPTADO: { label: 'Aceptado', clase: 'bg-marca-azul/15 text-marca-azul' },
-  RECHAZADO: { label: 'Rechazado', clase: 'bg-marca-rojo/15 text-marca-rojo' },
-  COMPLETADO: { label: 'Completado', clase: 'bg-marca-verde/20 text-[#4d7a16]' },
+  OFERTADO: { label: 'Ofertado', clase: 'bg-marca-azul/15 text-marca-azul' },
+  ACEPTADO: { label: 'Asignado', clase: 'bg-marca-rojo/20 text-[#a3312f]' },
+  RECHAZADO: { label: 'Rechazado', clase: 'bg-slate-200 text-slate-500' },
+  COMPLETADO: { label: 'Completado', clase: 'bg-marca-rojo/20 text-[#a3312f]' },
   CANCELADO: { label: 'Cancelado', clase: 'bg-slate-200 text-slate-500' },
 };
 
@@ -23,7 +24,7 @@ export const ESTADO_DISPONIBILIDAD: Record<
   EstadoDisponibilidad,
   { label: string; clase: string }
 > = {
-  DISPONIBLE: { label: 'Disponible', clase: 'bg-marca-verde/20 text-[#4d7a16]' },
-  BLOQUEADO: { label: 'Bloqueado', clase: 'bg-marca-rojo/15 text-marca-rojo' },
-  TEMPORAL: { label: 'Bloqueo temporal', clase: 'bg-marca-rosa/15 text-marca-rosa' },
+  DISPONIBLE: { label: 'Disponible', clase: 'bg-amber-100 text-amber-800' },
+  BLOQUEADO: { label: 'Bloqueado', clase: 'bg-slate-200 text-slate-600' },
+  TEMPORAL: { label: 'Bloqueo temporal', clase: 'bg-slate-200 text-slate-600' },
 };

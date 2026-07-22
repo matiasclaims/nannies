@@ -94,7 +94,7 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
       <div className="rounded-2xl bg-panel p-4 shadow-card">
         <button
           onClick={() => setMarcando((v) => !v)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-marca-azul py-2 text-sm font-semibold text-white transition hover:brightness-95"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-marca-azul py-3.5 text-base font-semibold text-white shadow-sm transition hover:brightness-95"
         >
           {marcando ? 'Cerrar' : '+ Marcar mi disponibilidad'}
         </button>
