@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { api, type NuevaDisponibilidad } from '@/lib/api';
+import { HoraSelect } from '@/components/hora-select';
 
 const inputCls =
   'w-full rounded-xl border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-marca-azul focus:ring-2 focus:ring-marca-azul/20';
@@ -20,6 +21,8 @@ export function FormMarcarDisponibilidad({
     horaFin: '13:00',
     estado: 'DISPONIBLE',
   });
+  const [repetir, setRepetir] = useState(false);
+  const [semanas, setSemanas] = useState(4);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
@@ -28,7 +31,7 @@ export function FormMarcarDisponibilidad({
     setError('');
     setGuardando(true);
     try {
-      await api.crearDisponibilidad(form);
+      await api.crearDisponibilidad({ ...form, semanas: repetir ? semanas : 1 });
       await onGuardado();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar');
@@ -53,21 +56,17 @@ export function FormMarcarDisponibilidad({
       <div className="grid grid-cols-2 gap-2">
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-texto-suave">Desde</span>
-          <input
-            type="time"
-            required
+          <HoraSelect
             value={form.horaInicio}
-            onChange={(e) => setForm({ ...form, horaInicio: e.target.value })}
+            onChange={(v) => setForm({ ...form, horaInicio: v })}
             className={inputCls}
           />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-texto-suave">Hasta</span>
-          <input
-            type="time"
-            required
+          <HoraSelect
             value={form.horaFin}
-            onChange={(e) => setForm({ ...form, horaFin: e.target.value })}
+            onChange={(v) => setForm({ ...form, horaFin: v })}
             className={inputCls}
           />
         </label>
@@ -84,21 +83,34 @@ export function FormMarcarDisponibilidad({
         >
           <option value="DISPONIBLE">Disponible</option>
           <option value="BLOQUEADO">Bloqueado</option>
-          <option value="TEMPORAL">Bloqueo temporal</option>
         </select>
       </label>
 
-      {form.estado === 'TEMPORAL' && (
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-texto-suave">Reintegro</span>
+      {/* Repetir semanalmente (mismo día y hora) */}
+      <div className="rounded-xl bg-fondo p-3">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-texto-fuerte">
           <input
-            type="date"
-            value={form.fechaReintegro ?? ''}
-            onChange={(e) => setForm({ ...form, fechaReintegro: e.target.value })}
-            className={inputCls}
+            type="checkbox"
+            checked={repetir}
+            onChange={(e) => setRepetir(e.target.checked)}
           />
+          Repetir cada semana (mismo día y hora)
         </label>
-      )}
+        {repetir && (
+          <label className="mt-2 flex items-center gap-2 text-xs text-texto-suave">
+            Por
+            <input
+              type="number"
+              min={2}
+              max={52}
+              value={semanas}
+              onChange={(e) => setSemanas(Number(e.target.value))}
+              className="w-16 rounded-lg border border-borde bg-white px-2 py-1 text-sm text-texto-fuerte outline-none focus:border-marca-azul"
+            />
+            semanas
+          </label>
+        )}
+      </div>
 
       {error && <p className="text-sm text-marca-rojo">{error}</p>}
 

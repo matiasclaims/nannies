@@ -29,9 +29,12 @@ export const ROLES: readonly Rol[] = ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'] as 
  * consecuencia" → estas requieren rol DIRECTORA verificado en backend.
  */
 export type Accion =
+  // Finanzas operativas (ingresos, nómina) → Directora + Subdirectora
+  | 'finanzas.ver'
   // Finanzas / consecuencia económica → solo DIRECTORA
   | 'finanzas.margen.ver'
   | 'finanzas.comision.fijar'
+  | 'finanzas.cierre.ejecutar'
   | 'incidencia.descuento.aplicar'
   | 'incidencia.strike.confirmarTercero'
   | 'nannie.tarifa.ver'
@@ -46,13 +49,18 @@ export type Accion =
   // Auto-servicio de la nannie (sobre lo suyo; ver PERTENENCIA)
   | 'disponibilidad.propia.editar'
   | 'oferta.responder'
+  | 'servicio.completar'
   | 'reporte.propio.escribir';
 
 /** Qué roles pueden ejecutar cada acción. */
 export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
+  // --- Finanzas operativas (ingresos, nómina) ---
+  'finanzas.ver': ['DIRECTORA', 'SUBDIRECTORA'],
+
   // --- Exclusivas de la Directora (dinero / consecuencia) ---
   'finanzas.margen.ver': ['DIRECTORA'],
   'finanzas.comision.fijar': ['DIRECTORA'],
+  'finanzas.cierre.ejecutar': ['DIRECTORA'],
   'incidencia.descuento.aplicar': ['DIRECTORA'],
   'incidencia.strike.confirmarTercero': ['DIRECTORA'],
   'nannie.tarifa.ver': ['DIRECTORA'],
@@ -69,6 +77,7 @@ export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
   // --- Nannie sobre lo suyo (además requiere check de PERTENENCIA) ---
   'disponibilidad.propia.editar': ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
   'oferta.responder': ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
+  'servicio.completar': ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
   'reporte.propio.escribir': ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
 };
 
@@ -81,11 +90,12 @@ export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
 export const FIELD_ACCESS: Record<string, Record<string, readonly Rol[]>> = {
   // PII de menores — SEGURIDAD §2 (máxima protección)
   nino: {
-    // Identificable: SOLO Directora
-    nombre: ['DIRECTORA'],
-    edad: ['DIRECTORA'],
-    genero: ['DIRECTORA'],
-    // Operativo: Directora + la nannie asignada (vista operativa)
+    // Identificable: coordinación completa (Directora + Subdirectora); la nannie NO.
+    nombre: ['DIRECTORA', 'SUBDIRECTORA'],
+    apellidos: ['DIRECTORA', 'SUBDIRECTORA'],
+    edad: ['DIRECTORA', 'SUBDIRECTORA'],
+    genero: ['DIRECTORA', 'SUBDIRECTORA'],
+    // Operativo: coordinación + la nannie asignada (vista operativa).
     rutinas: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
     necesidades: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
     salud: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],

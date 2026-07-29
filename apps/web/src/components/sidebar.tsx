@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { TrendingUp } from 'lucide-react';
-import { NAV } from '@/lib/nav';
+import { navPara } from '@/lib/nav';
 import { api, type Sesion } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
@@ -31,7 +31,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-1">
-        {NAV.map((item) => {
+        {navPara(sesion?.rol).map((item) => {
           const activo = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
@@ -52,19 +52,22 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* PROVISIONAL: seguimiento de avance para Paula (se retira al entregar) */}
-      <Link
-        href="/avance"
-        className={cn(
-          'mt-2 flex items-center gap-3 rounded-xl border border-dashed border-marca-morado/40 px-3 py-2 text-sm transition',
-          pathname.startsWith('/avance')
-            ? 'bg-marca-morado/10 font-semibold text-marca-morado'
-            : 'text-texto-suave hover:bg-fondo hover:text-marca-morado',
-        )}
-      >
-        <TrendingUp className="h-[18px] w-[18px]" />
-        Avance del proyecto
-      </Link>
+      {/* PROVISIONAL: seguimiento de avance para Paula (se retira al entregar).
+          Solo coordinación; la nannie no lo ve. */}
+      {sesion?.rol !== 'NANNIE' && (
+        <Link
+          href="/avance"
+          className={cn(
+            'mt-2 flex items-center gap-3 rounded-xl border border-dashed border-marca-morado/40 px-3 py-2 text-sm transition',
+            pathname.startsWith('/avance')
+              ? 'bg-marca-morado/10 font-semibold text-marca-morado'
+              : 'text-texto-suave hover:bg-fondo hover:text-marca-morado',
+          )}
+        >
+          <TrendingUp className="h-[18px] w-[18px]" />
+          Avance del proyecto
+        </Link>
+      )}
 
       {/* Perfil actual (abajo-izquierda) */}
       <div className="mt-auto border-t border-borde pt-3">

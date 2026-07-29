@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { CalendarioService } from './calendario.service';
 import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decorator';
 import { UsuarioActual } from '../../core/auth/decorators/usuario-actual.decorator';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { CrearDisponibilidadDto } from './dto/crear-disponibilidad.dto';
+import { EditarDisponibilidadDto } from './dto/editar-disponibilidad.dto';
 import { CrearServicioDto } from './dto/crear-servicio.dto';
 import { OfertarDto } from './dto/ofertar.dto';
 import { ResponderOfertaDto } from './dto/responder-oferta.dto';
@@ -32,6 +33,24 @@ export class CalendarioController {
     @Body() dto: CrearDisponibilidadDto,
   ) {
     return this.calendario.crearDisponibilidad(user, dto);
+  }
+
+  // Editar un bloque propio (corregir captura).
+  @RequiereAccion('disponibilidad.propia.editar')
+  @Patch('disponibilidad/:id')
+  editarDisponibilidad(
+    @UsuarioActual() user: UsuarioAutenticado,
+    @Param('id') id: string,
+    @Body() dto: EditarDisponibilidadDto,
+  ) {
+    return this.calendario.editarDisponibilidad(user, id, dto);
+  }
+
+  // Eliminar un bloque propio.
+  @RequiereAccion('disponibilidad.propia.editar')
+  @Delete('disponibilidad/:id')
+  eliminarDisponibilidad(@UsuarioActual() user: UsuarioAutenticado, @Param('id') id: string) {
+    return this.calendario.eliminarDisponibilidad(user, id);
   }
 
   // --- Servicios / calendario general (1.1) ---
@@ -79,5 +98,15 @@ export class CalendarioController {
     @Body() dto: ResponderOfertaDto,
   ) {
     return this.calendario.responderOferta(user, servicioId, dto);
+  }
+
+  // La nannie marca su servicio como terminado al concluirlo (M3).
+  @RequiereAccion('servicio.completar')
+  @Post('servicios/:servicioId/completar')
+  completar(
+    @UsuarioActual() user: UsuarioAutenticado,
+    @Param('servicioId') servicioId: string,
+  ) {
+    return this.calendario.completarServicio(user, servicioId);
   }
 }

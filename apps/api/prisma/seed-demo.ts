@@ -10,7 +10,7 @@
  * Idempotente: limpia disponibilidad/servicios/ofertas y los recrea en la
  * semana actual en cada corrida.
  */
-import { PrismaClient, Rol } from '@prisma/client';
+import { PrismaClient, Rol, type TipoServicio } from '@prisma/client';
 import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
@@ -38,17 +38,28 @@ async function main(): Promise<void> {
   const passNan = requireEnv('SEED_NANNIE_PASS');
 
   // --- Nannies (Jackie también funge como nannie; Paula es solo Directora) ---
+  // Rango/nivel variados para que el cierre de mes muestre movimientos:
+  // Beatriz es Senior (pero hará <25 h → caerá a Base); Nannie Demo es Base y
+  // hará ≥25 h → subirá a "25 hrs"; Jackie es Rookie.
   const nannies = [
-    { id: 'nannie-jackie', nombre: 'Jackeline', plaza: 'TOLUCA' as const, zonas: ['Toluca Centro'] },
-    { id: 'seed-nannie-01', nombre: 'Nannie Demo', plaza: 'TOLUCA' as const, zonas: ['Metepec'] },
-    { id: 'seed-nannie-02', nombre: 'Beatriz', plaza: 'TOLUCA' as const, zonas: ['Toluca Centro'] },
-    { id: 'seed-nannie-03', nombre: 'Carla', plaza: 'QUERETARO' as const, zonas: ['Centro'] },
+    { id: 'nannie-jackie', nombre: 'Jackeline', plaza: 'TOLUCA' as const, zonas: ['Toluca Centro'], rango: 'ROOKIE' as const, serv: 55, nivel: 'ROOKIE' as const },
+    { id: 'seed-nannie-01', nombre: 'Nannie Demo', plaza: 'TOLUCA' as const, zonas: ['Metepec'], rango: 'BASE' as const, serv: 12, nivel: 'BASE' as const },
+    { id: 'seed-nannie-02', nombre: 'Beatriz', plaza: 'TOLUCA' as const, zonas: ['Toluca Centro'], rango: 'SENIOR' as const, serv: 140, nivel: 'SENIOR' as const },
+    { id: 'seed-nannie-03', nombre: 'Carla', plaza: 'QUERETARO' as const, zonas: ['Centro'], rango: 'BASE' as const, serv: 3, nivel: 'BASE' as const },
   ];
   for (const n of nannies) {
+    const datos = {
+      nombre: n.nombre,
+      plaza: n.plaza,
+      zonas: n.zonas,
+      rangoPermanente: n.rango,
+      serviciosAcumulados: n.serv,
+      nivelTarifaMesActual: n.nivel,
+    };
     await prisma.nannie.upsert({
       where: { id: n.id },
-      update: { nombre: n.nombre, plaza: n.plaza, zonas: n.zonas },
-      create: { id: n.id, nombre: n.nombre, plaza: n.plaza, zonas: n.zonas, estado: 'ACTIVA' },
+      update: datos,
+      create: { id: n.id, estado: 'ACTIVA', ...datos },
     });
   }
 
@@ -70,10 +81,12 @@ async function main(): Promise<void> {
   // --- Familia ficticia ---
   await prisma.familia.upsert({
     where: { id: 'fam-demo' },
-    update: {},
+    update: { telefono: '722 123 4567', email: 'familia.ejemplo@correo.mx' },
     create: {
       id: 'fam-demo',
       nombreContacto: 'Familia Ejemplo',
+      telefono: '722 123 4567',
+      email: 'familia.ejemplo@correo.mx',
       plaza: 'TOLUCA',
       zona: 'Metepec',
       estado: 'ACTIVA',
@@ -82,9 +95,46 @@ async function main(): Promise<void> {
 
   // --- Limpieza de datos de calendario (idempotencia) ---
   await prisma.ofertaRespuesta.deleteMany({});
+  await prisma.finanzaServicio.deleteMany({});
+  await prisma.cierreMes.deleteMany({});
   await prisma.servicio.deleteMany({});
   await prisma.paquete.deleteMany({});
   await prisma.disponibilidad.deleteMany({});
+  await prisma.notaFamilia.deleteMany({});
+  await prisma.nino.deleteMany({});
+
+  // --- Niños + bitácora de la familia demo (M5) ---
+  await prisma.nino.createMany({
+    data: [
+      {
+        familiaId: 'fam-demo',
+        nombre: 'Sofía',
+        apellidos: 'Salvador Ruiz',
+        edad: 5,
+        genero: 'Femenino',
+        salud: 'Alergia a nueces y polen. Lleva antihistamínico en su mochila.',
+        rutinas: 'Siesta 14:00, lunch 12:30, clase de natación lunes 17:00.',
+        necesidades: 'Le gustan los dinosaurios; se adapta con tiempo a personas nuevas.',
+      },
+      {
+        familiaId: 'fam-demo',
+        nombre: 'Mateo',
+        apellidos: 'Salvador Ruiz',
+        edad: 2,
+        genero: 'Masculino',
+        salud: 'Sin condiciones conocidas.',
+        rutinas: 'Siesta 13:00. Aún usa pañal.',
+        necesidades: 'Muy cariñoso; conducta de riesgo: se mete objetos a la boca.',
+      },
+    ],
+  });
+  await prisma.notaFamilia.create({
+    data: {
+      familiaId: 'fam-demo',
+      texto: 'Familia muy puntual y amable. Prefieren nannies que propongan actividades.',
+      autorNombre: 'Paula',
+    },
+  });
 
   // Ficha de nannie heredada de Paula: ya no opera como nannie (solo Directora).
   // Se elimina aquí, cuando ya no quedan servicios/disponibilidad que la referencien.
@@ -107,7 +157,7 @@ async function main(): Promise<void> {
     { nannieId: 'seed-nannie-01', d: 1, ini: '09:00', fin: '14:00' },
     { nannieId: 'seed-nannie-02', d: 0, ini: '08:00', fin: '12:00' },
     { nannieId: 'seed-nannie-02', d: 2, ini: '08:00', fin: '12:00' },
-    { nannieId: 'seed-nannie-02', d: 4, ini: '00:00', fin: '23:59', estado: 'BLOQUEADO' },
+    { nannieId: 'seed-nannie-02', d: 3, ini: '14:00', fin: '19:00', estado: 'BLOQUEADO' },
     { nannieId: 'seed-nannie-03', d: 1, ini: '10:00', fin: '15:00' },
     { nannieId: 'nannie-jackie', d: 3, ini: '09:00', fin: '13:00' },
   ];
@@ -123,9 +173,9 @@ async function main(): Promise<void> {
     });
   }
 
-  // --- Servicios / ofertas ---
+  // --- Servicios / ofertas (cada uno con su finanza: cobro a la familia) ---
   // A) Por asignar (aparece en el riel de coordinación)
-  await prisma.servicio.create({
+  const porAsignar = await prisma.servicio.create({
     data: {
       familiaId: 'fam-demo',
       plaza: 'TOLUCA',
@@ -140,8 +190,12 @@ async function main(): Promise<void> {
       estado: 'OFERTADO', // sin nannie = por asignar
     },
   });
+  // Cobro individual = tarifa/hora × horas ($125/h × 5 h = 625).
+  await prisma.finanzaServicio.create({
+    data: { servicioId: porAsignar.id, cobroFamilia: 625 },
+  });
   // B) Ofertado a Nannie Demo (ella lo verá para aceptar/rechazar)
-  await prisma.servicio.create({
+  const ofertado = await prisma.servicio.create({
     data: {
       familiaId: 'fam-demo',
       nannieId: 'seed-nannie-01',
@@ -156,6 +210,10 @@ async function main(): Promise<void> {
       duracionHoras: 4,
       estado: 'OFERTADO',
     },
+  });
+  // $140/h × 4 h = 560.
+  await prisma.finanzaServicio.create({
+    data: { servicioId: ofertado.id, cobroFamilia: 560 },
   });
   // C) Aceptado por Beatriz (se ve asignado en el calendario del equipo);
   //    va contra el paquete de la familia (consume 4 h → saldo 26/30).
@@ -179,6 +237,77 @@ async function main(): Promise<void> {
   await prisma.ofertaRespuesta.create({
     data: { servicioId: aceptado.id, nannieId: 'seed-nannie-02', respuesta: 'ACEPTO' },
   });
+  // Cobro prorrateado del paquete: (3750/30) × 4 h = 500.
+  await prisma.finanzaServicio.create({
+    data: { servicioId: aceptado.id, cobroFamilia: 500 },
+  });
+
+  // D–G) Servicios COMPLETADOS de la semana (para la nómina). El último es
+  // Ludoteca: su tarifa de PAGO está pendiente de definir (se verá "pendiente").
+  const completados: {
+    nannieId: string;
+    tipo: TipoServicio;
+    d: number;
+    ini: string;
+    fin: string;
+    dur: number;
+    ninos: number;
+    cobro: number;
+  }[] = [
+    // cobro = tarifa/hora × horas para daycare; fiesta/ludoteca con monto libre.
+    { nannieId: 'seed-nannie-01', tipo: 'DAYCARE', d: 0, ini: '09:00', fin: '14:00', dur: 5, ninos: 2, cobro: 625 }, // $125/h
+    { nannieId: 'seed-nannie-02', tipo: 'DAYCARE', d: 1, ini: '08:00', fin: '11:00', dur: 3, ninos: 1, cobro: 285 }, // $95/h
+    { nannieId: 'nannie-jackie', tipo: 'NANNIE_FIESTA_PLAYDATE', d: 2, ini: '12:00', fin: '15:00', dur: 3, ninos: 5, cobro: 650 },
+    { nannieId: 'seed-nannie-01', tipo: 'LUDOTECA_MOVIL', d: 3, ini: '10:00', fin: '14:00', dur: 4, ninos: 6, cobro: 700 },
+    // Nannie Demo acumula ≥25 h en el mes (5+4+9+9=27) → el cierre la sube a "25 hrs".
+    { nannieId: 'seed-nannie-01', tipo: 'DAYCARE', d: 1, ini: '09:00', fin: '18:00', dur: 9, ninos: 2, cobro: 1125 }, // $125/h
+    { nannieId: 'seed-nannie-01', tipo: 'DAYCARE', d: 4, ini: '09:00', fin: '18:00', dur: 9, ninos: 2, cobro: 1125 },
+  ];
+  for (const c of completados) {
+    const s = await prisma.servicio.create({
+      data: {
+        familiaId: 'fam-demo',
+        nannieId: c.nannieId,
+        plaza: 'TOLUCA',
+        zona: 'Metepec',
+        tipoServicio: c.tipo,
+        formato: 'INDIVIDUAL',
+        numNinos: c.ninos,
+        fecha: dia(c.d),
+        horaInicio: c.ini,
+        horaFin: c.fin,
+        duracionHoras: c.dur,
+        estado: 'COMPLETADO',
+      },
+    });
+    await prisma.ofertaRespuesta.create({
+      data: { servicioId: s.id, nannieId: c.nannieId, respuesta: 'ACEPTO' },
+    });
+    await prisma.finanzaServicio.create({ data: { servicioId: s.id, cobroFamilia: c.cobro } });
+  }
+
+  // H) Servicio RECHAZADO (para ver el panel de rechazadas en burdeos). La
+  //    coordinación puede reofrecerlo a otra nannie.
+  const rechazado = await prisma.servicio.create({
+    data: {
+      familiaId: 'fam-demo',
+      nannieId: 'seed-nannie-01',
+      plaza: 'TOLUCA',
+      zona: 'Metepec',
+      tipoServicio: 'DAYCARE',
+      formato: 'INDIVIDUAL',
+      numNinos: 1,
+      fecha: dia(2),
+      horaInicio: '16:00',
+      horaFin: '19:00',
+      duracionHoras: 3,
+      estado: 'RECHAZADO',
+    },
+  });
+  await prisma.ofertaRespuesta.create({
+    data: { servicioId: rechazado.id, nannieId: 'seed-nannie-01', respuesta: 'RECHAZO' },
+  });
+  await prisma.finanzaServicio.create({ data: { servicioId: rechazado.id, cobroFamilia: 300 } });
 
   console.log('Seed de demo completado: usuarios, nannies, disponibilidad y servicios.');
 }

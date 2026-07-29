@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { RangoPermanente } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CalendarioService } from '../calendario/calendario.service';
 import { RecomendarDto } from './dto/recomendar.dto';
 import { AsignarDto } from './dto/asignar.dto';
+import { ProgramarPaqueteDto } from './dto/programar-paquete.dto';
 
 // Estados de servicio que "ocupan" a una nannie (para conflicto/carga).
 const OCUPAN = ['ACEPTADO', 'OFERTADO', 'COMPLETADO'];
@@ -133,6 +134,88 @@ export class AsignacionService {
   async asignar(dto: AsignarDto) {
     const servicio = await this.calendario.crearServicio(dto);
     return this.calendario.ofertarServicio({ servicioId: servicio.id, nannieId: dto.nannieId });
+  }
+
+  /**
+   * Programación masiva de un paquete: genera todas las sesiones de un patrón
+   * semanal (días + horario) desde una fecha, hasta agotar las horas del paquete.
+   * Cada sesión es un servicio PAQUETE (consume horas, prorratea cobro) ofertado
+   * a la nannie elegida o dejado "por asignar". No aplica a paquetes manuales.
+   */
+  async programarPaquete(dto: ProgramarPaqueteDto) {
+    const paquete = await this.prisma.paquete.findUnique({
+      where: { id: dto.paqueteId },
+      include: { familia: true },
+    });
+    if (!paquete || paquete.estado !== 'ACTIVO') {
+      throw new BadRequestException('El paquete no existe o no está activo.');
+    }
+    if (paquete.asignacionManual) {
+      throw new BadRequestException(
+        'Este paquete es de asignación manual: sus sesiones se agregan una por una.',
+      );
+    }
+    const dur = (aMin(dto.horaFin) - aMin(dto.horaInicio)) / 60;
+    if (!Number.isInteger(dur) || dur < 3) {
+      throw new BadRequestException('La sesión debe ser en horas completas y de mínimo 3 h.');
+    }
+
+    const restantes = paquete.horasTotales - paquete.horasConsumidas;
+    const maxSesiones = Math.floor(restantes / dur);
+    if (maxSesiones < 1) {
+      throw new BadRequestException('El paquete no tiene horas suficientes para una sesión.');
+    }
+
+    // Genera fechas del patrón hasta llenar las sesiones que caben en el saldo.
+    const fechas: Date[] = [];
+    const cursor = fechaUTC(dto.fechaInicio);
+    let guarda = 0;
+    while (fechas.length < maxSesiones && guarda < 400) {
+      if (dto.diasSemana.includes(cursor.getUTCDay())) fechas.push(new Date(cursor));
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+      guarda++;
+    }
+
+    const cobroPorSesion = Math.round((Number(paquete.precioTotal) / paquete.horasTotales) * dur * 100) / 100;
+
+    return this.prisma.$transaction(async (tx) => {
+      for (const f of fechas) {
+        const servicio = await tx.servicio.create({
+          data: {
+            familia: { connect: { id: paquete.familiaId } },
+            ...(dto.nannieId ? { nannie: { connect: { id: dto.nannieId } } } : {}),
+            plaza: paquete.familia.plaza,
+            zona: dto.zona,
+            tipoServicio: dto.tipoServicio,
+            formato: 'PAQUETE',
+            paquete: { connect: { id: paquete.id } },
+            numNinos: dto.numNinos,
+            fecha: f,
+            horaInicio: dto.horaInicio,
+            horaFin: dto.horaFin,
+            duracionHoras: dur,
+            estado: 'OFERTADO',
+          },
+        });
+        await tx.finanzaServicio.create({
+          data: { servicioId: servicio.id, cobroFamilia: cobroPorSesion },
+        });
+      }
+      const consumidas = paquete.horasConsumidas + fechas.length * dur;
+      await tx.paquete.update({
+        where: { id: paquete.id },
+        data: {
+          horasConsumidas: consumidas,
+          estado: consumidas >= paquete.horasTotales ? 'CONSUMIDO' : 'ACTIVO',
+        },
+      });
+      return {
+        creados: fechas.length,
+        fechas: fechas.map((f) => f.toISOString().slice(0, 10)),
+        horasConsumidas: fechas.length * dur,
+        restantes: restantes - fechas.length * dur,
+      };
+    });
   }
 }
 

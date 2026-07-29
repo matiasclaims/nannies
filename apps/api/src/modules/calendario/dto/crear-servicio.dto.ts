@@ -2,6 +2,7 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Matches,
@@ -39,6 +40,21 @@ export class CrearServicioDto {
   @IsOptional()
   @IsString()
   paqueteId?: string;
+
+  // M3 · tarifa POR HORA de la familia para servicios INDIVIDUALES (menú
+  // $95–$160 o monto libre). El cobro total = tarifa × horas. Requerido cuando
+  // formato = INDIVIDUAL; ignorado en PAQUETE (se prorratea el precio del paquete).
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  cobroIndividual?: number;
+
+  // M3 · cobro TOTAL ya calculado (Ludoteca: suma de estaciones). Si viene, se
+  // usa tal cual como cobro de la familia (no se multiplica por horas).
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  cobroTotal?: number;
 
   @IsInt()
   @Min(1)

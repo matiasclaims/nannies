@@ -19,9 +19,14 @@ interface Fase {
   progreso: number; // 0-100
 }
 
+// Se recalcula en cada carga para que la línea "HOY" avance con la fecha real.
+export const dynamic = 'force-dynamic';
+
 const AXIS = 123;
 const pct = (d: number) => (d / AXIS) * 100;
-const HOY = 15; // 16 jul 2026
+// Día actual = días transcurridos desde el 1 jul 2026 (acotado al eje).
+const diaActual = () =>
+  Math.max(0, Math.min(AXIS, Math.floor((Date.now() - Date.UTC(2026, 6, 1)) / 86_400_000)));
 
 const MESES = [
   { n: 'Julio', a: 0, b: 31 },
@@ -34,7 +39,7 @@ const FASES: Fase[] = [
   { clave: 'Fase 0', nombre: 'Kickoff y levantamiento', entrega: '10 jul', ini: 5, fin: 9, progreso: 100 },
   { clave: 'Fase 1', nombre: 'Diseño visual', entrega: '24 jul', ini: 12, fin: 23, progreso: 100 },
   { clave: 'Fase 2', nombre: 'Arquitectura', entrega: '7 ago', ini: 26, fin: 37, progreso: 100 },
-  { clave: 'Fase 3', nombre: 'Núcleo (M1–M3)', entrega: '4 sep', ini: 40, fin: 65, progreso: 67 },
+  { clave: 'Fase 3', nombre: 'Núcleo (M1–M3)', entrega: '4 sep', ini: 40, fin: 65, progreso: 100 },
   { clave: 'Fase 4', nombre: 'Gestión (M4–M6)', entrega: '25 sep', ini: 68, fin: 86, progreso: 0 },
   { clave: 'Fase 5', nombre: 'Dashboard 360 (M7)', entrega: '2 oct', ini: 89, fin: 93, progreso: 0 },
   { clave: 'Fase 6', nombre: 'Pruebas y liberación', entrega: '16 oct', ini: 96, fin: 107, progreso: 0 },
@@ -42,7 +47,7 @@ const FASES: Fase[] = [
 
 const HITOS = [
   { clave: 'H1', nombre: 'Diseño visual aprobado', fecha: '24 jul 2026', hecho: true },
-  { clave: 'H2', nombre: 'Núcleo funcionando', fecha: '4 sep 2026', hecho: false },
+  { clave: 'H2', nombre: 'Núcleo funcionando', fecha: '4 sep 2026', hecho: true },
   { clave: 'H3', nombre: 'Gestión completa', fecha: '25 sep 2026', hecho: false },
   { clave: 'H4', nombre: 'Sistema completo', fecha: '2 oct 2026', hecho: false },
   { clave: 'H5', nombre: 'Liberación a producción', fecha: '16 oct 2026', hecho: false },
@@ -67,6 +72,7 @@ function Barra({ f }: { f: Fase }) {
 
 export default function AvancePage() {
   const overall = Math.round(FASES.reduce((s, f) => s + f.progreso, 0) / FASES.length);
+  const HOY = diaActual();
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
@@ -90,7 +96,8 @@ export default function AvancePage() {
           />
         </div>
         <p className="mt-2 text-xs text-texto-suave">
-          Diseño, arquitectura, M1 y M2 completos — vamos adelantados respecto al cronograma.
+          Diseño, arquitectura y el núcleo completo (M1 Calendario, M2 Asignación, M3 Finanzas) —
+          vamos muy adelantados respecto al cronograma.
         </p>
       </div>
 

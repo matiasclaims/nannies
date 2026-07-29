@@ -6,10 +6,12 @@
  */
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 
+export type Rol = 'DIRECTORA' | 'SUBDIRECTORA' | 'NANNIE';
+
 export interface Sesion {
   sub: string;
   nombre: string;
-  rol: 'DIRECTORA' | 'SUBDIRECTORA' | 'NANNIE';
+  rol: Rol;
   nannieId: string | null;
 }
 
@@ -94,6 +96,7 @@ export interface NuevaDisponibilidad {
   horaFin: string;
   estado?: EstadoDisponibilidad;
   fechaReintegro?: string;
+  semanas?: number; // repetir el bloque N semanas seguidas (1 = solo esa fecha)
 }
 
 export type RespuestaOferta = 'ACEPTO' | 'RECHAZO';
@@ -110,11 +113,26 @@ export interface NannieLite {
 
 export type Rango = 'BASE' | 'ROOKIE' | 'JUNIOR' | 'SENIOR';
 
+export interface Proyeccion {
+  familia: string;
+  plaza: Plaza;
+  paquete: { horasTotales: number; horasConsumidas: number; horasRestantes: number };
+  sesiones: {
+    fecha: string;
+    horaInicio: string;
+    horaFin: string;
+    tipoServicio: TipoServicio;
+    nannie: string;
+    estado: EstadoServicio;
+  }[];
+}
+
 export interface PaqueteActivo {
   id: string;
   horasTotales: number;
   horasConsumidas: number;
   horasRestantes: number;
+  asignacionManual: boolean;
 }
 
 export interface FamiliaLite {
@@ -122,7 +140,57 @@ export interface FamiliaLite {
   nombreContacto: string;
   plaza: Plaza;
   zona: string | null;
+  nServicios?: number;
+  ultimaAtencion?: string | null;
   paqueteActivo?: PaqueteActivo | null;
+}
+
+export interface NinoPerfil {
+  id: string;
+  nombre?: string;
+  apellidos?: string | null;
+  edad?: number | null;
+  genero?: string | null;
+  rutinas?: string | null;
+  necesidades?: string | null;
+  salud?: string | null;
+}
+export interface ServicioHist {
+  id: string;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  tipoServicio: TipoServicio;
+  nannie: string;
+  estado: EstadoServicio;
+}
+export interface NotaFamilia {
+  id: string;
+  texto: string;
+  autor: string | null;
+  fecha: string;
+}
+export interface PerfilFamilia {
+  id: string;
+  nombreContacto: string;
+  telefono: string | null;
+  email: string | null;
+  plaza: Plaza;
+  zona: string | null;
+  estado: string;
+  ninos: NinoPerfil[];
+  servicios: ServicioHist[];
+  notas: NotaFamilia[];
+  paqueteActivo: PaqueteActivo | null;
+}
+export interface NinoInput {
+  nombre?: string;
+  apellidos?: string;
+  edad?: number;
+  genero?: string;
+  rutinas?: string;
+  necesidades?: string;
+  salud?: string;
 }
 
 export interface Candidata {
@@ -137,6 +205,102 @@ export interface Candidata {
   faltaFinMin: number;
 }
 
+export interface Ingresos {
+  rango: { desde: string; hasta: string };
+  paquetes: { id: string; familia: string; horas: number; monto: number; fecha: string }[];
+  individuales: { id: string; familia: string; tipoServicio: TipoServicio; monto: number; fecha: string }[];
+  totales: { paquetes: number; individuales: number; total: number };
+}
+
+export interface NominaServicio {
+  id: string;
+  tipoServicio: TipoServicio;
+  fecha: string;
+  duracionHoras: number;
+  monto: number | null; // null = tarifa pendiente de definir
+  motivo?: string;
+}
+export interface NominaNannie {
+  nannieId: string;
+  nombre: string;
+  nivel: string;
+  servicios: NominaServicio[];
+  total: number;
+  tienePendientes: boolean;
+}
+export interface Nomina {
+  rango: { desde: string; hasta: string };
+  nannies: NominaNannie[];
+  total: number;
+}
+
+export interface MargenServicio {
+  servicioId: string;
+  nannie: string;
+  zona: string;
+  tipoServicio: TipoServicio;
+  fecha: string;
+  cobro: number;
+  pago: number | null;
+  comision: number;
+  ajuste: number;
+  margen: number | null;
+  pendiente: boolean;
+  motivo?: string;
+}
+export interface BonoLite {
+  id: string;
+  nannie: string;
+  monto: number;
+  motivo: string;
+  fecha: string;
+}
+export interface Margen {
+  rango: { desde: string; hasta: string };
+  servicios: MargenServicio[];
+  bonos: BonoLite[];
+  totales: {
+    cobro: number;
+    pago: number;
+    comision: number;
+    ajuste: number;
+    bonos: number;
+    margen: number;
+    margenNeto: number;
+  };
+  pendientes: number;
+}
+
+export interface NivelNannie {
+  nannieId: string;
+  nombre: string;
+  rango: string;
+  nivelActual: string;
+  serviciosAcumulados: number;
+}
+export interface CierreRegistro {
+  nannie: string;
+  anio: number;
+  mes: number;
+  horasMesPrevio: number;
+  nivelAsignado: string;
+}
+export interface Niveles {
+  nannies: NivelNannie[];
+  cierres: CierreRegistro[];
+}
+export interface CierreResultado {
+  mesCerrado: { anio: number; mes: number };
+  aplicaA: { anio: number; mes: number };
+  resultados: {
+    nannie: string;
+    horas: number;
+    nivelAnterior: string;
+    nivelAsignado: string;
+    cambio: boolean;
+  }[];
+}
+
 export interface NuevoServicio {
   familiaId: string;
   plaza: Plaza;
@@ -144,6 +308,8 @@ export interface NuevoServicio {
   tipoServicio: TipoServicio;
   formato: Formato;
   paqueteId?: string;
+  cobroIndividual?: number;
+  cobroTotal?: number;
   numNinos: number;
   fecha: string;
   horaInicio: string;
@@ -173,10 +339,23 @@ export const api = {
   listarDisponibilidad: (f: { desde?: string; hasta?: string; nannieId?: string }) =>
     req<Disponibilidad[]>(`/calendario/disponibilidad${qs(f)}`),
   crearDisponibilidad: (body: NuevaDisponibilidad) =>
-    req<Disponibilidad>('/calendario/disponibilidad', {
+    req<{ creados: number }>('/calendario/disponibilidad', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  editarDisponibilidad: (
+    id: string,
+    body: { horaInicio?: string; horaFin?: string; estado?: EstadoDisponibilidad },
+  ) =>
+    req<Disponibilidad>(`/calendario/disponibilidad/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  eliminarDisponibilidad: (id: string) =>
+    req<{ ok: true }>(`/calendario/disponibilidad/${id}`, { method: 'DELETE' }),
+
+  completarServicio: (servicioId: string) =>
+    req<Servicio>(`/calendario/servicios/${servicioId}/completar`, { method: 'POST' }),
 
   // M1 · Ofertas y respuestas (1.3)
   listarNannies: () => req<NannieLite[]>('/calendario/nannies'),
@@ -195,11 +374,38 @@ export const api = {
   listarFamilias: () => req<FamiliaLite[]>('/familias'),
   crearFamilia: (body: { nombreContacto: string; plaza: Plaza; zona?: string; telefono?: string }) =>
     req<FamiliaLite>('/familias', { method: 'POST', body: JSON.stringify(body) }),
-  crearPaquete: (familiaId: string, horas: number) =>
+  crearPaquete: (familiaId: string, horas: number, asignacionManual = false) =>
     req<PaqueteActivo>(`/familias/${familiaId}/paquetes`, {
       method: 'POST',
-      body: JSON.stringify({ horas }),
+      body: JSON.stringify({ horas, asignacionManual }),
     }),
+  // M5 · Perfil de familia
+  perfilFamilia: (id: string) => req<PerfilFamilia>(`/familias/${id}`),
+  crearNino: (familiaId: string, body: NinoInput) =>
+    req<unknown>(`/familias/${familiaId}/ninos`, { method: 'POST', body: JSON.stringify(body) }),
+  editarNino: (ninoId: string, body: NinoInput) =>
+    req<unknown>(`/familias/ninos/${ninoId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  eliminarNino: (ninoId: string) =>
+    req<{ ok: true }>(`/familias/ninos/${ninoId}`, { method: 'DELETE' }),
+  crearNota: (familiaId: string, texto: string) =>
+    req<unknown>(`/familias/${familiaId}/notas`, { method: 'POST', body: JSON.stringify({ texto }) }),
+  eliminarNota: (notaId: string) =>
+    req<{ ok: true }>(`/familias/notas/${notaId}`, { method: 'DELETE' }),
+  programarPaquete: (body: {
+    paqueteId: string;
+    diasSemana: number[];
+    horaInicio: string;
+    horaFin: string;
+    fechaInicio: string;
+    tipoServicio: TipoServicio;
+    numNinos: number;
+    zona: string;
+    nannieId?: string;
+  }) =>
+    req<{ creados: number; fechas: string[]; horasConsumidas: number; restantes: number }>(
+      '/asignacion/programar-paquete',
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
 
   // M2 · Asignación
   recomendar: (body: {
@@ -215,4 +421,32 @@ export const api = {
   }),
   asignar: (body: NuevoServicio & { nannieId: string }) =>
     req<Servicio>('/asignacion/asignar', { method: 'POST', body: JSON.stringify(body) }),
+
+  // M3 · Finanzas
+  ingresos: (desde: string, hasta: string) =>
+    req<Ingresos>(`/finanzas/ingresos${qs({ desde, hasta })}`),
+  nomina: (desde: string, hasta: string) =>
+    req<Nomina>(`/finanzas/nomina${qs({ desde, hasta })}`),
+  margen: (desde: string, hasta: string) =>
+    req<Margen>(`/finanzas/margen${qs({ desde, hasta })}`),
+  crearBono: (nannieId: string, monto: number, motivo: string) =>
+    req<unknown>('/finanzas/bonos', {
+      method: 'POST',
+      body: JSON.stringify({ nannieId, monto, motivo }),
+    }),
+  eliminarBono: (id: string) => req<{ ok: true }>(`/finanzas/bonos/${id}`, { method: 'DELETE' }),
+  editarFinanza: (servicioId: string, body: { comision?: number | null; ajuste?: number | null }) =>
+    req<unknown>(`/finanzas/servicios/${servicioId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  proyeccionPaquete: (paqueteId: string) =>
+    req<Proyeccion>(`/familias/paquetes/${paqueteId}/proyeccion`),
+
+  niveles: () => req<Niveles>('/finanzas/niveles'),
+  cerrarMes: (anio: number, mes: number) =>
+    req<CierreResultado>('/finanzas/cierre-mes', {
+      method: 'POST',
+      body: JSON.stringify({ anio, mes }),
+    }),
 };

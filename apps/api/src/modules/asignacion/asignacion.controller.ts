@@ -3,6 +3,7 @@ import { AsignacionService } from './asignacion.service';
 import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decorator';
 import { RecomendarDto } from './dto/recomendar.dto';
 import { AsignarDto } from './dto/asignar.dto';
+import { ProgramarPaqueteDto } from './dto/programar-paquete.dto';
 
 @Controller('asignacion')
 export class AsignacionController {
@@ -20,5 +21,12 @@ export class AsignacionController {
   @Post('asignar')
   asignar(@Body() dto: AsignarDto) {
     return this.asignacion.asignar(dto);
+  }
+
+  // Programación masiva de un paquete (todas las sesiones de un jalón).
+  @RequiereAccion('servicio.asignar')
+  @Post('programar-paquete')
+  programarPaquete(@Body() dto: ProgramarPaqueteDto) {
+    return this.asignacion.programarPaquete(dto);
   }
 }

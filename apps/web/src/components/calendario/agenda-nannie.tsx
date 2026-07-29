@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Pencil, Trash2, Check, X } from 'lucide-react';
 import {
   api,
   type Servicio,
@@ -11,6 +12,7 @@ import { TIPO_LABEL, ESTADO_DISPONIBILIDAD } from '@/lib/dominio';
 import type { DiaSemana } from '@/lib/semana';
 import { cn } from '@/lib/utils';
 import { FormMarcarDisponibilidad } from './form-marcar-disponibilidad';
+import { HoraSelect } from '@/components/hora-select';
 
 /** Vista de la nannie: sus ofertas arriba + su semana como agenda + marcar disponibilidad. */
 export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
@@ -46,6 +48,11 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
     await cargar();
   }
 
+  async function completar(id: string) {
+    await api.completarServicio(id).catch(() => undefined);
+    await cargar();
+  }
+
   if (estado === 'error') {
     return <Aviso texto="No se pudo cargar tu agenda. ¿Está arriba la API?" />;
   }
@@ -55,33 +62,38 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
-      {/* Ofertas pendientes */}
+      {/* Ofertas pendientes — cuadritos con ✓/✗ (ágil aunque haya muchas).
+          No se muestran datos de la familia: solo tipo, fecha, horario y zona. */}
       {ofertas.length > 0 && (
         <div className="rounded-2xl bg-marca-azul/10 p-4">
           <p className="mb-2 text-sm font-semibold text-[#0b6b7d]">
             Tienes {ofertas.length} {ofertas.length === 1 ? 'oferta' : 'ofertas'}
           </p>
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {ofertas.map((s) => (
-              <div key={s.id} className="rounded-xl bg-panel p-3 shadow-card">
-                <p className="text-sm font-semibold text-texto-fuerte">
-                  {TIPO_LABEL[s.tipoServicio]} · {fechaCorta(s.fecha)}
+              <div key={s.id} className="flex flex-col rounded-xl bg-panel p-2.5 shadow-card">
+                <p className="text-xs font-semibold leading-tight text-texto-fuerte">
+                  {TIPO_LABEL[s.tipoServicio]}
                 </p>
-                <p className="mb-2 text-xs text-texto-suave">
-                  {s.horaInicio}–{s.horaFin} · {s.zona}
+                <p className="mt-0.5 text-[11px] capitalize text-texto-suave">{fechaCorta(s.fecha)}</p>
+                <p className="text-[11px] text-texto-suave">
+                  {s.horaInicio}–{s.horaFin}
                 </p>
-                <div className="flex gap-2">
+                <p className="truncate text-[11px] text-texto-suave">{s.zona}</p>
+                <div className="mt-2 flex gap-1.5">
                   <button
                     onClick={() => responder(s.id, 'ACEPTO')}
-                    className="flex-1 rounded-lg bg-marca-verde px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95"
+                    title="Aceptar"
+                    className="flex flex-1 items-center justify-center rounded-lg bg-marca-verde py-1.5 text-white transition hover:brightness-95"
                   >
-                    Aceptar
+                    <Check className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => responder(s.id, 'RECHAZO')}
-                    className="flex-1 rounded-lg border border-borde px-3 py-1.5 text-xs font-semibold text-marca-rojo hover:bg-fondo"
+                    title="Rechazar"
+                    className="flex flex-1 items-center justify-center rounded-lg border border-borde py-1.5 text-marca-rojo transition hover:bg-fondo"
                   >
-                    Rechazar
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -143,25 +155,28 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
                   ) : (
                     <div className="space-y-1">
                       {servs.map((s) => (
-                        <p key={s.id} className="text-sm text-texto-fuerte">
-                          <span className="font-medium">{TIPO_LABEL[s.tipoServicio]}</span>{' '}
-                          {s.horaInicio}–{s.horaFin} · {s.zona}
-                        </p>
+                        <div key={s.id} className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm text-texto-fuerte">
+                            <span className="font-medium">{TIPO_LABEL[s.tipoServicio]}</span>{' '}
+                            {s.horaInicio}–{s.horaFin} · {s.zona}
+                          </p>
+                          {s.estado === 'ACEPTADO' && (
+                            <button
+                              onClick={() => completar(s.id)}
+                              className="rounded-lg bg-marca-verde px-2.5 py-1 text-xs font-semibold text-white hover:brightness-95"
+                            >
+                              Marcar terminado
+                            </button>
+                          )}
+                          {s.estado === 'COMPLETADO' && (
+                            <span className="rounded-full bg-marca-rojo/20 px-2 py-0.5 text-[11px] font-semibold text-[#a3312f]">
+                              Terminado
+                            </span>
+                          )}
+                        </div>
                       ))}
                       {bloques.map((b) => (
-                        <p key={b.id} className="text-xs">
-                          <span
-                            className={cn(
-                              'rounded-full px-2 py-0.5 font-medium',
-                              ESTADO_DISPONIBILIDAD[b.estado].clase,
-                            )}
-                          >
-                            {ESTADO_DISPONIBILIDAD[b.estado].label}
-                          </span>{' '}
-                          <span className="text-texto-suave">
-                            {b.horaInicio}–{b.horaFin}
-                          </span>
-                        </p>
+                        <BloqueDispon key={b.id} b={b} onCambio={cargar} />
                       ))}
                     </div>
                   )}
@@ -171,6 +186,68 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Un bloque de disponibilidad con opción de editar la hora o eliminarlo
+ *  (corregir un error de captura). */
+function BloqueDispon({ b, onCambio }: { b: Disponibilidad; onCambio: () => Promise<void> }) {
+  const [editando, setEditando] = useState(false);
+  const [ini, setIni] = useState(b.horaInicio);
+  const [fin, setFin] = useState(b.horaFin);
+  const [busy, setBusy] = useState(false);
+
+  async function guardar() {
+    if (fin <= ini) return;
+    setBusy(true);
+    await api.editarDisponibilidad(b.id, { horaInicio: ini, horaFin: fin }).catch(() => undefined);
+    setEditando(false);
+    await onCambio();
+    setBusy(false);
+  }
+
+  async function eliminar() {
+    if (!window.confirm('¿Eliminar este bloque de disponibilidad?')) return;
+    setBusy(true);
+    await api.eliminarDisponibilidad(b.id).catch(() => undefined);
+    await onCambio();
+    setBusy(false);
+  }
+
+  const inputCls =
+    'w-[5.5rem] rounded-lg border border-borde bg-white px-2 py-1 text-xs outline-none focus:border-marca-azul';
+
+  if (editando) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs">
+        <HoraSelect value={ini} onChange={setIni} className={inputCls} />
+        <span className="text-texto-suave">–</span>
+        <HoraSelect value={fin} onChange={setFin} className={inputCls} />
+        <button onClick={guardar} disabled={busy} className="text-marca-verde disabled:opacity-50" title="Guardar">
+          <Check className="h-4 w-4" />
+        </button>
+        <button onClick={() => setEditando(false)} className="text-texto-suave" title="Cancelar">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className={cn('rounded-full px-2 py-0.5 font-medium', ESTADO_DISPONIBILIDAD[b.estado].clase)}>
+        {ESTADO_DISPONIBILIDAD[b.estado].label}
+      </span>
+      <span className="text-texto-suave">
+        {b.horaInicio}–{b.horaFin}
+      </span>
+      <button onClick={() => setEditando(true)} className="text-texto-suave hover:text-marca-azul" title="Editar">
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+      <button onClick={eliminar} disabled={busy} className="text-texto-suave hover:text-marca-rojo disabled:opacity-50" title="Eliminar">
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }

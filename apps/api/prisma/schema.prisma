@@ -159,8 +159,24 @@ model Nannie {
   disponibilidad  Disponibilidad[]
   servicios       Servicio[]
   ofertas         OfertaRespuesta[]
+  cierres         CierreMes[]
+  bonos           Bono[]
 
   @@map("nannies")
+}
+
+// Bono manual a una nannie (M3): monto + motivo, decidido por la Directora. No
+// tiene reglas automáticas; reduce el margen. Se registra a quién y por qué.
+model Bono {
+  id       String   @id @default(cuid())
+  nannieId String
+  nannie   Nannie   @relation(fields: [nannieId], references: [id])
+  monto    Decimal  @db.Decimal(10, 2)
+  motivo   String
+  fecha    DateTime @default(now())
+
+  @@index([nannieId])
+  @@map("bonos")
 }
 
 // ------------------------------------------------------------
@@ -181,6 +197,7 @@ model Familia {
   ninos     Nino[]
   servicios Servicio[]
   paquetes  Paquete[]
+  notas     NotaFamilia[]
 
   @@map("familias")
 }
@@ -192,8 +209,9 @@ model Nino {
   id          String   @id @default(cuid())
   familiaId   String
   familia     Familia  @relation(fields: [familiaId], references: [id])
-  // --- Identificable: SOLO Directora ---
+  // --- Identificable: coordinación (Directora + Subdirectora); la nannie NO ---
   nombre      String
+  apellidos   String?
   edad        Int?
   genero      String?
   // --- Operativo: visible a la nannie asignada ---
@@ -205,6 +223,20 @@ model Nino {
 
   @@index([familiaId])
   @@map("ninos")
+}
+
+// Bitácora de la familia (M5 §5.3): conocimiento acumulado / recomendaciones de
+// nannies que la atendieron. Se nutre aparte del reporte de servicio (M6).
+model NotaFamilia {
+  id          String   @id @default(cuid())
+  familiaId   String
+  familia     Familia  @relation(fields: [familiaId], references: [id])
+  texto       String
+  autorNombre String? // quién dejó la nota (nannie/coordinación)
+  creadoEn    DateTime @default(now())
+
+  @@index([familiaId])
+  @@map("notas_familia")
 }
 
 // ------------------------------------------------------------
@@ -247,10 +279,14 @@ model Servicio {
   // Reglamento PF §15-16: solo horas completas, mínimo 3.
   duracionHoras Int // se valida en el backend: entero, >= 3
   estado       EstadoServicio @default(OFERTADO)
+  // Solo Ludoteca: +1 h de montaje/desmontaje en el PAGO a la nannie. Variable
+  // (a veces no montan), por eso es un interruptor; encendido por defecto.
+  ludotecaMontaje Boolean     @default(true)
   creadoEn     DateTime       @default(now())
   actualizadoEn DateTime      @updatedAt
 
   ofertas OfertaRespuesta[]
+  finanza FinanzaServicio?
 
   @@index([nannieId, fecha])
   @@index([familiaId])
@@ -284,9 +320,52 @@ model Paquete {
   precioTotal      Decimal       @db.Decimal(10, 2)
   fechaContratacion DateTime      @default(now())
   estado           EstadoPaquete @default(ACTIVO)
+  // La familia no dio fechas: las sesiones se asignan a mano conforme las pide
+  // (no se programa de un jalón). Ver M2 §paquetes.
+  asignacionManual Boolean       @default(false)
 
   servicios Servicio[]
 
   @@index([familiaId])
   @@map("paquetes")
+}
+
+// ------------------------------------------------------------
+//  M3 · Finanzas
+// ------------------------------------------------------------
+
+// Una fila por servicio con su dinero. El cobro se conoce al crear (paquete
+// prorrateado / individual del menú); el pago y el nivel se estampan al
+// COMPLETAR (tabulador × nivel-tarifa del mes). El margen se DERIVA:
+// cobro − pago − comisión − ajuste. El margen solo lo ve la Directora (RBAC).
+model FinanzaServicio {
+  id            String       @id @default(cuid())
+  servicioId    String       @unique
+  servicio      Servicio     @relation(fields: [servicioId], references: [id])
+  cobroFamilia  Decimal      @db.Decimal(10, 2) // paquete (prorrateo) o individual (menú)
+  pagoNannie    Decimal?     @db.Decimal(10, 2) // se fija al COMPLETAR
+  nivelAplicado NivelTarifa? // nivel-tarifa con el que se pagó (auditable)
+  comision      Decimal?     @db.Decimal(10, 2) // manual, opcional (en blanco por defecto)
+  ajuste        Decimal?     @db.Decimal(10, 2) // manual (descuento/ajuste)
+  creadoEn      DateTime     @default(now())
+  actualizadoEn DateTime     @updatedAt
+
+  @@map("finanzas_servicio")
+}
+
+// Registro AUDITABLE del cierre de mes (§6.2): para cada nannie, qué nivel-tarifa
+// se le fijó para el mes que ENTRA y con cuántas horas del mes previo se decidió.
+model CierreMes {
+  id             String      @id @default(cuid())
+  nannieId       String
+  nannie         Nannie      @relation(fields: [nannieId], references: [id])
+  anio           Int // año del mes que ENTRA
+  mes            Int // mes que ENTRA (1-12)
+  horasMesPrevio Decimal     @db.Decimal(6, 2) // horas del mes que cerró
+  nivelAsignado  NivelTarifa
+  creadoEn       DateTime    @default(now())
+
+  @@unique([nannieId, anio, mes])
+  @@index([nannieId])
+  @@map("cierres_mes")
 }

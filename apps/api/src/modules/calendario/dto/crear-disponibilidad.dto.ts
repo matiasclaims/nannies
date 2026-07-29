@@ -1,4 +1,4 @@
-import { IsDateString, IsEnum, IsOptional, Matches } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 import { EstadoDisponibilidad } from '@prisma/client';
 
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -20,4 +20,11 @@ export class CrearDisponibilidadDto {
   @IsOptional()
   @IsDateString({}, { message: 'fechaReintegro debe ser YYYY-MM-DD' })
   fechaReintegro?: string;
+
+  // Repetir el bloque N semanas seguidas (misma hora/día). 1 = solo esa fecha.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(52)
+  semanas?: number;
 }

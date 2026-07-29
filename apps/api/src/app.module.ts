@@ -7,6 +7,7 @@ import { AuthModule } from './core/auth/auth.module';
 import { CalendarioModule } from './modules/calendario/calendario.module';
 import { AsignacionModule } from './modules/asignacion/asignacion.module';
 import { FamiliasModule } from './modules/familias/familias.module';
+import { FinanzasModule } from './modules/finanzas/finanzas.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { FamiliasModule } from './modules/familias/familias.module';
     CalendarioModule,
     AsignacionModule,
     FamiliasModule,
+    FinanzasModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

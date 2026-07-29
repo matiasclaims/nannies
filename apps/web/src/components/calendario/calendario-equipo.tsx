@@ -38,6 +38,7 @@ function claseServicio(estado: Servicio['estado']): string {
   if (estado === 'OFERTADO') return 'bg-marca-azul/20 border border-marca-azul/40 text-marca-azul';
   if (estado === 'ACEPTADO' || estado === 'COMPLETADO')
     return 'bg-marca-rojo/20 border border-marca-rojo/50 text-[#a3312f]';
+  if (estado === 'RECHAZADO') return 'bg-[#5B292D]/20 border border-[#5B292D]/50 text-[#5B292D]';
   return 'bg-slate-200 border border-slate-300 text-slate-500';
 }
 
@@ -84,17 +85,18 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
     (nannies.find((n) => n.id === id)?.nombre ?? 'Nannie').split(' ')[0];
   const porAsignar = servicios.filter((s) => !s.nannieId && !CERRADOS.includes(s.estado));
   const esperando = servicios.filter((s) => s.nannieId && s.estado === 'OFERTADO');
+  const rechazadas = servicios.filter((s) => s.estado === 'RECHAZADO');
   const nannieActiva = nannies.find((n) => n.id === nannieSel) ?? nannies[0];
 
-  // "Todas": solo disponibilidad + servicios asignados (SIN bloqueos), con el nombre.
+  // "Todas": disponibilidad (disponibles y bloqueos) + servicios asignados, con el nombre.
   const bloquesTodas = (dia: string): Bloque[] => {
     const disp = dispon
-      .filter((x) => x.estado === 'DISPONIBLE' && enDia(x.fecha, dia))
+      .filter((x) => enDia(x.fecha, dia))
       .map<Bloque>((x) => ({
         id: 'd' + x.id,
         ini: x.horaInicio,
         fin: x.horaFin,
-        clase: CLASE_DISPONIBLE,
+        clase: x.estado === 'DISPONIBLE' ? CLASE_DISPONIBLE : CLASE_BLOQUEADO,
         etiqueta: primerNombre(x.nannieId),
       }));
     const servs = servicios
@@ -229,7 +231,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
 
         <div className="rounded-2xl bg-panel p-4 shadow-card">
           <h3 className="mb-3 text-sm font-semibold text-texto-fuerte">Requieren tu decisión</h3>
-          {porAsignar.length === 0 && esperando.length === 0 ? (
+          {porAsignar.length === 0 && esperando.length === 0 && rechazadas.length === 0 ? (
             <p className="text-sm text-texto-suave">Nada pendiente esta semana.</p>
           ) : (
             <div className="space-y-3">
@@ -243,6 +245,24 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
                   nombre={nannies.find((n) => n.id === s.nannieId)?.nombre ?? '—'}
                 />
               ))}
+              {rechazadas.length > 0 && (
+                <div className="space-y-2 border-t border-borde pt-3">
+                  <p className="text-xs font-semibold text-[#5B292D]">
+                    Rechazadas esta semana ({rechazadas.length})
+                  </p>
+                  {rechazadas.map((s) => (
+                    <TarjetaOfertar
+                      key={s.id}
+                      servicio={s}
+                      nannies={nannies}
+                      onHecho={cargar}
+                      rechazadoPor={
+                        nannies.find((n) => n.id === s.nannieId)?.nombre.split(' ')[0] ?? 'una nannie'
+                      }
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -351,7 +371,8 @@ function Leyenda({ modo }: { modo: Modo }) {
     { c: 'bg-amber-200', t: 'Disponible' },
     { c: 'bg-marca-rojo/40', t: 'Asignado' },
     { c: 'bg-marca-azul/40', t: 'Ofertado' },
-    ...(modo === 'nannie' ? [{ c: 'bg-slate-300', t: 'Bloqueado' }] : []),
+    { c: 'bg-slate-300', t: 'Bloqueado' },
+    ...(modo === 'nannie' ? [{ c: 'bg-[#5B292D]/40', t: 'Rechazado' }] : []),
   ];
   return (
     <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-texto-suave">
@@ -371,10 +392,12 @@ function TarjetaOfertar({
   servicio,
   nannies,
   onHecho,
+  rechazadoPor,
 }: {
   servicio: Servicio;
   nannies: NannieLite[];
   onHecho: () => Promise<void>;
+  rechazadoPor?: string;
 }) {
   const [nannieId, setNannieId] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -391,7 +414,17 @@ function TarjetaOfertar({
   }
 
   return (
-    <div className="rounded-xl border border-borde p-2.5">
+    <div
+      className={cn(
+        'rounded-xl border p-2.5',
+        rechazadoPor ? 'border-[#5B292D]/40 bg-[#5B292D]/5' : 'border-borde',
+      )}
+    >
+      {rechazadoPor && (
+        <p className="mb-1.5 inline-block rounded-full bg-[#5B292D]/20 px-2 py-0.5 text-[10px] font-semibold text-[#5B292D]">
+          Rechazado por {rechazadoPor} · reofrecer a otra
+        </p>
+      )}
       <p className="text-xs font-semibold text-texto-fuerte">
         {TIPO_LABEL[servicio.tipoServicio]} · {fechaCorta(servicio.fecha)}
       </p>

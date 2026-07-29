@@ -11,6 +11,7 @@ import {
   type TipoServicio,
 } from '@/lib/api';
 import { TIPO_LABEL } from '@/lib/dominio';
+import { HoraSelect } from '@/components/hora-select';
 import { cn } from '@/lib/utils';
 
 const inputCls =
@@ -43,6 +44,35 @@ function descHueco(c: Candidata): string {
   return partes.join(' y ');
 }
 
+// Menú de cobro a familias para servicios individuales (fuente "Nuestros precios").
+const COBRO_OPCIONES: { precio: number; incluye: string }[] = [
+  { precio: 95, incluye: 'Todos los cuidados' },
+  { precio: 110, incluye: '+ Actividades planeadas' },
+  { precio: 125, incluye: '+ Seguimiento cada hora' },
+  { precio: 140, incluye: '+ Reporte final' },
+  { precio: 160, incluye: '+ Cobertura médica' },
+];
+
+// Catálogo de estaciones de Ludoteca (fuente Catálogo Ludoteca 2026). Todas por
+// hora salvo Snuggle Studio (por niño). El cobro de un servicio = suma de estaciones.
+const LUDOTECA_ESTACIONES: { nombre: string; tarifa: number; porNino?: boolean }[] = [
+  { nombre: 'Princess Treatment', tarifa: 450 },
+  { nombre: 'The Cool Corner', tarifa: 550 },
+  { nombre: 'Sensory Kit', tarifa: 450 },
+  { nombre: 'Snuggle Studio (peluches)', tarifa: 195, porNino: true },
+  { nombre: 'Board Games', tarifa: 450 },
+  { nombre: 'Sumo Bumper Boppers', tarifa: 450 },
+  { nombre: 'Friendship Bracelets', tarifa: 410 },
+  { nombre: 'Art Zone', tarifa: 410 },
+  { nombre: 'Baby Zone', tarifa: 450 },
+  { nombre: 'My own Tote Bag', tarifa: 550 },
+  { nombre: 'The Goo Station (slime)', tarifa: 450 },
+  { nombre: 'Cupcake Creators', tarifa: 450 },
+  { nombre: 'Mini Designer', tarifa: 550 },
+  { nombre: 'Little Builders', tarifa: 410 },
+  { nombre: 'Pottery Lab', tarifa: 550 },
+];
+
 function calcDuracion(ini: string, fin: string): number | null {
   const [ih, im] = ini.split(':').map(Number);
   const [fh, fm] = fin.split(':').map(Number);
@@ -71,6 +101,9 @@ export default function AsignacionPage() {
   const [exito, setExito] = useState('');
   const [overrideId, setOverrideId] = useState('');
   const [cobrarAPaquete, setCobrarAPaquete] = useState(true);
+  const [cobroIndividual, setCobroIndividual] = useState(125);
+  const [montoLibre, setMontoLibre] = useState(false);
+  const [cobroLudoteca, setCobroLudoteca] = useState(0);
 
   const cargarFamilias = () => api.listarFamilias().then(setFamilias).catch(() => undefined);
 
@@ -87,8 +120,13 @@ export default function AsignacionPage() {
   const familiaSel = familias.find((f) => f.id === form.familiaId);
   const paquete = familiaSel?.paqueteActivo ?? null;
   const usaPaquete = paquete !== null && cobrarAPaquete;
+  const esLudoteca = form.tipoServicio === 'LUDOTECA_MOVIL';
   const excedePaquete =
     usaPaquete && paquete !== null && duracion !== null ? duracion > paquete.horasRestantes : false;
+  const cobroInvalido =
+    !usaPaquete &&
+    (esLudoteca ? cobroLudoteca <= 0 : !cobroIndividual || cobroIndividual <= 0);
+  const bloqueaOferta = excedePaquete || cobroInvalido;
 
   function set<K extends keyof Form>(k: K, v: Form[K]) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -142,6 +180,8 @@ export default function AsignacionPage() {
         tipoServicio: form.tipoServicio,
         formato: usaPaquete ? 'PAQUETE' : 'INDIVIDUAL',
         paqueteId: usaPaquete && paquete ? paquete.id : undefined,
+        cobroIndividual: usaPaquete || esLudoteca ? undefined : cobroIndividual,
+        cobroTotal: !usaPaquete && esLudoteca ? cobroLudoteca : undefined,
         numNinos: form.numNinos,
         fecha: form.fecha,
         horaInicio: form.horaInicio,
@@ -267,21 +307,11 @@ export default function AsignacionPage() {
           </Campo>
 
           <Campo label="Desde">
-            <input
-              type="time"
-              value={form.horaInicio}
-              onChange={(e) => set('horaInicio', e.target.value)}
-              className={inputCls}
-            />
+            <HoraSelect value={form.horaInicio} onChange={(v) => set('horaInicio', v)} className={inputCls} />
           </Campo>
 
           <Campo label="Hasta">
-            <input
-              type="time"
-              value={form.horaFin}
-              onChange={(e) => set('horaFin', e.target.value)}
-              className={inputCls}
-            />
+            <HoraSelect value={form.horaFin} onChange={(v) => set('horaFin', v)} className={inputCls} />
           </Campo>
         </div>
 
@@ -334,7 +364,7 @@ export default function AsignacionPage() {
                 <span>
                   <span className="font-semibold text-texto-fuerte">Servicio suelto</span>
                   <br />
-                  Fuera del paquete (se cobra en Finanzas)
+                  Cobro por servicio (elige el monto)
                 </span>
               </label>
             </div>
@@ -345,6 +375,58 @@ export default function AsignacionPage() {
               </p>
             )}
           </div>
+        )}
+
+        {/* Cobro individual: tarifa por hora (menú + monto libre); total = tarifa × horas */}
+        {!usaPaquete && !esLudoteca && (
+          <div className="rounded-xl border border-borde bg-fondo p-3">
+            <p className="mb-2 text-xs font-medium text-texto-suave">Cobro a la familia (por hora)</p>
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={montoLibre ? 'libre' : String(cobroIndividual)}
+                onChange={(e) => {
+                  if (e.target.value === 'libre') {
+                    setMontoLibre(true);
+                  } else {
+                    setMontoLibre(false);
+                    setCobroIndividual(Number(e.target.value));
+                  }
+                }}
+                className={cn(inputCls, 'flex-1')}
+              >
+                {COBRO_OPCIONES.map((o) => (
+                  <option key={o.precio} value={o.precio}>
+                    ${o.precio}/h · {o.incluye}
+                  </option>
+                ))}
+                <option value="libre">Otra tarifa…</option>
+              </select>
+              {montoLibre && (
+                <input
+                  type="number"
+                  min={1}
+                  value={cobroIndividual}
+                  onChange={(e) => setCobroIndividual(Number(e.target.value))}
+                  className={cn(inputCls, 'w-32')}
+                  placeholder="Tarifa $/h"
+                />
+              )}
+            </div>
+            {duracion !== null && cobroIndividual > 0 && (
+              <p className="mt-2 text-xs text-texto-suave">
+                Cobro total:{' '}
+                <strong className="text-texto-fuerte">
+                  ${(cobroIndividual * duracion).toLocaleString('es-MX')}
+                </strong>{' '}
+                (${cobroIndividual}/h × {duracion} h)
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Ludoteca: cobro por estaciones (varias) — se suma */}
+        {!usaPaquete && esLudoteca && (
+          <LudotecaPicker duracion={duracion} numNinos={form.numNinos} onTotal={setCobroLudoteca} />
         )}
 
         {error && <p className="text-sm text-marca-rojo">{error}</p>}
@@ -402,7 +484,7 @@ export default function AsignacionPage() {
                   </div>
                   <button
                     onClick={() => ofertar(c.nannieId)}
-                    disabled={asignando || excedePaquete}
+                    disabled={asignando || bloqueaOferta}
                     className="shrink-0 rounded-lg bg-marca-azul px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                   >
                     Ofertar
@@ -432,7 +514,7 @@ export default function AsignacionPage() {
               </select>
               <button
                 onClick={() => ofertar(overrideId)}
-                disabled={!overrideId || asignando || excedePaquete}
+                disabled={!overrideId || asignando || bloqueaOferta}
                 className="shrink-0 rounded-lg border border-marca-azul px-3 py-1.5 text-xs font-semibold text-marca-azul disabled:opacity-50"
               >
                 Ofertar
@@ -441,6 +523,76 @@ export default function AsignacionPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Selector de estaciones de Ludoteca: varias estaciones, cobro = suma. */
+function LudotecaPicker({
+  duracion,
+  numNinos,
+  onTotal,
+}: {
+  duracion: number | null;
+  numNinos: number;
+  onTotal: (t: number) => void;
+}) {
+  const [items, setItems] = useState<Record<number, number>>({});
+
+  const total = Object.entries(items).reduce(
+    (s, [i, cant]) => s + LUDOTECA_ESTACIONES[Number(i)].tarifa * cant,
+    0,
+  );
+
+  useEffect(() => {
+    onTotal(total);
+  }, [total, onTotal]);
+
+  function toggle(i: number) {
+    setItems((prev) => {
+      const next = { ...prev };
+      if (i in next) delete next[i];
+      else next[i] = LUDOTECA_ESTACIONES[i].porNino ? Math.max(1, numNinos) : Math.max(1, duracion ?? 1);
+      return next;
+    });
+  }
+
+  return (
+    <div className="rounded-xl border border-borde bg-fondo p-3">
+      <p className="mb-2 text-xs font-medium text-texto-suave">Estaciones de Ludoteca (cobro)</p>
+      <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+        {LUDOTECA_ESTACIONES.map((e, i) => {
+          const sel = i in items;
+          return (
+            <div key={e.nombre} className="flex items-center gap-2 text-xs">
+              <label className="flex flex-1 cursor-pointer items-center gap-2">
+                <input type="checkbox" checked={sel} onChange={() => toggle(i)} />
+                <span className={cn(sel && 'font-medium text-texto-fuerte')}>{e.nombre}</span>
+                <span className="text-texto-suave">
+                  ${e.tarifa}
+                  {e.porNino ? '/niño' : '/h'}
+                </span>
+              </label>
+              {sel && (
+                <input
+                  type="number"
+                  min={1}
+                  value={items[i]}
+                  onChange={(ev) =>
+                    setItems((prev) => ({ ...prev, [i]: Math.max(1, Number(ev.target.value)) }))
+                  }
+                  title={e.porNino ? 'niños' : 'horas'}
+                  className="w-14 rounded-lg border border-borde bg-white px-1.5 py-0.5 text-xs outline-none focus:border-marca-azul"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-xs text-texto-suave">
+        Cobro total: <strong className="text-texto-fuerte">${total.toLocaleString('es-MX')}</strong>
+        {total <= 0 && <span className="text-marca-rojo"> · elige al menos una estación</span>}
+      </p>
     </div>
   );
 }
