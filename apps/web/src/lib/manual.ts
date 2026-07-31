@@ -188,4 +188,85 @@ export const MANUAL: CapituloModulo[] = [
       ],
     },
   },
+  {
+    modulo: 'M3',
+    nombre: 'Finanzas',
+    contenido: {
+      coordinacion: [
+        {
+          titulo: 'Finanzas, de un vistazo',
+          intro:
+            'En "Finanzas" está el dinero completo de la operación, en cuatro pestañas: Ingresos, Nómina, Margen y Niveles. El sistema calcula solo; tú revisas y decides. El Margen (la utilidad) solo lo ve la Directora.',
+        },
+        {
+          titulo: 'Ingresos (cobro a las familias)',
+          pasos: [
+            'Entra a "Finanzas" › pestaña "Ingresos".',
+            'Con las flechas ‹ › cambias de mes.',
+            'Ves los paquetes contratados (su ingreso se registra al contratar) y los servicios individuales confirmados, con su total.',
+          ],
+          nota: 'El ingreso de un paquete se cuenta una sola vez, al contratarlo. Los servicios de ese paquete ya no se vuelven a cobrar.',
+        },
+        {
+          titulo: 'Nómina semanal (pago a las nannies)',
+          intro:
+            'La nómina suma el pago de los servicios que cada nannie completó en la semana (domingo a sábado), tarifado con el tabulador según su nivel del mes. Es lo que pagas el sábado.',
+          pasos: [
+            'Entra a "Finanzas" › pestaña "Nómina".',
+            'Con las flechas ‹ › cambias de semana.',
+            'Cada nannie muestra sus servicios y su total a pagar.',
+          ],
+          nota: 'Solo cuentan los servicios que la nannie marcó como "Terminado". Los paquetes y la Ludoteca ya calculan su pago automáticamente.',
+        },
+        {
+          titulo: 'Cobro al crear un servicio',
+          intro:
+            'El cobro a la familia se captura al momento de asignar el servicio, en la pantalla de Asignación:',
+          pasos: [
+            'Servicio individual: eliges la tarifa por hora del menú ($95–$160) o un monto libre; el sistema multiplica por las horas.',
+            'Ludoteca: eliges las estaciones (varias) y el sistema suma su costo.',
+            'Servicio de paquete: no se cobra aparte; se descuenta del paquete y se prorratea.',
+          ],
+        },
+        {
+          titulo: 'Margen, comisión y bonos (solo Directora)',
+          intro:
+            'El Margen es tu utilidad por servicio: cobro − pago − comisión − ajuste − bonos. Es información sensible: solo la Directora la ve.',
+          pasos: [
+            'Entra a "Finanzas" › pestaña "Margen".',
+            'En cada servicio puedes escribir la comisión de coordinadora y un ajuste/descuento manual.',
+            'Para dar un bono a una nannie, usa la opción de bono (monto + motivo); se descuenta del margen y queda registrado a quién y por qué.',
+          ],
+          nota: 'La comisión está en blanco por defecto; se llena solo cuando aplica. La Subdirectora ve la operación pero no el margen.',
+        },
+        {
+          titulo: 'Cierre de mes (niveles)',
+          intro:
+            'El día 1 de cada mes se evalúan las horas del mes que cerró para fijar el nivel-tarifa de cada nannie el mes entrante (umbral: 25 horas). Con 25+ horas cobra en su rango; con menos, cae a Base ese mes.',
+          pasos: [
+            'Entra a "Finanzas" › pestaña "Niveles".',
+            'Ves el nivel vigente de cada nannie y su rango.',
+            'Presiona "Ejecutar cierre de [mes]" para fijar los niveles del mes siguiente. Queda un registro auditable.',
+          ],
+          nota: 'Solo la Directora ejecuta el cierre. El nivel queda fijo todo el mes; no cambia servicio a servicio.',
+        },
+      ],
+      nannie: [
+        {
+          titulo: 'Tu servicio y tu pago',
+          intro:
+            'Tu pago se calcula solo, con base en los servicios que completas cada semana. Tú no manejas finanzas; solo hay una acción tuya que alimenta tu nómina.',
+        },
+        {
+          titulo: 'Marcar un servicio como terminado',
+          pasos: [
+            'Cuando concluyas un servicio aceptado, entra a "Calendario" › "Mi semana".',
+            'En ese servicio presiona "Marcar terminado".',
+            'Pasa a "Terminado" y entra a tu pago de esa semana.',
+          ],
+          nota: 'Es importante marcarlo al concluir: un servicio que no marcas como terminado no entra en tu nómina de la semana.',
+        },
+      ],
+    },
+  },
 ];
