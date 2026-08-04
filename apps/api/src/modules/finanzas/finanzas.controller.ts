@@ -4,6 +4,7 @@ import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decor
 import { EditarFinanzaDto } from './dto/editar-finanza.dto';
 import { CerrarMesDto } from './dto/cerrar-mes.dto';
 import { CrearBonoDto } from './dto/crear-bono.dto';
+import { MarcarPagoDto } from './dto/marcar-pago.dto';
 
 @Controller('finanzas')
 export class FinanzasController {
@@ -21,6 +22,13 @@ export class FinanzasController {
   @Get('nomina')
   nomina(@Query('desde') desde: string, @Query('hasta') hasta: string) {
     return this.finanzas.nomina(desde, hasta);
+  }
+
+  // Marca/desmarca como pagada la nómina de una nannie (por semana). Operativo.
+  @RequiereAccion('finanzas.pago.marcar')
+  @Post('nomina/pago')
+  marcarPago(@Body() dto: MarcarPagoDto) {
+    return this.finanzas.marcarPago(dto.nannieId, dto.semana, dto.pagado);
   }
 
   // 3.4 · Margen por servicio. SOLO Directora (información sensible).

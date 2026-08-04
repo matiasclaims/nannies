@@ -88,15 +88,17 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
   const rechazadas = servicios.filter((s) => s.estado === 'RECHAZADO');
   const nannieActiva = nannies.find((n) => n.id === nannieSel) ?? nannies[0];
 
-  // "Todas": disponibilidad (disponibles y bloqueos) + servicios asignados, con el nombre.
+  // "Todas": solo disponibles + servicios asignados, con el nombre. Los bloqueos
+  // NO se muestran aquí (reunión M3 con Paula: la vista de equipo se llenaría);
+  // sí siguen visibles en "Por nannie".
   const bloquesTodas = (dia: string): Bloque[] => {
     const disp = dispon
-      .filter((x) => enDia(x.fecha, dia))
+      .filter((x) => enDia(x.fecha, dia) && x.estado === 'DISPONIBLE')
       .map<Bloque>((x) => ({
         id: 'd' + x.id,
         ini: x.horaInicio,
         fin: x.horaFin,
-        clase: x.estado === 'DISPONIBLE' ? CLASE_DISPONIBLE : CLASE_BLOQUEADO,
+        clase: CLASE_DISPONIBLE,
         etiqueta: primerNombre(x.nannieId),
       }));
     const servs = servicios
@@ -371,8 +373,13 @@ function Leyenda({ modo }: { modo: Modo }) {
     { c: 'bg-amber-200', t: 'Disponible' },
     { c: 'bg-marca-rojo/40', t: 'Asignado' },
     { c: 'bg-marca-azul/40', t: 'Ofertado' },
-    { c: 'bg-slate-300', t: 'Bloqueado' },
-    ...(modo === 'nannie' ? [{ c: 'bg-[#5B292D]/40', t: 'Rechazado' }] : []),
+    // Bloqueado y Rechazado solo aparecen en la vista "Por nannie".
+    ...(modo === 'nannie'
+      ? [
+          { c: 'bg-slate-300', t: 'Bloqueado' },
+          { c: 'bg-[#5B292D]/40', t: 'Rechazado' },
+        ]
+      : []),
   ];
   return (
     <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-texto-suave">

@@ -161,6 +161,7 @@ model Nannie {
   ofertas         OfertaRespuesta[]
   cierres         CierreMes[]
   bonos           Bono[]
+  nominaPagos     NominaPago[]
 
   @@map("nannies")
 }
@@ -177,6 +178,20 @@ model Bono {
 
   @@index([nannieId])
   @@map("bonos")
+}
+
+// Marca de nómina pagada (M3): registra que a una nannie ya se le pagó su
+// nómina de una semana (dom-sáb). La EXISTENCIA del registro = pagado; se
+// quita el registro para desmarcar. `semana` es el domingo de inicio.
+model NominaPago {
+  id       String   @id @default(cuid())
+  nannieId String
+  nannie   Nannie   @relation(fields: [nannieId], references: [id])
+  semana   DateTime @db.Date
+  pagadoEn DateTime @default(now())
+
+  @@unique([nannieId, semana])
+  @@map("nomina_pagos")
 }
 
 // ------------------------------------------------------------

@@ -209,24 +209,34 @@ export interface Ingresos {
   rango: { desde: string; hasta: string };
   paquetes: { id: string; familia: string; horas: number; monto: number; fecha: string }[];
   individuales: { id: string; familia: string; tipoServicio: TipoServicio; monto: number; fecha: string }[];
+  horasPagadas: number;
   totales: { paquetes: number; individuales: number; total: number };
 }
 
 export interface NominaServicio {
   id: string;
   tipoServicio: TipoServicio;
+  familia: string;
   fecha: string;
   duracionHoras: number;
   monto: number | null; // null = tarifa pendiente de definir
   motivo?: string;
+}
+export interface NominaBono {
+  id: string;
+  monto: number;
+  motivo: string;
+  fecha: string;
 }
 export interface NominaNannie {
   nannieId: string;
   nombre: string;
   nivel: string;
   servicios: NominaServicio[];
+  bonos: NominaBono[];
   total: number;
   tienePendientes: boolean;
+  pagado: boolean;
 }
 export interface Nomina {
   rango: { desde: string; hasta: string };
@@ -237,6 +247,7 @@ export interface Nomina {
 export interface MargenServicio {
   servicioId: string;
   nannie: string;
+  familia: string;
   zona: string;
   tipoServicio: TipoServicio;
   fecha: string;
@@ -435,6 +446,11 @@ export const api = {
       body: JSON.stringify({ nannieId, monto, motivo }),
     }),
   eliminarBono: (id: string) => req<{ ok: true }>(`/finanzas/bonos/${id}`, { method: 'DELETE' }),
+  marcarPago: (nannieId: string, semana: string, pagado: boolean) =>
+    req<{ ok: true; pagado: boolean }>('/finanzas/nomina/pago', {
+      method: 'POST',
+      body: JSON.stringify({ nannieId, semana, pagado }),
+    }),
   editarFinanza: (servicioId: string, body: { comision?: number | null; ajuste?: number | null }) =>
     req<unknown>(`/finanzas/servicios/${servicioId}`, {
       method: 'PATCH',

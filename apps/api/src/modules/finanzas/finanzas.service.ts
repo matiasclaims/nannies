@@ -43,6 +43,7 @@ export class FinanzasService {
       include: {
         nannie: { select: { id: true, nombre: true, nivelTarifaMesActual: true } },
         paquete: { select: { horasTotales: true } },
+        familia: { select: { nombreContacto: true } },
       },
       orderBy: { fecha: 'asc' },
     });
@@ -57,11 +58,13 @@ export class FinanzasService {
         servicios: {
           id: string;
           tipoServicio: string;
+          familia: string;
           fecha: string;
           duracionHoras: number;
           monto: number | null;
           motivo?: string;
         }[];
+        bonos: { id: string; monto: number; motivo: string; fecha: string }[];
         total: number;
         tienePendientes: boolean;
       }
@@ -80,6 +83,7 @@ export class FinanzasService {
           nombre: n.nombre,
           nivel: n.nivelTarifaMesActual,
           servicios: [],
+          bonos: [],
           total: 0,
           tienePendientes: false,
         };
@@ -88,6 +92,7 @@ export class FinanzasService {
       grupo.servicios.push({
         id: s.id,
         tipoServicio: s.tipoServicio,
+        familia: s.familia?.nombreContacto ?? '—',
         fecha: s.fecha.toISOString().slice(0, 10),
         duracionHoras: s.duracionHoras,
         monto: pago.monto,
@@ -97,8 +102,41 @@ export class FinanzasService {
       else grupo.total += pago.monto;
     }
 
+    // Bonos de la semana: se pagan junto con la nómina (reunión M3 con Paula).
+    // Suman a lo que se le paga a la nannie. Una nannie puede tener bono sin
+    // servicios completados esa semana: se crea su grupo igual.
+    const bonos = await this.prisma.bono.findMany({
+      where: { fecha: { gte, lte } },
+      include: { nannie: { select: { id: true, nombre: true, nivelTarifaMesActual: true } } },
+      orderBy: { fecha: 'asc' },
+    });
+    for (const b of bonos) {
+      const n = b.nannie;
+      let grupo = porNannie.get(n.id);
+      if (!grupo) {
+        grupo = {
+          nannieId: n.id,
+          nombre: n.nombre,
+          nivel: n.nivelTarifaMesActual,
+          servicios: [],
+          bonos: [],
+          total: 0,
+          tienePendientes: false,
+        };
+        porNannie.set(n.id, grupo);
+      }
+      const monto = Number(b.monto);
+      grupo.bonos.push({ id: b.id, monto, motivo: b.motivo, fecha: b.fecha.toISOString().slice(0, 10) });
+      grupo.total += monto;
+    }
+
+    // Marcas de "pagado" de esta semana (una por nannie; existencia = pagado).
+    const semana = new Date(`${desde}T00:00:00.000Z`);
+    const pagos = await this.prisma.nominaPago.findMany({ where: { semana } });
+    const pagadoSet = new Set(pagos.map((p) => p.nannieId));
+
     const nannies = [...porNannie.values()]
-      .map((g) => ({ ...g, total: redondea2(g.total) }))
+      .map((g) => ({ ...g, total: redondea2(g.total), pagado: pagadoSet.has(g.nannieId) }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
     return {
@@ -106,6 +144,22 @@ export class FinanzasService {
       nannies,
       total: redondea2(nannies.reduce((s, g) => s + g.total, 0)),
     };
+  }
+
+  /** Marca o desmarca como pagada la nómina de una nannie en una semana
+   *  (dom-sáb). `semana` = el domingo de inicio. SOLO coordinación. */
+  async marcarPago(nannieId: string, semanaISO: string, pagado: boolean) {
+    const semana = new Date(`${semanaISO}T00:00:00.000Z`);
+    if (pagado) {
+      await this.prisma.nominaPago.upsert({
+        where: { nannieId_semana: { nannieId, semana } },
+        update: {},
+        create: { nannieId, semana },
+      });
+    } else {
+      await this.prisma.nominaPago.deleteMany({ where: { nannieId, semana } });
+    }
+    return { ok: true, pagado };
   }
 
   /**
@@ -124,6 +178,7 @@ export class FinanzasService {
         nannie: { select: { nombre: true, nivelTarifaMesActual: true } },
         finanza: true,
         paquete: { select: { horasTotales: true } },
+        familia: { select: { nombreContacto: true } },
       },
       orderBy: { fecha: 'asc' },
     });
@@ -142,6 +197,7 @@ export class FinanzasService {
       return {
         servicioId: s.id,
         nannie: s.nannie?.nombre ?? '—',
+        familia: s.familia?.nombreContacto ?? '—',
         zona: s.zona,
         tipoServicio: s.tipoServicio,
         fecha: s.fecha.toISOString().slice(0, 10),
@@ -345,6 +401,7 @@ export class FinanzasService {
             select: {
               tipoServicio: true,
               fecha: true,
+              duracionHoras: true,
               familia: { select: { nombreContacto: true } },
             },
           },
@@ -372,10 +429,17 @@ export class FinanzasService {
     const totalPaquetes = listaPaquetes.reduce((s, x) => s + x.monto, 0);
     const totalIndividuales = listaIndividuales.reduce((s, x) => s + x.monto, 0);
 
+    // Horas pagadas del mes (indicador de Paula): el paquete cuenta sus horas
+    // completas al contratarse (aunque se consuman después) + las horas de los
+    // servicios individuales confirmados del mes.
+    const horasPaquetes = paquetes.reduce((s, p) => s + p.horasTotales, 0);
+    const horasIndividuales = individuales.reduce((s, f) => s + f.servicio.duracionHoras, 0);
+
     return {
       rango: { desde, hasta },
       paquetes: listaPaquetes,
       individuales: listaIndividuales,
+      horasPagadas: redondea2(horasPaquetes + horasIndividuales),
       totales: {
         paquetes: redondea2(totalPaquetes),
         individuales: redondea2(totalIndividuales),

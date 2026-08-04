@@ -31,6 +31,7 @@ export const ROLES: readonly Rol[] = ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'] as 
 export type Accion =
   // Finanzas operativas (ingresos, nómina) → Directora + Subdirectora
   | 'finanzas.ver'
+  | 'finanzas.pago.marcar'
   // Finanzas / consecuencia económica → solo DIRECTORA
   | 'finanzas.margen.ver'
   | 'finanzas.comision.fijar'
@@ -56,6 +57,7 @@ export type Accion =
 export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
   // --- Finanzas operativas (ingresos, nómina) ---
   'finanzas.ver': ['DIRECTORA', 'SUBDIRECTORA'],
+  'finanzas.pago.marcar': ['DIRECTORA', 'SUBDIRECTORA'],
 
   // --- Exclusivas de la Directora (dinero / consecuencia) ---
   'finanzas.margen.ver': ['DIRECTORA'],

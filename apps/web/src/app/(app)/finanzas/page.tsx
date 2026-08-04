@@ -1,7 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Package, Receipt, AlertTriangle } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Package,
+  Receipt,
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
+  Circle,
+} from 'lucide-react';
 import {
   api,
   ApiError,
@@ -28,6 +38,17 @@ const NIVEL_LABEL: Record<string, string> = {
   JUNIOR: 'Junior',
   SENIOR: 'Senior',
 };
+
+// Color por nivel (paleta de marca, sin rojo). Progresión: gris → azul →
+// verde → morado → rosa a medida que sube el nivel.
+const NIVEL_CLASE: Record<string, string> = {
+  BASE: 'bg-slate-100 text-slate-600',
+  TARIFA_25HRS: 'bg-marca-azul/15 text-marca-azul',
+  ROOKIE: 'bg-marca-verde/25 text-[#5c7a2e]',
+  JUNIOR: 'bg-marca-morado/15 text-marca-morado',
+  SENIOR: 'bg-marca-rosa/15 text-marca-rosa',
+};
+const nivelClase = (nivel: string) => NIVEL_CLASE[nivel] ?? 'bg-marca-azul/10 text-marca-azul';
 
 const RANGO_LABEL: Record<string, string> = {
   BASE: 'Base',
@@ -166,7 +187,7 @@ export default function FinanzasPage() {
       ) : tab === 'ingresos' && ingresos ? (
         <VistaIngresos data={ingresos} />
       ) : tab === 'nomina' && nomina ? (
-        <VistaNomina data={nomina} />
+        <VistaNomina data={nomina} onCambio={cargar} />
       ) : tab === 'margen' && margen ? (
         <VistaMargen data={margen} nannies={nannies} onGuardar={cargar} />
       ) : tab === 'niveles' && niveles ? (
@@ -184,16 +205,22 @@ export default function FinanzasPage() {
 }
 
 function VistaIngresos({ data }: { data: Ingresos }) {
-  const { paquetes, individuales, totales } = data;
+  const { paquetes, individuales, totales, horasPagadas } = data;
   return (
     <div className="space-y-4">
+      <TarjetaHoras horas={horasPagadas} />
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Tarjeta titulo="Paquetes" monto={totales.paquetes} icon={<Package className="h-4 w-4" />} />
         <Tarjeta titulo="Individuales" monto={totales.individuales} icon={<Receipt className="h-4 w-4" />} />
         <Tarjeta titulo="Total del mes" monto={totales.total} destacado />
       </div>
 
-      <Seccion titulo="Paquetes contratados" nota="El ingreso del paquete se registra al contratarlo.">
+      <Seccion
+        titulo="Paquetes contratados"
+        nota="El ingreso del paquete se registra al contratarlo."
+        count={paquetes.length}
+      >
         {paquetes.length === 0 ? (
           <VacioFila texto="Sin paquetes contratados este mes." />
         ) : (
@@ -206,6 +233,7 @@ function VistaIngresos({ data }: { data: Ingresos }) {
       <Seccion
         titulo="Servicios individuales"
         nota="Servicios sueltos confirmados (aceptados o completados), con su cobro del menú."
+        count={individuales.length}
       >
         {individuales.length === 0 ? (
           <VacioFila texto="Sin servicios individuales este mes." />
@@ -219,55 +247,149 @@ function VistaIngresos({ data }: { data: Ingresos }) {
   );
 }
 
-function VistaNomina({ data }: { data: Nomina }) {
-  const { nannies, total } = data;
+/** Indicador de horas pagadas del mes (Paula): color por rango, sin rojo.
+ *  <400 naranja (bajo) · 400-800 azul (en rango) · >800 verde limón (óptimo).
+ *  El azul es distinto al marca-azul del total en dinero, a propósito. */
+function TarjetaHoras({ horas }: { horas: number }) {
+  const rango =
+    horas < 400
+      ? { bg: '#F97316', label: 'Por debajo del rango' }
+      : horas <= 800
+        ? { bg: '#3B82F6', label: 'En rango' }
+        : { bg: '#9DCD5A', label: 'Rango óptimo' };
   return (
-    <div className="space-y-4">
+    <div className="rounded-2xl p-4 text-white shadow-card" style={{ backgroundColor: rango.bg }}>
+      <p className="flex items-center gap-1.5 text-xs font-medium text-white/85">
+        <Clock className="h-4 w-4" />
+        Horas pagadas del mes
+      </p>
+      <div className="mt-1 flex items-end justify-between gap-2">
+        <p className="text-3xl font-bold leading-none">
+          {horas.toLocaleString('es-MX')} <span className="text-xl font-semibold">h</span>
+        </p>
+        <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-semibold">{rango.label}</span>
+      </div>
+    </div>
+  );
+}
+
+function VistaNomina({ data, onCambio }: { data: Nomina; onCambio: () => Promise<void> }) {
+  const { nannies, total, rango } = data;
+  return (
+    <div className="space-y-3">
       <Tarjeta titulo="Total de la semana (pago del sábado)" monto={total} destacado />
 
       {nannies.length === 0 ? (
         <Aviso texto="No hay servicios completados en esta semana." />
       ) : (
         nannies.map((n) => (
-          <div key={n.nannieId} className="rounded-2xl bg-panel p-4 shadow-card">
-            <div className="mb-2 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-texto-fuerte">{n.nombre}</p>
-                <p className="text-xs text-texto-suave">Nivel: {NIVEL_LABEL[n.nivel] ?? n.nivel}</p>
-              </div>
-              <span className="text-base font-bold text-texto-fuerte">{money(n.total)}</span>
-            </div>
-            <div className="divide-y divide-borde">
-              {n.servicios.map((s) => (
-                <div key={s.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate text-texto-fuerte">
-                      {TIPO_LABEL[s.tipoServicio]} · {s.duracionHoras} h
-                    </p>
-                    <p className="text-xs text-texto-suave">{fechaCorta(s.fecha)}</p>
-                  </div>
-                  {s.monto == null ? (
-                    <span
-                      className="flex shrink-0 items-center gap-1 text-xs font-medium text-amber-700"
-                      title={s.motivo}
-                    >
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      Tarifa pendiente
-                    </span>
-                  ) : (
-                    <span className="shrink-0 font-semibold text-texto-fuerte">{money(s.monto)}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-            {n.tienePendientes && (
-              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                Hay servicios con tarifa aún no definida (no suman al total). Se calcularán cuando se
-                confirme su tabulador.
-              </p>
-            )}
-          </div>
+          <NominaNannieCard key={n.nannieId} n={n} semana={rango.desde} onCambio={onCambio} />
         ))
+      )}
+    </div>
+  );
+}
+
+/** Tarjeta de nómina por nannie, colapsable (Paula: ver solo el resumen y el
+ *  total; al hacer clic se despliega el detalle por servicio + bonos). Incluye
+ *  el check "pagado" por nannie/semana. */
+function NominaNannieCard({
+  n,
+  semana,
+  onCambio,
+}: {
+  n: import('@/lib/api').NominaNannie;
+  semana: string;
+  onCambio: () => Promise<void>;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function togglePagado() {
+    setBusy(true);
+    await api.marcarPago(n.nannieId, semana, !n.pagado).catch(() => undefined);
+    await onCambio();
+    setBusy(false);
+  }
+
+  return (
+    <div className={cn('rounded-2xl bg-panel p-4 shadow-card', n.pagado && 'ring-1 ring-marca-verde/50')}>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setAbierto((v) => !v)}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          <ChevronDown
+            className={cn('h-4 w-4 shrink-0 text-texto-suave transition', abierto && 'rotate-180')}
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-texto-fuerte">{n.nombre}</p>
+            <p className="text-xs text-texto-suave">Nivel: {NIVEL_LABEL[n.nivel] ?? n.nivel}</p>
+          </div>
+        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="text-base font-bold text-texto-fuerte">{money(n.total)}</span>
+          <button
+            type="button"
+            onClick={togglePagado}
+            disabled={busy}
+            className={cn(
+              'flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition disabled:opacity-50',
+              n.pagado
+                ? 'bg-marca-verde/25 text-[#5c7a2e]'
+                : 'border border-borde text-texto-suave hover:bg-fondo',
+            )}
+          >
+            {n.pagado ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
+            {n.pagado ? 'Pagado' : 'Marcar pagado'}
+          </button>
+        </div>
+      </div>
+
+      {abierto && (
+        <>
+          <div className="mt-2 divide-y divide-borde">
+            {n.servicios.map((s) => (
+              <div key={s.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate text-texto-fuerte">
+                    {TIPO_LABEL[s.tipoServicio]} · {s.familia}
+                  </p>
+                  <p className="text-xs text-texto-suave">
+                    {fechaCorta(s.fecha)} · {s.duracionHoras} h
+                  </p>
+                </div>
+                {s.monto == null ? (
+                  <span
+                    className="flex shrink-0 items-center gap-1 text-xs font-medium text-amber-700"
+                    title={s.motivo}
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Tarifa pendiente
+                  </span>
+                ) : (
+                  <span className="shrink-0 font-semibold text-texto-fuerte">{money(s.monto)}</span>
+                )}
+              </div>
+            ))}
+            {n.bonos.map((b) => (
+              <div key={b.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate text-texto-fuerte">Bono · {b.motivo}</p>
+                  <p className="text-xs text-texto-suave">{fechaCorta(b.fecha)}</p>
+                </div>
+                <span className="shrink-0 font-semibold text-[#3b6d11]">+{money(b.monto)}</span>
+              </div>
+            ))}
+          </div>
+          {n.tienePendientes && (
+            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Hay servicios con tarifa aún no definida (no suman al total). Se calcularán cuando se
+              confirme su tabulador.
+            </p>
+          )}
+        </>
       )}
     </div>
   );
@@ -435,9 +557,11 @@ function MargenFila({ s, onGuardar }: { s: import('@/lib/api').MargenServicio; o
     <div className="rounded-xl border border-borde bg-panel p-3 shadow-card">
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-texto-fuerte">{s.nannie}</p>
+          <p className="text-sm font-medium text-texto-fuerte">
+            {TIPO_LABEL[s.tipoServicio]} · {s.familia}
+          </p>
           <p className="text-xs text-texto-suave">
-            {TIPO_LABEL[s.tipoServicio]} · {fechaCorta(s.fecha)} · {s.zona}
+            {s.nannie} · {fechaCorta(s.fecha)} · {s.zona}
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -536,7 +660,12 @@ function VistaNiveles({
                   Rango {RANGO_LABEL[n.rango] ?? n.rango} · {n.serviciosAcumulados} servicios de por vida
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-marca-azul/10 px-2.5 py-0.5 text-xs font-semibold text-marca-azul">
+              <span
+                className={cn(
+                  'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                  nivelClase(n.nivelActual),
+                )}
+              >
                 {NIVEL_LABEL[n.nivelActual] ?? n.nivelActual}
               </span>
             </div>
@@ -607,7 +736,12 @@ function VistaNiveles({
                     {MESES[c.mes - 1]} {c.anio} · {c.horasMesPrevio} h el mes previo
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full bg-marca-azul/10 px-2.5 py-0.5 text-xs font-semibold text-marca-azul">
+                <span
+                  className={cn(
+                    'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                    nivelClase(c.nivelAsignado),
+                  )}
+                >
                   {NIVEL_LABEL[c.nivelAsignado] ?? c.nivelAsignado}
                 </span>
               </div>
@@ -648,12 +782,39 @@ function Tarjeta({
   );
 }
 
-function Seccion({ titulo, nota, children }: { titulo: string; nota: string; children: React.ReactNode }) {
+/** Sección colapsable (Paula: no ver el "chorizote" siempre). Cerrada por
+ *  defecto; el encabezado muestra el título, el conteo y un chevron. */
+function Seccion({
+  titulo,
+  nota,
+  count,
+  children,
+}: {
+  titulo: string;
+  nota: string;
+  count?: number;
+  children: React.ReactNode;
+}) {
+  const [abierto, setAbierto] = useState(false);
   return (
     <div className="rounded-2xl bg-panel p-4 shadow-card">
-      <h2 className="text-sm font-semibold text-texto-fuerte">{titulo}</h2>
-      <p className="mb-2 text-xs text-texto-suave">{nota}</p>
-      <div className="divide-y divide-borde">{children}</div>
+      <button
+        type="button"
+        onClick={() => setAbierto((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 text-left"
+      >
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-texto-fuerte">
+            {titulo}
+            {count != null && <span className="ml-1 font-normal text-texto-suave">({count})</span>}
+          </h2>
+          <p className="text-xs text-texto-suave">{nota}</p>
+        </div>
+        <ChevronDown
+          className={cn('h-4 w-4 shrink-0 text-texto-suave transition', abierto && 'rotate-180')}
+        />
+      </button>
+      {abierto && <div className="mt-2 divide-y divide-borde">{children}</div>}
     </div>
   );
 }
