@@ -10,8 +10,10 @@ import {
 } from '@/lib/api';
 import { TIPO_LABEL, ESTADO_DISPONIBILIDAD } from '@/lib/dominio';
 import type { DiaSemana } from '@/lib/semana';
+import { dividirDiaNoche, horasEntre, TARIFA_NOCHE_MIN } from '@/lib/dia-noche';
 import { cn } from '@/lib/utils';
 import { FormMarcarDisponibilidad } from './form-marcar-disponibilidad';
+import { HoraSelect } from '../hora-select';
 
 const CERRADOS = ['ACEPTADO', 'COMPLETADO', 'CANCELADO'];
 type Modo = 'todas' | 'nannie';
@@ -51,6 +53,15 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
   const [marcando, setMarcando] = useState(false);
   const [modo, setModo] = useState<Modo>('todas');
   const [nannieSel, setNannieSel] = useState<string>('');
+  const [editando, setEditando] = useState<Servicio | null>(null);
+
+  const esCoord = sesion.rol !== 'NANNIE';
+  // Abre el editor de horario al hacer clic en un bloque de servicio (id 's'+id).
+  const abrirEditor = (bloqueId: string) => {
+    if (!esCoord || !bloqueId.startsWith('s')) return;
+    const s = servicios.find((x) => x.id === bloqueId.slice(1));
+    if (s && s.estado !== 'CANCELADO' && s.estado !== 'RECHAZADO') setEditando(s);
+  };
 
   const desde = dias[0]?.fecha;
   const hasta = dias[dias.length - 1]?.fecha;
@@ -198,7 +209,16 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
                 )}
               </p>
             )}
-            <Rejilla dias={dias} bloques={modo === 'todas' ? bloquesTodas : bloquesNannie} />
+            <Rejilla
+              dias={dias}
+              bloques={modo === 'todas' ? bloquesTodas : bloquesNannie}
+              onBloqueClick={esCoord ? abrirEditor : undefined}
+            />
+            {esCoord && (
+              <p className="mt-1 text-[11px] text-texto-suave">
+                Toca un servicio para editar su hora fin (merodeo).
+              </p>
+            )}
             <Leyenda modo={modo} />
           </>
         )}
@@ -269,6 +289,123 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
           )}
         </div>
       </div>
+
+      {editando && (
+        <EditorHorario servicio={editando} onClose={() => setEditando(null)} onGuardado={cargar} />
+      )}
+    </div>
+  );
+}
+
+/** Editor de la hora fin de un servicio (merodeo). Recalcula duración y cobro
+ *  por bandas; si la nueva duración entra a horario de noche, pide la tarifa de
+ *  noche (el backend la usa solo si el servicio aún no tenía una). */
+function EditorHorario({
+  servicio,
+  onClose,
+  onGuardado,
+}: {
+  servicio: Servicio;
+  onClose: () => void;
+  onGuardado: () => Promise<void>;
+}) {
+  const [horaFin, setHoraFin] = useState(servicio.horaFin);
+  const [tarifaNoche, setTarifaNoche] = useState(140);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const nuevaDur = horasEntre(servicio.horaInicio, horaFin);
+  const { horasNoche } = nuevaDur
+    ? dividirDiaNoche(servicio.horaInicio, nuevaDur)
+    : { horasNoche: 0 };
+  const cruzaNoche = horasNoche > 0;
+  const invalida = nuevaDur == null || nuevaDur < 3;
+  const inputCls =
+    'mt-1 w-full rounded-xl border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-marca-azul';
+
+  async function guardar() {
+    if (invalida) {
+      setError('El horario debe dar horas completas y mínimo 3 h.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await api.editarHorario(servicio.id, horaFin, cruzaNoche ? tarifaNoche : undefined);
+      await onGuardado();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo actualizar el servicio.');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-30 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <button
+        type="button"
+        aria-label="Cerrar"
+        className="absolute inset-0 bg-texto-fuerte/30 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-sm rounded-2xl border border-borde bg-panel p-4 shadow-2xl">
+        <h3 className="text-sm font-semibold text-texto-fuerte">Editar horario del servicio</h3>
+        <p className="mt-0.5 text-xs text-texto-suave">
+          {TIPO_LABEL[servicio.tipoServicio]} · {fechaCorta(servicio.fecha)} · empieza{' '}
+          {servicio.horaInicio} (hoy termina {servicio.horaFin})
+        </p>
+
+        <label className="mt-3 block text-xs font-medium text-texto-suave">Nueva hora fin</label>
+        <HoraSelect value={horaFin} onChange={setHoraFin} className={inputCls} />
+
+        {nuevaDur != null && !invalida && (
+          <p className="mt-2 text-xs text-texto-suave">
+            Nueva duración: <strong className="text-texto-fuerte">{nuevaDur} h</strong>
+            {cruzaNoche && (
+              <span className="text-marca-morado"> · entra a horario de noche ({horasNoche} h)</span>
+            )}
+          </p>
+        )}
+
+        {cruzaNoche && (
+          <div className="mt-2">
+            <label className="block text-xs font-medium text-texto-suave">
+              Tarifa de noche ($/h, mín ${TARIFA_NOCHE_MIN})
+            </label>
+            <input
+              type="number"
+              min={TARIFA_NOCHE_MIN}
+              value={tarifaNoche}
+              onChange={(e) => setTarifaNoche(Number(e.target.value))}
+              className={inputCls}
+            />
+          </div>
+        )}
+
+        {error && <p className="mt-2 text-xs text-marca-rojo">{error}</p>}
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-borde px-3 py-1.5 text-sm text-texto-suave hover:bg-fondo"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={guardar}
+            disabled={busy || invalida || (cruzaNoche && tarifaNoche < TARIFA_NOCHE_MIN)}
+            className="rounded-lg bg-marca-azul px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {busy ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -303,7 +440,15 @@ function carriles(items: Bloque[]): BloqueColocado[] {
   return colocados.map(({ it, carril }) => ({ ...it, carril, carriles: total }));
 }
 
-function Rejilla({ dias, bloques }: { dias: DiaSemana[]; bloques: (fecha: string) => Bloque[] }) {
+function Rejilla({
+  dias,
+  bloques,
+  onBloqueClick,
+}: {
+  dias: DiaSemana[];
+  bloques: (fecha: string) => Bloque[];
+  onBloqueClick?: (id: string) => void;
+}) {
   const alto = HORAS.length * ROW;
   return (
     <div className="overflow-x-auto">
@@ -340,25 +485,30 @@ function Rejilla({ dias, bloques }: { dias: DiaSemana[]; bloques: (fecha: string
                   backgroundImage: `repeating-linear-gradient(to bottom, #ffffff, #ffffff ${ROW - 1}px, #eef2f7 ${ROW - 1}px, #eef2f7 ${ROW}px)`,
                 }}
               >
-                {carriles(bloques(d.fecha)).map((b) => (
-                  <div
-                    key={b.id}
-                    title={b.etiqueta}
-                    style={{
-                      position: 'absolute',
-                      top: offset(b.ini) * ROW,
-                      height: Math.max(offset(b.fin) - offset(b.ini), 0.5) * ROW - 2,
-                      left: `calc(${(b.carril / b.carriles) * 100}% + 1px)`,
-                      width: `calc(${100 / b.carriles}% - 2px)`,
-                    }}
-                    className={cn(
-                      'overflow-hidden rounded-md px-1 py-0.5 text-[10px] font-medium leading-tight',
-                      b.clase,
-                    )}
-                  >
-                    {b.etiqueta}
-                  </div>
-                ))}
+                {carriles(bloques(d.fecha)).map((b) => {
+                  const clickable = !!onBloqueClick && b.id.startsWith('s');
+                  return (
+                    <div
+                      key={b.id}
+                      title={b.etiqueta}
+                      onClick={clickable ? () => onBloqueClick!(b.id) : undefined}
+                      style={{
+                        position: 'absolute',
+                        top: offset(b.ini) * ROW,
+                        height: Math.max(offset(b.fin) - offset(b.ini), 0.5) * ROW - 2,
+                        left: `calc(${(b.carril / b.carriles) * 100}% + 1px)`,
+                        width: `calc(${100 / b.carriles}% - 2px)`,
+                      }}
+                      className={cn(
+                        'overflow-hidden rounded-md px-1 py-0.5 text-[10px] font-medium leading-tight',
+                        b.clase,
+                        clickable && 'cursor-pointer hover:brightness-95',
+                      )}
+                    >
+                      {b.etiqueta}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}

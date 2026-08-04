@@ -6,6 +6,7 @@ import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { CrearDisponibilidadDto } from './dto/crear-disponibilidad.dto';
 import { EditarDisponibilidadDto } from './dto/editar-disponibilidad.dto';
 import { CrearServicioDto } from './dto/crear-servicio.dto';
+import { EditarHorarioDto } from './dto/editar-horario.dto';
 import { OfertarDto } from './dto/ofertar.dto';
 import { ResponderOfertaDto } from './dto/responder-oferta.dto';
 
@@ -71,6 +72,13 @@ export class CalendarioController {
   @Post('servicios')
   crearServicio(@Body() dto: CrearServicioDto) {
     return this.calendario.crearServicio(dto);
+  }
+
+  // Editar la hora fin de un servicio (merodeo). Coordinación. Recalcula cobro.
+  @RequiereAccion('servicio.asignar')
+  @Patch('servicios/:id/horario')
+  editarHorario(@Param('id') id: string, @Body() dto: EditarHorarioDto) {
+    return this.calendario.editarHorario(id, dto);
   }
 
   // --- Ofertas y respuestas (1.3) ---

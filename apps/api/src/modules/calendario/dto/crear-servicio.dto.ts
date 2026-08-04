@@ -41,13 +41,19 @@ export class CrearServicioDto {
   @IsString()
   paqueteId?: string;
 
-  // M3 · tarifa POR HORA de la familia para servicios INDIVIDUALES (menú
-  // $95–$160 o monto libre). El cobro total = tarifa × horas. Requerido cuando
-  // formato = INDIVIDUAL; ignorado en PAQUETE (se prorratea el precio del paquete).
+  // M3 · tarifas POR HORA de la familia para INDIVIDUALES. Bandas día/noche
+  // (frontera 19:00): un servicio que cruza se cobra tarifaDia×hDía + tarifaNoche×hNoche.
+  // Requerido según las bandas que toque el horario; ignorado en PAQUETE (prorrateo)
+  // y Ludoteca (usa cobroTotal). La banda de noche tiene piso $125.
   @IsOptional()
   @IsNumber()
   @Min(1)
-  cobroIndividual?: number;
+  tarifaDia?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  tarifaNoche?: number;
 
   // M3 · cobro TOTAL ya calculado (Ludoteca: suma de estaciones). Si viene, se
   // usa tal cual como cobro de la familia (no se multiplica por horas).

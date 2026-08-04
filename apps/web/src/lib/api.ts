@@ -319,7 +319,8 @@ export interface NuevoServicio {
   tipoServicio: TipoServicio;
   formato: Formato;
   paqueteId?: string;
-  cobroIndividual?: number;
+  tarifaDia?: number;
+  tarifaNoche?: number;
   cobroTotal?: number;
   numNinos: number;
   fecha: string;
@@ -367,6 +368,11 @@ export const api = {
 
   completarServicio: (servicioId: string) =>
     req<Servicio>(`/calendario/servicios/${servicioId}/completar`, { method: 'POST' }),
+  editarHorario: (servicioId: string, horaFin: string, tarifaNoche?: number) =>
+    req<Servicio>(`/calendario/servicios/${servicioId}/horario`, {
+      method: 'PATCH',
+      body: JSON.stringify({ horaFin, ...(tarifaNoche != null ? { tarifaNoche } : {}) }),
+    }),
 
   // M1 · Ofertas y respuestas (1.3)
   listarNannies: () => req<NannieLite[]>('/calendario/nannies'),

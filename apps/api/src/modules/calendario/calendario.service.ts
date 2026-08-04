@@ -12,6 +12,8 @@ import { EditarDisponibilidadDto } from './dto/editar-disponibilidad.dto';
 import { CrearServicioDto } from './dto/crear-servicio.dto';
 import { OfertarDto } from './dto/ofertar.dto';
 import { ResponderOfertaDto } from './dto/responder-oferta.dto';
+import { EditarHorarioDto } from './dto/editar-horario.dto';
+import { dividirDiaNoche, TARIFA_NOCHE_MIN } from '../finanzas/dividir-dia-noche';
 
 // Estados desde los que un servicio ya no puede ofertarse.
 const ESTADOS_CERRADOS: EstadoServicio[] = ['ACEPTADO', 'COMPLETADO', 'CANCELADO'];
@@ -149,15 +151,32 @@ export class CalendarioService {
     if (dto.formato === 'PAQUETE' && !dto.paqueteId) {
       throw new BadRequestException('Un servicio de paquete requiere paqueteId');
     }
-    // M3: el cobro individual se captura al CREAR. cobroIndividual es la tarifa
-    // POR HORA (menú $95–$160); cobroTotal es un total ya calculado (Ludoteca:
-    // suma de estaciones). Se requiere uno de los dos para servicios individuales.
-    const cobroSuelto =
-      dto.cobroTotal != null && dto.cobroTotal > 0
-        ? dto.cobroTotal
-        : dto.cobroIndividual != null && dto.cobroIndividual > 0
-          ? redondea2(dto.cobroIndividual * dto.duracionHoras)
-          : null;
+    // M3 · cobro individual al CREAR. Ludoteca: `cobroTotal` (suma de estaciones,
+    // no depende del horario). Los demás individuales: bandas día/noche (frontera
+    // 19:00), cada una a su tarifa por hora; cobro = tarifaDía×hDía + tarifaNoche×hNoche.
+    let tarifaDia: number | null = null;
+    let tarifaNoche: number | null = null;
+    let cobroSuelto: number | null = null;
+    if (dto.cobroTotal != null && dto.cobroTotal > 0) {
+      cobroSuelto = dto.cobroTotal;
+    } else if (dto.formato !== 'PAQUETE') {
+      const { horasDia, horasNoche } = dividirDiaNoche(dto.horaInicio, dto.duracionHoras);
+      if (horasDia > 0) {
+        if (!dto.tarifaDia || dto.tarifaDia <= 0)
+          throw new BadRequestException('Falta la tarifa de día para este servicio.');
+        tarifaDia = dto.tarifaDia;
+      }
+      if (horasNoche > 0) {
+        if (!dto.tarifaNoche || dto.tarifaNoche <= 0)
+          throw new BadRequestException('Falta la tarifa de noche para este servicio.');
+        if (dto.tarifaNoche < TARIFA_NOCHE_MIN)
+          throw new BadRequestException(`La tarifa de noche mínima es $${TARIFA_NOCHE_MIN}.`);
+        tarifaNoche = dto.tarifaNoche;
+      }
+      if (tarifaDia != null || tarifaNoche != null) {
+        cobroSuelto = redondea2((tarifaDia ?? 0) * horasDia + (tarifaNoche ?? 0) * horasNoche);
+      }
+    }
     if (dto.formato === 'INDIVIDUAL' && cobroSuelto == null) {
       throw new BadRequestException(
         'Un servicio individual requiere su cobro a la familia (tarifa por hora o total de estaciones).',
@@ -183,7 +202,7 @@ export class CalendarioService {
       return this.prisma.$transaction(async (tx) => {
         const servicio = await tx.servicio.create({ data });
         await tx.finanzaServicio.create({
-          data: { servicioId: servicio.id, cobroFamilia: cobroSuelto! },
+          data: { servicioId: servicio.id, cobroFamilia: cobroSuelto!, tarifaDia, tarifaNoche },
         });
         return servicio;
       });
@@ -222,6 +241,101 @@ export class CalendarioService {
         data: { servicioId: servicio.id, cobroFamilia: cobroProrrateado },
       });
       return servicio;
+    });
+  }
+
+  /**
+   * Edita la hora fin de un servicio (M3 · "merodeo": la familia se queda más
+   * tiempo). Recalcula duración y cobro y hace cascada a finanzas. Solo
+   * coordinación. El pago a la nannie se recalcula solo (nómina/margen lo
+   * derivan de la duración). Reglas por formato:
+   *  - Individual (bandas): cobro = tarifaDía×hDía + tarifaNoche×hNoche con la
+   *    nueva duración. Si la extensión entra a noche y no había tarifa de noche,
+   *    se toma la que venga en el DTO (piso $125).
+   *  - Paquete: reprorratea el cobro y ajusta las horas consumidas del paquete
+   *    (con verificación de saldo).
+   *  - Ludoteca (cobro por estaciones): el cobro no cambia; solo la duración.
+   */
+  async editarHorario(servicioId: string, dto: EditarHorarioDto) {
+    const servicio = await this.prisma.servicio.findUnique({
+      where: { id: servicioId },
+      include: { finanza: true, paquete: true },
+    });
+    if (!servicio) throw new NotFoundException('Servicio no encontrado');
+    if (servicio.estado === 'CANCELADO' || servicio.estado === 'RECHAZADO') {
+      throw new BadRequestException('No se puede editar un servicio cancelado o rechazado.');
+    }
+
+    const nuevaDur = horasEntre(servicio.horaInicio, dto.horaFin);
+    if (nuevaDur == null || nuevaDur < 3) {
+      throw new BadRequestException('El nuevo horario debe dar horas completas y mínimo 3 h.');
+    }
+    if (nuevaDur === servicio.duracionHoras) return servicio; // sin cambio
+
+    return this.prisma.$transaction(async (tx) => {
+      // Paquete: ajusta las horas consumidas por el delta (con saldo).
+      if (servicio.formato === 'PAQUETE' && servicio.paquete) {
+        const delta = nuevaDur - servicio.duracionHoras;
+        const restantes = servicio.paquete.horasTotales - servicio.paquete.horasConsumidas;
+        if (delta > restantes) {
+          throw new BadRequestException(
+            `El paquete solo tiene ${restantes} h disponibles para extender el servicio.`,
+          );
+        }
+        const consumidas = servicio.paquete.horasConsumidas + delta;
+        await tx.paquete.update({
+          where: { id: servicio.paquete.id },
+          data: {
+            horasConsumidas: consumidas,
+            estado: consumidas >= servicio.paquete.horasTotales ? 'CONSUMIDO' : 'ACTIVO',
+          },
+        });
+      }
+
+      // Recalcula el cobro según el formato.
+      let nuevoCobro: number;
+      let nuevaTarifaNoche = servicio.finanza?.tarifaNoche ? Number(servicio.finanza.tarifaNoche) : null;
+      if (servicio.formato === 'PAQUETE' && servicio.paquete) {
+        nuevoCobro = redondea2(
+          (Number(servicio.paquete.precioTotal) / servicio.paquete.horasTotales) * nuevaDur,
+        );
+      } else if (servicio.finanza?.tarifaDia != null || servicio.finanza?.tarifaNoche != null) {
+        const { horasDia, horasNoche } = dividirDiaNoche(servicio.horaInicio, nuevaDur);
+        const td = servicio.finanza.tarifaDia ? Number(servicio.finanza.tarifaDia) : 0;
+        let tn = nuevaTarifaNoche ?? 0;
+        if (horasNoche > 0 && tn <= 0) {
+          // La extensión entró a horario de noche y no había tarifa de noche.
+          if (!dto.tarifaNoche) {
+            throw new BadRequestException(
+              'La extensión entra a horario de noche: falta la tarifa de noche.',
+            );
+          }
+          tn = dto.tarifaNoche;
+          nuevaTarifaNoche = tn;
+        }
+        if (horasNoche > 0 && tn < TARIFA_NOCHE_MIN) {
+          throw new BadRequestException(`La tarifa de noche mínima es $${TARIFA_NOCHE_MIN}.`);
+        }
+        if (horasDia > 0 && td <= 0) {
+          throw new BadRequestException('Falta la tarifa de día de este servicio.');
+        }
+        nuevoCobro = redondea2(td * horasDia + tn * horasNoche);
+      } else {
+        // Ludoteca u otro cobro total por estaciones: no depende de las horas.
+        nuevoCobro = servicio.finanza ? Number(servicio.finanza.cobroFamilia) : 0;
+      }
+
+      const actualizado = await tx.servicio.update({
+        where: { id: servicioId },
+        data: { horaFin: dto.horaFin, duracionHoras: nuevaDur },
+      });
+      if (servicio.finanza) {
+        await tx.finanzaServicio.update({
+          where: { servicioId },
+          data: { cobroFamilia: nuevoCobro, tarifaNoche: nuevaTarifaNoche },
+        });
+      }
+      return actualizado;
     });
   }
 
@@ -382,4 +496,17 @@ function fecha(valor?: string): Date | undefined {
 /** Redondea a 2 decimales (centavos). */
 function redondea2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/** Horas completas entre dos HH:mm (maneja cruce de medianoche). null si no da
+ *  horas exactas. */
+function horasEntre(inicio: string, fin: string): number | null {
+  const toMin = (s: string) => {
+    const [h, m] = s.split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  let diff = toMin(fin) - toMin(inicio);
+  if (diff <= 0) diff += 24 * 60; // cruza medianoche
+  if (diff % 60 !== 0) return null;
+  return diff / 60;
 }

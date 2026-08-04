@@ -12,6 +12,7 @@ import {
 } from '@/lib/api';
 import { TIPO_LABEL } from '@/lib/dominio';
 import { HoraSelect } from '@/components/hora-select';
+import { dividirDiaNoche, TARIFA_NOCHE_MIN } from '@/lib/dia-noche';
 import { cn } from '@/lib/utils';
 
 const inputCls =
@@ -101,8 +102,11 @@ export default function AsignacionPage() {
   const [exito, setExito] = useState('');
   const [overrideId, setOverrideId] = useState('');
   const [cobrarAPaquete, setCobrarAPaquete] = useState(true);
-  const [cobroIndividual, setCobroIndividual] = useState(125);
-  const [montoLibre, setMontoLibre] = useState(false);
+  // Tarifas por banda (día/noche). Ver dividirDiaNoche: la banda de noche tiene piso $125.
+  const [tarifaDia, setTarifaDia] = useState(125);
+  const [libreDia, setLibreDia] = useState(false);
+  const [tarifaNoche, setTarifaNoche] = useState(140);
+  const [libreNoche, setLibreNoche] = useState(false);
   const [cobroLudoteca, setCobroLudoteca] = useState(0);
 
   const cargarFamilias = () => api.listarFamilias().then(setFamilias).catch(() => undefined);
@@ -117,6 +121,15 @@ export default function AsignacionPage() {
     [form.horaInicio, form.horaFin],
   );
 
+  // Partición día/noche del cobro (frontera 19:00). Un servicio que cruza se
+  // cobra en dos bandas; el pago a la nannie no se afecta (va por duración total).
+  const { horasDia, horasNoche } = useMemo(
+    () => (duracion ? dividirDiaNoche(form.horaInicio, duracion) : { horasDia: 0, horasNoche: 0 }),
+    [form.horaInicio, duracion],
+  );
+  const cobroIndividualTotal =
+    (horasDia > 0 ? tarifaDia * horasDia : 0) + (horasNoche > 0 ? tarifaNoche * horasNoche : 0);
+
   const familiaSel = familias.find((f) => f.id === form.familiaId);
   const paquete = familiaSel?.paqueteActivo ?? null;
   const usaPaquete = paquete !== null && cobrarAPaquete;
@@ -125,7 +138,11 @@ export default function AsignacionPage() {
     usaPaquete && paquete !== null && duracion !== null ? duracion > paquete.horasRestantes : false;
   const cobroInvalido =
     !usaPaquete &&
-    (esLudoteca ? cobroLudoteca <= 0 : !cobroIndividual || cobroIndividual <= 0);
+    (esLudoteca
+      ? cobroLudoteca <= 0
+      : (horasDia > 0 && tarifaDia <= 0) ||
+        (horasNoche > 0 && (tarifaNoche <= 0 || tarifaNoche < TARIFA_NOCHE_MIN)) ||
+        cobroIndividualTotal <= 0);
   const bloqueaOferta = excedePaquete || cobroInvalido;
 
   function set<K extends keyof Form>(k: K, v: Form[K]) {
@@ -180,7 +197,8 @@ export default function AsignacionPage() {
         tipoServicio: form.tipoServicio,
         formato: usaPaquete ? 'PAQUETE' : 'INDIVIDUAL',
         paqueteId: usaPaquete && paquete ? paquete.id : undefined,
-        cobroIndividual: usaPaquete || esLudoteca ? undefined : cobroIndividual,
+        tarifaDia: usaPaquete || esLudoteca || horasDia <= 0 ? undefined : tarifaDia,
+        tarifaNoche: usaPaquete || esLudoteca || horasNoche <= 0 ? undefined : tarifaNoche,
         cobroTotal: !usaPaquete && esLudoteca ? cobroLudoteca : undefined,
         numNinos: form.numNinos,
         fecha: form.fecha,
@@ -377,48 +395,51 @@ export default function AsignacionPage() {
           </div>
         )}
 
-        {/* Cobro individual: tarifa por hora (menú + monto libre); total = tarifa × horas */}
+        {/* Cobro individual por bandas día/noche (frontera 19:00). Si el horario
+            cruza, aparecen las dos bandas; cada una a su tarifa/hora. */}
         {!usaPaquete && !esLudoteca && (
           <div className="rounded-xl border border-borde bg-fondo p-3">
-            <p className="mb-2 text-xs font-medium text-texto-suave">Cobro a la familia (por hora)</p>
-            <div className="flex flex-wrap gap-2">
-              <select
-                value={montoLibre ? 'libre' : String(cobroIndividual)}
-                onChange={(e) => {
-                  if (e.target.value === 'libre') {
-                    setMontoLibre(true);
-                  } else {
-                    setMontoLibre(false);
-                    setCobroIndividual(Number(e.target.value));
-                  }
-                }}
-                className={cn(inputCls, 'flex-1')}
-              >
-                {COBRO_OPCIONES.map((o) => (
-                  <option key={o.precio} value={o.precio}>
-                    ${o.precio}/h · {o.incluye}
-                  </option>
-                ))}
-                <option value="libre">Otra tarifa…</option>
-              </select>
-              {montoLibre && (
-                <input
-                  type="number"
-                  min={1}
-                  value={cobroIndividual}
-                  onChange={(e) => setCobroIndividual(Number(e.target.value))}
-                  className={cn(inputCls, 'w-32')}
-                  placeholder="Tarifa $/h"
+            <p className="mb-2 text-xs font-medium text-texto-suave">
+              Cobro a la familia (por hora)
+              {horasDia > 0 && horasNoche > 0 && (
+                <span className="text-marca-morado"> · el horario cruza día/noche</span>
+              )}
+            </p>
+            <div className="space-y-2">
+              {horasDia > 0 && (
+                <BandaCobro
+                  label="Día (hasta 19:00)"
+                  horas={horasDia}
+                  tarifa={tarifaDia}
+                  setTarifa={setTarifaDia}
+                  libre={libreDia}
+                  setLibre={setLibreDia}
+                  piso={0}
+                />
+              )}
+              {horasNoche > 0 && (
+                <BandaCobro
+                  label="Noche (19:00–07:00)"
+                  horas={horasNoche}
+                  tarifa={tarifaNoche}
+                  setTarifa={setTarifaNoche}
+                  libre={libreNoche}
+                  setLibre={setLibreNoche}
+                  piso={TARIFA_NOCHE_MIN}
                 />
               )}
             </div>
-            {duracion !== null && cobroIndividual > 0 && (
+            {duracion !== null && cobroIndividualTotal > 0 && (
               <p className="mt-2 text-xs text-texto-suave">
                 Cobro total:{' '}
                 <strong className="text-texto-fuerte">
-                  ${(cobroIndividual * duracion).toLocaleString('es-MX')}
+                  ${cobroIndividualTotal.toLocaleString('es-MX')}
                 </strong>{' '}
-                (${cobroIndividual}/h × {duracion} h)
+                {horasDia > 0 && horasNoche > 0
+                  ? `(día $${tarifaDia}×${horasDia} h + noche $${tarifaNoche}×${horasNoche} h)`
+                  : horasNoche > 0
+                    ? `($${tarifaNoche}/h × ${horasNoche} h de noche)`
+                    : `($${tarifaDia}/h × ${horasDia} h)`}
               </p>
             )}
           </div>
@@ -523,6 +544,66 @@ export default function AsignacionPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Una banda de cobro (día o noche): menú de tarifa/hora + "otra tarifa" libre.
+ *  `piso` filtra el menú (noche = solo ≥ $125). */
+function BandaCobro({
+  label,
+  horas,
+  tarifa,
+  setTarifa,
+  libre,
+  setLibre,
+  piso,
+}: {
+  label: string;
+  horas: number;
+  tarifa: number;
+  setTarifa: (n: number) => void;
+  libre: boolean;
+  setLibre: (b: boolean) => void;
+  piso: number;
+}) {
+  const opciones = COBRO_OPCIONES.filter((o) => o.precio >= piso);
+  return (
+    <div>
+      <p className="mb-1 text-[11px] font-medium text-texto-suave">
+        {label} · {horas} h
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <select
+          value={libre ? 'libre' : String(tarifa)}
+          onChange={(e) => {
+            if (e.target.value === 'libre') {
+              setLibre(true);
+            } else {
+              setLibre(false);
+              setTarifa(Number(e.target.value));
+            }
+          }}
+          className={cn(inputCls, 'flex-1')}
+        >
+          {opciones.map((o) => (
+            <option key={o.precio} value={o.precio}>
+              ${o.precio}/h · {o.incluye}
+            </option>
+          ))}
+          <option value="libre">Otra tarifa…</option>
+        </select>
+        {libre && (
+          <input
+            type="number"
+            min={piso || 1}
+            value={tarifa}
+            onChange={(e) => setTarifa(Number(e.target.value))}
+            className={cn(inputCls, 'w-32')}
+            placeholder="Tarifa $/h"
+          />
+        )}
+      </div>
     </div>
   );
 }

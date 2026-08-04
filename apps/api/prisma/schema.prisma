@@ -358,6 +358,10 @@ model FinanzaServicio {
   servicioId    String       @unique
   servicio      Servicio     @relation(fields: [servicioId], references: [id])
   cobroFamilia  Decimal      @db.Decimal(10, 2) // paquete (prorrateo) o individual (menú)
+  // Tarifas por hora por banda (M3, tarifas combinadas día/noche). Se guardan
+  // para poder recalcular el cobro al extender el servicio. Null en paquete/ludoteca.
+  tarifaDia     Decimal?     @db.Decimal(10, 2)
+  tarifaNoche   Decimal?     @db.Decimal(10, 2)
   pagoNannie    Decimal?     @db.Decimal(10, 2) // se fija al COMPLETAR
   nivelAplicado NivelTarifa? // nivel-tarifa con el que se pagó (auditable)
   comision      Decimal?     @db.Decimal(10, 2) // manual, opcional (en blanco por defecto)
