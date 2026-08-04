@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CalendarDays } from 'lucide-react';
-import { api, type Sesion, type Servicio } from '@/lib/api';
+import { CalendarDays, Wallet } from 'lucide-react';
+import { api, type Sesion, type Servicio, type MiReporte } from '@/lib/api';
 import { KpiCard } from '@/components/kpi-card';
+
+const money = (n: number) =>
+  n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 });
 
 export default function PanoramaPage() {
   const [sesion, setSesion] = useState<Sesion | null>(null);
@@ -57,6 +60,7 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
 /** Panorama personal de la nannie: su actividad, sin datos de negocio. */
 function PanoramaNannie({ nombre }: { nombre: string }) {
   const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [reporte, setReporte] = useState<MiReporte | null>(null);
   const hoy = fechaHoy();
 
   useEffect(() => {
@@ -69,6 +73,7 @@ function PanoramaNannie({ nombre }: { nombre: string }) {
       .listarServicios({ desde: `${a}-${mm}-01`, hasta: `${a}-${mm}-${String(ultimo).padStart(2, '0')}` })
       .then(setServicios)
       .catch(() => undefined);
+    api.miReporte().then(setReporte).catch(() => undefined);
   }, []);
 
   const ofertas = servicios.filter((s) => s.estado === 'OFERTADO').length;
@@ -92,6 +97,33 @@ function PanoramaNannie({ nombre }: { nombre: string }) {
         </div>
       </section>
 
+      {/* Mi reporte (autoservicio): ganancias del mes + horas por semana. Sin
+          datos de familias/niños (solo lo suyo). */}
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
+        <div className="flex flex-col justify-center rounded-2xl bg-marca-verde/15 p-5 shadow-card">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-[#5c7a2e]">
+            <Wallet className="h-4 w-4" />
+            Lo que llevas ganado este mes
+          </p>
+          <p className="mt-1 text-3xl font-bold text-[#3b6d11]">
+            {reporte ? money(reporte.ganadoMes) : '—'}
+          </p>
+          <p className="mt-1 text-xs text-texto-suave">
+            {reporte ? `${reporte.serviciosMes} servicios · ${reporte.horasMes} h` : 'Cargando…'}
+          </p>
+        </div>
+
+        <div className="rounded-2xl bg-panel p-4 shadow-card">
+          <p className="text-sm font-semibold text-texto-fuerte">Horas por semana</p>
+          <p className="mb-3 text-xs text-texto-suave">Tus últimas 8 semanas</p>
+          {reporte ? (
+            <BarrasHoras datos={reporte.horasPorSemana} />
+          ) : (
+            <div className="h-32 animate-pulse rounded-xl bg-fondo" />
+          )}
+        </div>
+      </div>
+
       <Link
         href="/calendario"
         className="flex items-center justify-center gap-2 rounded-2xl bg-panel p-4 text-sm font-semibold text-marca-azul shadow-card transition hover:brightness-95"
@@ -99,10 +131,35 @@ function PanoramaNannie({ nombre }: { nombre: string }) {
         <CalendarDays className="h-5 w-5" />
         Ir a mi calendario (disponibilidad y ofertas)
       </Link>
+    </div>
+  );
+}
 
-      <p className="text-center text-xs text-texto-suave">
-        Aquí verás tu historial y tus ganancias cuando se conecte el panel final (M7).
-      </p>
+/** Gráfica de barras de horas por semana (piel "Claro", sin librerías). */
+function BarrasHoras({ datos }: { datos: { semana: string; horas: number }[] }) {
+  const max = Math.max(1, ...datos.map((d) => d.horas));
+  return (
+    <div>
+      <div className="flex h-32 items-end gap-1.5">
+        {datos.map((d, i) => (
+          <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+            <span className="text-[10px] font-medium text-texto-fuerte">
+              {d.horas > 0 ? d.horas : ''}
+            </span>
+            <div
+              className="w-full rounded-t bg-marca-azul"
+              style={{ height: `${(d.horas / max) * 100}%`, minHeight: d.horas > 0 ? 4 : 0 }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 flex gap-1.5">
+        {datos.map((d, i) => (
+          <span key={i} className="flex-1 text-center text-[9px] leading-tight text-texto-suave">
+            {d.semana}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

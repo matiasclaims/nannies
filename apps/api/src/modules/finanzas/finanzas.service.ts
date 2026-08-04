@@ -447,8 +447,98 @@ export class FinanzasService {
       },
     };
   }
+
+  /**
+   * 3.5 · Reporte propio de la nannie (autoservicio). SOLO lo suyo y SIN datos
+   * de familias/niños (SEGURIDAD): horas, servicios y ganado del mes + horas por
+   * semana (8 semanas) para la gráfica. El pago usa el tabulador con su nivel.
+   */
+  async miReporte(nannieId: string) {
+    const ahora = new Date();
+    const anio = ahora.getUTCFullYear();
+    const mes = ahora.getUTCMonth();
+    const mesGte = new Date(Date.UTC(anio, mes, 1));
+    const mesLte = new Date(Date.UTC(anio, mes + 1, 0, 23, 59, 59, 999));
+
+    const domHoy = domingoUTC(ahora);
+    const semanaGte = new Date(domHoy);
+    semanaGte.setUTCDate(semanaGte.getUTCDate() - 7 * 7); // 8 semanas (incluye la actual)
+    const rangoGte = semanaGte < mesGte ? semanaGte : mesGte;
+
+    const nannie = await this.prisma.nannie.findUnique({
+      where: { id: nannieId },
+      select: { nivelTarifaMesActual: true },
+    });
+    const vacio = {
+      mes: { anio, mes: mes + 1 },
+      horasMes: 0,
+      serviciosMes: 0,
+      ganadoMes: 0,
+      horasPorSemana: [] as { semana: string; horas: number }[],
+    };
+    if (!nannie) return vacio;
+
+    const servicios = await this.prisma.servicio.findMany({
+      where: { nannieId, estado: 'COMPLETADO', fecha: { gte: rangoGte } },
+      include: { paquete: { select: { horasTotales: true } } },
+    });
+
+    let horasMes = 0;
+    let serviciosMes = 0;
+    let ganadoMes = 0;
+    for (const s of servicios) {
+      if (s.fecha < mesGte || s.fecha > mesLte) continue;
+      horasMes += s.duracionHoras;
+      serviciosMes += 1;
+      const pago = pagoDeServicio(
+        s.tipoServicio,
+        s.duracionHoras,
+        s.formato,
+        nannie.nivelTarifaMesActual,
+        { paqueteHoras: s.paquete?.horasTotales, ludotecaMontaje: s.ludotecaMontaje },
+      );
+      if (pago.monto != null) ganadoMes += pago.monto;
+    }
+
+    // Horas por semana (8 semanas, dom-sáb) para la gráfica de barras.
+    const semanas = [] as { inicio: number; label: string; horas: number }[];
+    for (let i = 7; i >= 0; i--) {
+      const ini = new Date(domHoy);
+      ini.setUTCDate(ini.getUTCDate() - 7 * i);
+      semanas.push({ inicio: ini.getTime(), label: etiquetaSemanaCorta(ini), horas: 0 });
+    }
+    for (const s of servicios) {
+      const t = domingoUTC(s.fecha).getTime();
+      const b = semanas.find((w) => w.inicio === t);
+      if (b) b.horas += s.duracionHoras;
+    }
+
+    return {
+      mes: { anio, mes: mes + 1 },
+      horasMes,
+      serviciosMes,
+      ganadoMes: redondea2(ganadoMes),
+      horasPorSemana: semanas.map((w) => ({ semana: w.label, horas: w.horas })),
+    };
+  }
 }
 
 function redondea2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/** Domingo (00:00 UTC) de la semana de una fecha. */
+function domingoUTC(d: Date): Date {
+  const x = new Date(d);
+  x.setUTCDate(x.getUTCDate() - x.getUTCDay());
+  x.setUTCHours(0, 0, 0, 0);
+  return x;
+}
+
+const MESES_CORTOS = [
+  'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+];
+/** Etiqueta corta "26 jul" del domingo de inicio de semana. */
+function etiquetaSemanaCorta(dom: Date): string {
+  return `${dom.getUTCDate()} ${MESES_CORTOS[dom.getUTCMonth()]}`;
 }

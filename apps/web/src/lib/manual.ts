@@ -203,7 +203,8 @@ export const MANUAL: CapituloModulo[] = [
           pasos: [
             'Entra a "Finanzas" › pestaña "Ingresos".',
             'Con las flechas ‹ › cambias de mes.',
-            'Ves los paquetes contratados (su ingreso se registra al contratar) y los servicios individuales confirmados, con su total.',
+            'Arriba está el indicador de horas pagadas del mes, con color por rango: naranja (bajo), azul (en rango) y verde limón (óptimo).',
+            'Las listas de paquetes contratados y de servicios individuales se despliegan al tocar su título (para no ver todo el detalle de golpe).',
           ],
           nota: 'El ingreso de un paquete se cuenta una sola vez, al contratarlo. Los servicios de ese paquete ya no se vuelven a cobrar.',
         },
@@ -214,19 +215,32 @@ export const MANUAL: CapituloModulo[] = [
           pasos: [
             'Entra a "Finanzas" › pestaña "Nómina".',
             'Con las flechas ‹ › cambias de semana.',
-            'Cada nannie muestra sus servicios y su total a pagar.',
+            'Cada nannie muestra su total; toca su tarjeta para desplegar el detalle de sus servicios (cada uno con la familia).',
+            'Cuando le pagues, marca su botón "Pagado" (queda con un check verde para que no la confundas).',
           ],
-          nota: 'Solo cuentan los servicios que la nannie marcó como "Terminado". Los paquetes y la Ludoteca ya calculan su pago automáticamente.',
+          nota: 'Solo cuentan los servicios que la nannie marcó como "Terminado". Los paquetes y la Ludoteca calculan su pago automáticamente. Los bonos que registres se suman a su nómina de la semana.',
         },
         {
           titulo: 'Cobro al crear un servicio',
           intro:
             'El cobro a la familia se captura al momento de asignar el servicio, en la pantalla de Asignación:',
           pasos: [
-            'Servicio individual: eliges la tarifa por hora del menú ($95–$160) o un monto libre; el sistema multiplica por las horas.',
+            'Servicio individual: eliges la tarifa por hora del menú ($95–$160) o un monto libre. Si el horario cruza las 19:00, el cobro se parte en dos bandas —día y noche— y pones la tarifa de cada una (la de noche desde $125). El sistema suma ambas.',
             'Ludoteca: eliges las estaciones (varias) y el sistema suma su costo.',
             'Servicio de paquete: no se cobra aparte; se descuenta del paquete y se prorratea.',
           ],
+          nota: 'La banda de noche solo afecta lo que cobras a la familia; a la nannie se le paga por la duración total, igual de día que de noche.',
+        },
+        {
+          titulo: 'Extender un servicio (la familia se queda más)',
+          intro:
+            'Si una familia se queda más tiempo del reservado (el "merodeo"), no hace falta recapturar nada: extiendes el servicio y todo se recalcula solo.',
+          pasos: [
+            'En el "Calendario", toca el bloque del servicio.',
+            'Cambia la hora fin y guarda.',
+            'El sistema recalcula la duración, el cobro y el pago, y lo refleja en Finanzas.',
+          ],
+          nota: 'Si la extensión entra a horario de noche (después de las 19:00), te pedirá la tarifa de noche. Los servicios cancelados o rechazados no se pueden editar.',
         },
         {
           titulo: 'Margen, comisión y bonos (solo Directora)',
@@ -265,6 +279,12 @@ export const MANUAL: CapituloModulo[] = [
             'Pasa a "Terminado" y entra a tu pago de esa semana.',
           ],
           nota: 'Es importante marcarlo al concluir: un servicio que no marcas como terminado no entra en tu nómina de la semana.',
+        },
+        {
+          titulo: 'Tu reporte (horas y ganancias)',
+          intro:
+            'En tu inicio (Panorama) ves tu propia actividad: lo que llevas ganado en el mes y una gráfica de tus horas por semana. Es solo tuyo.',
+          nota: 'No incluye datos de las familias ni de los niños, y no se descarga: es solo para que sigas tu avance. Tu ganancia se calcula con el tabulador según tu nivel.',
         },
       ],
     },

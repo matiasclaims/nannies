@@ -205,6 +205,14 @@ export interface Candidata {
   faltaFinMin: number;
 }
 
+export interface MiReporte {
+  mes: { anio: number; mes: number };
+  horasMes: number;
+  serviciosMes: number;
+  ganadoMes: number;
+  horasPorSemana: { semana: string; horas: number }[];
+}
+
 export interface Ingresos {
   rango: { desde: string; hasta: string };
   paquetes: { id: string; familia: string; horas: number; monto: number; fecha: string }[];
@@ -444,6 +452,7 @@ export const api = {
     req<Ingresos>(`/finanzas/ingresos${qs({ desde, hasta })}`),
   nomina: (desde: string, hasta: string) =>
     req<Nomina>(`/finanzas/nomina${qs({ desde, hasta })}`),
+  miReporte: () => req<MiReporte>('/finanzas/mi-reporte'),
   margen: (desde: string, hasta: string) =>
     req<Margen>(`/finanzas/margen${qs({ desde, hasta })}`),
   crearBono: (nannieId: string, monto: number, motivo: string) =>

@@ -51,7 +51,8 @@ export type Accion =
   | 'disponibilidad.propia.editar'
   | 'oferta.responder'
   | 'servicio.completar'
-  | 'reporte.propio.escribir';
+  | 'reporte.propio.escribir'
+  | 'reporte.propio.ver';
 
 /** Qué roles pueden ejecutar cada acción. */
 export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
@@ -81,6 +82,7 @@ export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
   'oferta.responder': ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
   'servicio.completar': ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
   'reporte.propio.escribir': ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
+  'reporte.propio.ver': ['NANNIE'],
 };
 
 /**

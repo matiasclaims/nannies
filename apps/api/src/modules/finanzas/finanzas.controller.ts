@@ -1,6 +1,18 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { FinanzasService } from './finanzas.service';
 import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decorator';
+import { UsuarioActual } from '../../core/auth/decorators/usuario-actual.decorator';
+import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { EditarFinanzaDto } from './dto/editar-finanza.dto';
 import { CerrarMesDto } from './dto/cerrar-mes.dto';
 import { CrearBonoDto } from './dto/crear-bono.dto';
@@ -22,6 +34,14 @@ export class FinanzasController {
   @Get('nomina')
   nomina(@Query('desde') desde: string, @Query('hasta') hasta: string) {
     return this.finanzas.nomina(desde, hasta);
+  }
+
+  // 3.5 · Reporte propio de la nannie (autoservicio, solo lo suyo, sin PII de familias).
+  @RequiereAccion('reporte.propio.ver')
+  @Get('mi-reporte')
+  miReporte(@UsuarioActual() user: UsuarioAutenticado) {
+    if (!user.nannieId) throw new ForbiddenException('Solo una nannie tiene reporte propio.');
+    return this.finanzas.miReporte(user.nannieId);
   }
 
   // Marca/desmarca como pagada la nómina de una nannie (por semana). Operativo.
