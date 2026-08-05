@@ -330,6 +330,8 @@ export interface NuevoServicio {
   tarifaDia?: number;
   tarifaNoche?: number;
   cobroTotal?: number;
+  nivelDia?: 'BASICO' | 'INTERMEDIO' | 'PREMIUM';
+  nivelNoche?: 'BASICO' | 'INTERMEDIO' | 'PREMIUM';
   numNinos: number;
   fecha: string;
   horaInicio: string;

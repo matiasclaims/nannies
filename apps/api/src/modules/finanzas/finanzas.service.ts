@@ -75,6 +75,8 @@ export class FinanzasService {
       const pago = pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, n.nivelTarifaMesActual, {
         paqueteHoras: s.paquete?.horasTotales,
         ludotecaMontaje: s.ludotecaMontaje,
+        plaza: s.plaza,
+        zona: s.zona,
       });
       let grupo = porNannie.get(n.id);
       if (!grupo) {
@@ -191,6 +193,8 @@ export class FinanzasService {
         ? pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
             paqueteHoras: s.paquete?.horasTotales,
             ludotecaMontaje: s.ludotecaMontaje,
+            plaza: s.plaza,
+            zona: s.zona,
           })
         : { monto: null as number | null, motivo: 'Servicio sin nannie asignada' };
       const margen = pago.monto == null ? null : redondea2(cobro - pago.monto - comision - ajuste);
@@ -289,12 +293,14 @@ export class FinanzasService {
     const sigMes = mes === 12 ? 1 : mes + 1;
 
     const nannies = await this.prisma.nannie.findMany({
-      select: { id: true, nombre: true, rangoPermanente: true, nivelTarifaMesActual: true },
+      select: { id: true, nombre: true, rangoPermanente: true, nivelTarifaMesActual: true, plaza: true },
     });
 
     return this.prisma.$transaction(async (tx) => {
       const resultados = [];
       for (const n of nannies) {
+        // Querétaro no tiene niveles/programa de crecimiento: no se le fija nivel.
+        if (n.plaza === 'QUERETARO') continue;
         const servs = await tx.servicio.findMany({
           where: { nannieId: n.id, estado: 'COMPLETADO', fecha: { gte, lte } },
           select: { duracionHoras: true },
@@ -495,7 +501,12 @@ export class FinanzasService {
         s.duracionHoras,
         s.formato,
         nannie.nivelTarifaMesActual,
-        { paqueteHoras: s.paquete?.horasTotales, ludotecaMontaje: s.ludotecaMontaje },
+        {
+          paqueteHoras: s.paquete?.horasTotales,
+          ludotecaMontaje: s.ludotecaMontaje,
+          plaza: s.plaza,
+          zona: s.zona,
+        },
       );
       if (pago.monto != null) ganadoMes += pago.monto;
     }

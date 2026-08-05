@@ -7,6 +7,7 @@ import { CrearPaqueteDto } from './dto/crear-paquete.dto';
 import { CrearNinoDto, EditarNinoDto } from './dto/nino.dto';
 import { CrearNotaDto } from './dto/crear-nota.dto';
 import { tramoPorHoras } from './paquetes.tarifa';
+import { tarifasZonaQro } from '../finanzas/queretaro-tarifas';
 
 /** M5 (mínimo para M2): listado y alta rápida de familias + alta de paquete. */
 @Injectable()
@@ -71,13 +72,32 @@ export class FamiliasService {
    * puede tener un solo paquete ACTIVO a la vez.
    */
   async crearPaquete(familiaId: string, dto: CrearPaqueteDto) {
-    const tramo = tramoPorHoras(dto.horas);
-    if (!tramo) {
-      throw new BadRequestException('Paquete inválido: las opciones son 10, 20, 30, 40 o 50 horas.');
-    }
-
     const familia = await this.prisma.familia.findUnique({ where: { id: familiaId } });
     if (!familia) throw new NotFoundException('Familia no encontrada');
+
+    // Precio del paquete: Querétaro por ZONA (solo 10/20/30); Toluca por tramo fijo.
+    let horasTotales: number;
+    let precioTotal: number;
+    if (familia.plaza === 'QUERETARO') {
+      const tz = tarifasZonaQro(familia.zona ?? '');
+      if (!tz) {
+        throw new BadRequestException(
+          'La familia de Querétaro no tiene una zona válida asignada para tarifar el paquete.',
+        );
+      }
+      if (dto.horas !== 10 && dto.horas !== 20 && dto.horas !== 30) {
+        throw new BadRequestException('En Querétaro los paquetes son de 10, 20 o 30 horas.');
+      }
+      horasTotales = dto.horas;
+      precioTotal = tz.cobroPaquete[dto.horas];
+    } else {
+      const tramo = tramoPorHoras(dto.horas);
+      if (!tramo) {
+        throw new BadRequestException('Paquete inválido: las opciones son 10, 20, 30, 40 o 50 horas.');
+      }
+      horasTotales = tramo.horas;
+      precioTotal = tramo.precioTotal;
+    }
 
     const yaTiene = await this.prisma.paquete.findFirst({
       where: { familiaId, estado: 'ACTIVO' },
@@ -91,8 +111,8 @@ export class FamiliasService {
     const paquete = await this.prisma.paquete.create({
       data: {
         familiaId,
-        horasTotales: tramo.horas,
-        precioTotal: tramo.precioTotal,
+        horasTotales,
+        precioTotal,
         asignacionManual: dto.asignacionManual ?? false,
       },
       select: { id: true, horasTotales: true, horasConsumidas: true, asignacionManual: true },

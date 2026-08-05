@@ -1,6 +1,7 @@
 import {
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -54,6 +55,16 @@ export class CrearServicioDto {
   @IsNumber()
   @Min(1)
   tarifaNoche?: number;
+
+  // Querétaro · nivel de servicio por banda (el cobro sale del tabulador por
+  // zona). Día: Básico/Intermedio/Premium; noche (desde 19:00): solo Interm/Premium.
+  @IsOptional()
+  @IsIn(['BASICO', 'INTERMEDIO', 'PREMIUM'])
+  nivelDia?: 'BASICO' | 'INTERMEDIO' | 'PREMIUM';
+
+  @IsOptional()
+  @IsIn(['BASICO', 'INTERMEDIO', 'PREMIUM'])
+  nivelNoche?: 'BASICO' | 'INTERMEDIO' | 'PREMIUM';
 
   // M3 · cobro TOTAL ya calculado (Ludoteca: suma de estaciones). Si viene, se
   // usa tal cual como cobro de la familia (no se multiplica por horas).

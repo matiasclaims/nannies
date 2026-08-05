@@ -10,8 +10,9 @@
  *    horas del servicio + 1 h de montaje/desmontaje (interruptor, ON por defecto).
  * Devuelve monto = null solo si falta un dato (p. ej. tamaño de paquete inválido).
  */
-import type { TipoServicio, Formato, NivelTarifa } from '@prisma/client';
+import type { TipoServicio, Formato, NivelTarifa, Plaza } from '@prisma/client';
 import { filaPorClave } from './tabulador-pago';
+import { pagoQueretaro } from './queretaro-pago';
 
 export interface PagoServicio {
   monto: number | null; // null = no se pudo calcular (dato faltante)
@@ -22,6 +23,8 @@ export interface PagoServicio {
 export interface OpcionesPago {
   paqueteHoras?: number; // N del paquete (10/20/30/40/50) para servicios PAQUETE
   ludotecaMontaje?: boolean; // ¿pagar la hora de montaje? (default true)
+  plaza?: Plaza; // QUERETARO usa su tabulador por zona (sin nivel)
+  zona?: string; // zona del servicio (necesaria en Querétaro)
 }
 
 const redondea2 = (n: number) => Math.round(n * 100) / 100;
@@ -33,6 +36,11 @@ export function pagoDeServicio(
   nivel: NivelTarifa,
   opts: OpcionesPago = {},
 ): PagoServicio {
+  // Querétaro: tabulador propio por zona (sin nivel). El resto es Toluca.
+  if (opts.plaza === 'QUERETARO') {
+    return pagoQueretaro(tipo, duracionHoras, formato, opts.zona ?? '', opts);
+  }
+
   // PAQUETE: prorrateo del pago del paquete por horas de la sesión.
   if (formato === 'PAQUETE') {
     const n = opts.paqueteHoras;

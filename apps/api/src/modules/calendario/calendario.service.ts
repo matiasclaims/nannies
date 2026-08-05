@@ -14,6 +14,7 @@ import { OfertarDto } from './dto/ofertar.dto';
 import { ResponderOfertaDto } from './dto/responder-oferta.dto';
 import { EditarHorarioDto } from './dto/editar-horario.dto';
 import { dividirDiaNoche, TARIFA_NOCHE_MIN } from '../finanzas/dividir-dia-noche';
+import { tarifasZonaQro } from '../finanzas/queretaro-tarifas';
 
 // Estados desde los que un servicio ya no puede ofertarse.
 const ESTADOS_CERRADOS: EstadoServicio[] = ['ACEPTADO', 'COMPLETADO', 'CANCELADO'];
@@ -151,36 +152,64 @@ export class CalendarioService {
     if (dto.formato === 'PAQUETE' && !dto.paqueteId) {
       throw new BadRequestException('Un servicio de paquete requiere paqueteId');
     }
-    // M3 · cobro individual al CREAR. Ludoteca: `cobroTotal` (suma de estaciones,
-    // no depende del horario). Los demás individuales: bandas día/noche (frontera
-    // 19:00), cada una a su tarifa por hora; cobro = tarifaDía×hDía + tarifaNoche×hNoche.
+    // M3 · cobro individual al CREAR. Querétaro: esquema por zona (sin Ludoteca);
+    // fiesta por hora, individuales con bandas por NIVEL (día: Básico/Interm/Premium;
+    // noche: solo Interm/Premium). Toluca: Ludoteca por `cobroTotal`; los demás por
+    // bandas de MONTO ($95–$160, noche ≥ $125). cobro = tarifaDía×hDía + tarifaNoche×hNoche.
     let tarifaDia: number | null = null;
     let tarifaNoche: number | null = null;
     let cobroSuelto: number | null = null;
-    if (dto.cobroTotal != null && dto.cobroTotal > 0) {
-      cobroSuelto = dto.cobroTotal;
-    } else if (dto.formato !== 'PAQUETE') {
+
+    if (dto.formato !== 'PAQUETE') {
       const { horasDia, horasNoche } = dividirDiaNoche(dto.horaInicio, dto.duracionHoras);
-      if (horasDia > 0) {
-        if (!dto.tarifaDia || dto.tarifaDia <= 0)
-          throw new BadRequestException('Falta la tarifa de día para este servicio.');
-        tarifaDia = dto.tarifaDia;
-      }
-      if (horasNoche > 0) {
-        if (!dto.tarifaNoche || dto.tarifaNoche <= 0)
-          throw new BadRequestException('Falta la tarifa de noche para este servicio.');
-        if (dto.tarifaNoche < TARIFA_NOCHE_MIN)
-          throw new BadRequestException(`La tarifa de noche mínima es $${TARIFA_NOCHE_MIN}.`);
-        tarifaNoche = dto.tarifaNoche;
-      }
-      if (tarifaDia != null || tarifaNoche != null) {
-        cobroSuelto = redondea2((tarifaDia ?? 0) * horasDia + (tarifaNoche ?? 0) * horasNoche);
+
+      if (dto.plaza === 'QUERETARO') {
+        if (dto.tipoServicio === 'LUDOTECA_MOVIL') {
+          throw new BadRequestException('Querétaro no ofrece servicio de Ludoteca.');
+        }
+        const tz = tarifasZonaQro(dto.zona);
+        if (!tz) throw new BadRequestException(`Zona de Querétaro no reconocida: "${dto.zona}".`);
+        if (dto.tipoServicio === 'NANNIE_FIESTA_PLAYDATE') {
+          cobroSuelto = redondea2(tz.cobroFiestaHora * dto.duracionHoras);
+        } else {
+          if (horasDia > 0) {
+            if (!dto.nivelDia)
+              throw new BadRequestException('Falta el nivel de día (Básico, Intermedio o Premium).');
+            tarifaDia = tz.cobroIndividualHora[dto.nivelDia];
+          }
+          if (horasNoche > 0) {
+            if (!dto.nivelNoche)
+              throw new BadRequestException('Falta el nivel de noche (Intermedio o Premium).');
+            if (dto.nivelNoche === 'BASICO')
+              throw new BadRequestException(
+                'De noche (desde 19:00) el nivel Básico no está disponible en Querétaro.',
+              );
+            tarifaNoche = tz.cobroIndividualHora[dto.nivelNoche];
+          }
+          cobroSuelto = redondea2((tarifaDia ?? 0) * horasDia + (tarifaNoche ?? 0) * horasNoche);
+        }
+      } else if (dto.cobroTotal != null && dto.cobroTotal > 0) {
+        cobroSuelto = dto.cobroTotal; // Ludoteca (Toluca): total de estaciones
+      } else {
+        if (horasDia > 0) {
+          if (!dto.tarifaDia || dto.tarifaDia <= 0)
+            throw new BadRequestException('Falta la tarifa de día para este servicio.');
+          tarifaDia = dto.tarifaDia;
+        }
+        if (horasNoche > 0) {
+          if (!dto.tarifaNoche || dto.tarifaNoche <= 0)
+            throw new BadRequestException('Falta la tarifa de noche para este servicio.');
+          if (dto.tarifaNoche < TARIFA_NOCHE_MIN)
+            throw new BadRequestException(`La tarifa de noche mínima es $${TARIFA_NOCHE_MIN}.`);
+          tarifaNoche = dto.tarifaNoche;
+        }
+        if (tarifaDia != null || tarifaNoche != null) {
+          cobroSuelto = redondea2((tarifaDia ?? 0) * horasDia + (tarifaNoche ?? 0) * horasNoche);
+        }
       }
     }
     if (dto.formato === 'INDIVIDUAL' && cobroSuelto == null) {
-      throw new BadRequestException(
-        'Un servicio individual requiere su cobro a la familia (tarifa por hora o total de estaciones).',
-      );
+      throw new BadRequestException('Un servicio individual requiere su cobro a la familia.');
     }
 
     const data: Prisma.ServicioCreateInput = {

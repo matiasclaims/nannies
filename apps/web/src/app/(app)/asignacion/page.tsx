@@ -13,6 +13,14 @@ import {
 import { TIPO_LABEL } from '@/lib/dominio';
 import { HoraSelect } from '@/components/hora-select';
 import { dividirDiaNoche, TARIFA_NOCHE_MIN } from '@/lib/dia-noche';
+import {
+  ZONAS_QRO,
+  COBRO_QRO,
+  NIVEL_QRO_LABEL,
+  nivelesQro,
+  esZonaQro,
+  type NivelServicioQro,
+} from '@/lib/queretaro';
 import { cn } from '@/lib/utils';
 
 const inputCls =
@@ -108,6 +116,9 @@ export default function AsignacionPage() {
   const [tarifaNoche, setTarifaNoche] = useState(140);
   const [libreNoche, setLibreNoche] = useState(false);
   const [cobroLudoteca, setCobroLudoteca] = useState(0);
+  // Querétaro: nivel de servicio por banda (el cobro sale del tabulador por zona).
+  const [nivelDiaQro, setNivelDiaQro] = useState<NivelServicioQro>('BASICO');
+  const [nivelNocheQro, setNivelNocheQro] = useState<NivelServicioQro>('INTERMEDIO');
 
   const cargarFamilias = () => api.listarFamilias().then(setFamilias).catch(() => undefined);
 
@@ -115,6 +126,13 @@ export default function AsignacionPage() {
     void cargarFamilias();
     api.listarNannies().then(setNannies).catch(() => undefined);
   }, []);
+
+  // Querétaro no ofrece Ludoteca: si queda seleccionada al cambiar de plaza, reajusta.
+  useEffect(() => {
+    if (form.plaza === 'QUERETARO' && form.tipoServicio === 'LUDOTECA_MOVIL') {
+      setForm((f) => ({ ...f, tipoServicio: 'DAYCARE' }));
+    }
+  }, [form.plaza, form.tipoServicio]);
 
   const duracion = useMemo(
     () => calcDuracion(form.horaInicio, form.horaFin),
@@ -133,16 +151,32 @@ export default function AsignacionPage() {
   const familiaSel = familias.find((f) => f.id === form.familiaId);
   const paquete = familiaSel?.paqueteActivo ?? null;
   const usaPaquete = paquete !== null && cobrarAPaquete;
+  const esQro = form.plaza === 'QUERETARO';
+  const esFiesta = form.tipoServicio === 'NANNIE_FIESTA_PLAYDATE';
   const esLudoteca = form.tipoServicio === 'LUDOTECA_MOVIL';
+
+  // Cobro de Querétaro: por zona. Fiesta por hora; individuales con bandas por
+  // nivel (día: 3 opciones; noche: solo Interm/Premium).
+  const cobroQroZona = esQro && esZonaQro(form.zona) ? COBRO_QRO[form.zona] : null;
+  const cobroQroTotal =
+    !cobroQroZona || duracion == null
+      ? 0
+      : esFiesta
+        ? cobroQroZona.fiestaHora * duracion
+        : (horasDia > 0 ? cobroQroZona.individualHora[nivelDiaQro] * horasDia : 0) +
+          (horasNoche > 0 ? cobroQroZona.individualHora[nivelNocheQro] * horasNoche : 0);
+
   const excedePaquete =
     usaPaquete && paquete !== null && duracion !== null ? duracion > paquete.horasRestantes : false;
   const cobroInvalido =
     !usaPaquete &&
-    (esLudoteca
-      ? cobroLudoteca <= 0
-      : (horasDia > 0 && tarifaDia <= 0) ||
-        (horasNoche > 0 && (tarifaNoche <= 0 || tarifaNoche < TARIFA_NOCHE_MIN)) ||
-        cobroIndividualTotal <= 0);
+    (esQro
+      ? !esZonaQro(form.zona) // en Qro basta con elegir zona válida (niveles con default)
+      : esLudoteca
+        ? cobroLudoteca <= 0
+        : (horasDia > 0 && tarifaDia <= 0) ||
+          (horasNoche > 0 && (tarifaNoche <= 0 || tarifaNoche < TARIFA_NOCHE_MIN)) ||
+          cobroIndividualTotal <= 0);
   const bloqueaOferta = excedePaquete || cobroInvalido;
 
   function set<K extends keyof Form>(k: K, v: Form[K]) {
@@ -197,9 +231,11 @@ export default function AsignacionPage() {
         tipoServicio: form.tipoServicio,
         formato: usaPaquete ? 'PAQUETE' : 'INDIVIDUAL',
         paqueteId: usaPaquete && paquete ? paquete.id : undefined,
-        tarifaDia: usaPaquete || esLudoteca || horasDia <= 0 ? undefined : tarifaDia,
-        tarifaNoche: usaPaquete || esLudoteca || horasNoche <= 0 ? undefined : tarifaNoche,
+        tarifaDia: usaPaquete || esLudoteca || esQro || horasDia <= 0 ? undefined : tarifaDia,
+        tarifaNoche: usaPaquete || esLudoteca || esQro || horasNoche <= 0 ? undefined : tarifaNoche,
         cobroTotal: !usaPaquete && esLudoteca ? cobroLudoteca : undefined,
+        nivelDia: !usaPaquete && esQro && !esFiesta && horasDia > 0 ? nivelDiaQro : undefined,
+        nivelNoche: !usaPaquete && esQro && !esFiesta && horasNoche > 0 ? nivelNocheQro : undefined,
         numNinos: form.numNinos,
         fecha: form.fecha,
         horaInicio: form.horaInicio,
@@ -275,11 +311,13 @@ export default function AsignacionPage() {
               onChange={(e) => set('tipoServicio', e.target.value as TipoServicio)}
               className={inputCls}
             >
-              {(Object.keys(TIPO_LABEL) as TipoServicio[]).map((t) => (
-                <option key={t} value={t}>
-                  {TIPO_LABEL[t]}
-                </option>
-              ))}
+              {(Object.keys(TIPO_LABEL) as TipoServicio[])
+                .filter((t) => !esQro || t !== 'LUDOTECA_MOVIL')
+                .map((t) => (
+                  <option key={t} value={t}>
+                    {TIPO_LABEL[t]}
+                  </option>
+                ))}
             </select>
           </Campo>
 
@@ -295,12 +333,23 @@ export default function AsignacionPage() {
           </Campo>
 
           <Campo label="Zona">
-            <input
-              value={form.zona}
-              onChange={(e) => set('zona', e.target.value)}
-              className={inputCls}
-              placeholder="Ej. Metepec"
-            />
+            {esQro ? (
+              <select value={form.zona} onChange={(e) => set('zona', e.target.value)} className={inputCls}>
+                {!esZonaQro(form.zona) && <option value="">Elegir zona…</option>}
+                {ZONAS_QRO.map((z) => (
+                  <option key={z} value={z}>
+                    {z}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                value={form.zona}
+                onChange={(e) => set('zona', e.target.value)}
+                className={inputCls}
+                placeholder="Ej. Metepec"
+              />
+            )}
           </Campo>
 
           <Campo label="Fecha">
@@ -395,9 +444,69 @@ export default function AsignacionPage() {
           </div>
         )}
 
+        {/* Querétaro: cobro por zona. Fiesta por hora; individuales con bandas
+            por nivel (día: 3 opciones; noche desde 19:00: solo Interm/Premium). */}
+        {!usaPaquete && esQro && (
+          <div className="rounded-xl border border-borde bg-fondo p-3">
+            <p className="mb-2 text-xs font-medium text-texto-suave">
+              Cobro a la familia (Querétaro{form.zona ? ` · ${form.zona}` : ''})
+              {!esFiesta && horasDia > 0 && horasNoche > 0 && (
+                <span className="text-marca-morado"> · el horario cruza día/noche</span>
+              )}
+            </p>
+            {!esZonaQro(form.zona) ? (
+              <p className="text-xs text-marca-rojo">Elige la zona de Querétaro para tarifar.</p>
+            ) : esFiesta ? (
+              <p className="text-xs text-texto-suave">
+                Nannie de fiesta:{' '}
+                <strong className="text-texto-fuerte">${cobroQroZona!.fiestaHora}/h</strong>
+                {duracion != null && ` × ${duracion} h = `}
+                {duracion != null && (
+                  <strong className="text-texto-fuerte">
+                    ${cobroQroTotal.toLocaleString('es-MX')}
+                  </strong>
+                )}
+              </p>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  {horasDia > 0 && (
+                    <BandaNivelQro
+                      label="Día (hasta 19:00)"
+                      horas={horasDia}
+                      zona={form.zona}
+                      nivel={nivelDiaQro}
+                      setNivel={setNivelDiaQro}
+                      esNoche={false}
+                    />
+                  )}
+                  {horasNoche > 0 && (
+                    <BandaNivelQro
+                      label="Noche (19:00–01:00)"
+                      horas={horasNoche}
+                      zona={form.zona}
+                      nivel={nivelNocheQro}
+                      setNivel={setNivelNocheQro}
+                      esNoche
+                    />
+                  )}
+                </div>
+                {duracion != null && cobroQroTotal > 0 && (
+                  <p className="mt-2 text-xs text-texto-suave">
+                    Cobro total:{' '}
+                    <strong className="text-texto-fuerte">
+                      ${cobroQroTotal.toLocaleString('es-MX')}
+                    </strong>
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* Cobro individual por bandas día/noche (frontera 19:00). Si el horario
             cruza, aparecen las dos bandas; cada una a su tarifa/hora. */}
-        {!usaPaquete && !esLudoteca && (
+        {!usaPaquete && !esLudoteca && !esQro && (
           <div className="rounded-xl border border-borde bg-fondo p-3">
             <p className="mb-2 text-xs font-medium text-texto-suave">
               Cobro a la familia (por hora)
@@ -604,6 +713,46 @@ function BandaCobro({
           />
         )}
       </div>
+    </div>
+  );
+}
+
+/** Banda de nivel de servicio en Querétaro (día/noche). El cobro sale del
+ *  tabulador por zona; de noche (desde 19:00) no está disponible Básico. */
+function BandaNivelQro({
+  label,
+  horas,
+  zona,
+  nivel,
+  setNivel,
+  esNoche,
+}: {
+  label: string;
+  horas: number;
+  zona: string;
+  nivel: NivelServicioQro;
+  setNivel: (n: NivelServicioQro) => void;
+  esNoche: boolean;
+}) {
+  const opciones = nivelesQro(esNoche);
+  const rates = esZonaQro(zona) ? COBRO_QRO[zona].individualHora : null;
+  return (
+    <div>
+      <p className="mb-1 text-[11px] font-medium text-texto-suave">
+        {label} · {horas} h
+      </p>
+      <select
+        value={nivel}
+        onChange={(e) => setNivel(e.target.value as NivelServicioQro)}
+        className={inputCls}
+      >
+        {opciones.map((n) => (
+          <option key={n} value={n}>
+            {NIVEL_QRO_LABEL[n]}
+            {rates ? ` · $${rates[n]}/h` : ''}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

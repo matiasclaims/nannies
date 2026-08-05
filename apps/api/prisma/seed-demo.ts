@@ -45,7 +45,7 @@ async function main(): Promise<void> {
     { id: 'nannie-jackie', nombre: 'Jackeline', plaza: 'TOLUCA' as const, zonas: ['Toluca Centro'], rango: 'ROOKIE' as const, serv: 55, nivel: 'ROOKIE' as const },
     { id: 'seed-nannie-01', nombre: 'Nannie Demo', plaza: 'TOLUCA' as const, zonas: ['Metepec'], rango: 'BASE' as const, serv: 12, nivel: 'BASE' as const },
     { id: 'seed-nannie-02', nombre: 'Beatriz', plaza: 'TOLUCA' as const, zonas: ['Toluca Centro'], rango: 'SENIOR' as const, serv: 140, nivel: 'SENIOR' as const },
-    { id: 'seed-nannie-03', nombre: 'Carla', plaza: 'QUERETARO' as const, zonas: ['Centro'], rango: 'BASE' as const, serv: 3, nivel: 'BASE' as const },
+    { id: 'seed-nannie-03', nombre: 'Carla', plaza: 'QUERETARO' as const, zonas: ['Corazón', 'Conecta'], rango: 'BASE' as const, serv: 3, nivel: 'BASE' as const },
   ];
   for (const n of nannies) {
     const datos = {
@@ -89,6 +89,21 @@ async function main(): Promise<void> {
       email: 'familia.ejemplo@correo.mx',
       plaza: 'TOLUCA',
       zona: 'Metepec',
+      estado: 'ACTIVA',
+    },
+  });
+
+  // --- Familia de Querétaro (demo del tabulador por zona) ---
+  await prisma.familia.upsert({
+    where: { id: 'fam-qro' },
+    update: { plaza: 'QUERETARO', zona: 'Corazón' },
+    create: {
+      id: 'fam-qro',
+      nombreContacto: 'Familia Querétaro',
+      telefono: '442 555 1212',
+      email: 'qro.ejemplo@correo.mx',
+      plaza: 'QUERETARO',
+      zona: 'Corazón',
       estado: 'ACTIVA',
     },
   });
@@ -145,6 +160,11 @@ async function main(): Promise<void> {
     data: { familiaId: 'fam-demo', horasTotales: 30, horasConsumidas: 4, precioTotal: 3750 },
   });
 
+  // --- Paquete de Querétaro (precio por zona: Corazón 20 h = $2,650) ---
+  await prisma.paquete.create({
+    data: { familiaId: 'fam-qro', horasTotales: 20, horasConsumidas: 0, precioTotal: 2650 },
+  });
+
   // --- Disponibilidad de la semana ---
   const disp: {
     nannieId: string;
@@ -159,6 +179,7 @@ async function main(): Promise<void> {
     { nannieId: 'seed-nannie-02', d: 2, ini: '08:00', fin: '12:00' },
     { nannieId: 'seed-nannie-02', d: 3, ini: '14:00', fin: '19:00', estado: 'BLOQUEADO' },
     { nannieId: 'seed-nannie-03', d: 1, ini: '10:00', fin: '15:00' },
+    { nannieId: 'seed-nannie-03', d: 3, ini: '09:00', fin: '15:00' },
     { nannieId: 'nannie-jackie', d: 3, ini: '09:00', fin: '13:00' },
   ];
   for (const b of disp) {
@@ -284,6 +305,49 @@ async function main(): Promise<void> {
       data: { servicioId: s.id, nannieId: c.nannieId, respuesta: 'ACEPTO' },
     });
     await prisma.finanzaServicio.create({ data: { servicioId: s.id, cobroFamilia: c.cobro } });
+  }
+
+  // --- Servicios COMPLETADOS de QUERÉTARO (Carla). El pago se calcula por zona
+  //     (sin nivel); aquí solo se guarda el cobro y, en individuales, la tarifa
+  //     por hora resuelta del nivel elegido. Familia/zona: fam-qro / Corazón. ---
+  const qroCompletados: {
+    tipo: TipoServicio;
+    d: number;
+    ini: string;
+    fin: string;
+    dur: number;
+    ninos: number;
+    cobro: number;
+    tarifaDia?: number;
+  }[] = [
+    // Daycare Corazón, día, nivel Básico ($160/h × 5 h = 800). Pago = 103.33/h.
+    { tipo: 'DAYCARE', d: 1, ini: '10:00', fin: '15:00', dur: 5, ninos: 2, cobro: 800, tarifaDia: 160 },
+    // Nannie de fiesta Corazón ($280/h × 3 h = 840). Pago = 170/h.
+    { tipo: 'NANNIE_FIESTA_PLAYDATE', d: 2, ini: '12:00', fin: '15:00', dur: 3, ninos: 5, cobro: 840 },
+  ];
+  for (const c of qroCompletados) {
+    const s = await prisma.servicio.create({
+      data: {
+        familiaId: 'fam-qro',
+        nannieId: 'seed-nannie-03',
+        plaza: 'QUERETARO',
+        zona: 'Corazón',
+        tipoServicio: c.tipo,
+        formato: 'INDIVIDUAL',
+        numNinos: c.ninos,
+        fecha: dia(c.d),
+        horaInicio: c.ini,
+        horaFin: c.fin,
+        duracionHoras: c.dur,
+        estado: 'COMPLETADO',
+      },
+    });
+    await prisma.ofertaRespuesta.create({
+      data: { servicioId: s.id, nannieId: 'seed-nannie-03', respuesta: 'ACEPTO' },
+    });
+    await prisma.finanzaServicio.create({
+      data: { servicioId: s.id, cobroFamilia: c.cobro, tarifaDia: c.tarifaDia },
+    });
   }
 
   // H) Servicio RECHAZADO (para ver el panel de rechazadas en burdeos). La
