@@ -18,6 +18,7 @@ const TOLERANCIA_MIN = 60;
 export interface Candidata {
   nannieId: string;
   nombre: string;
+  foto: string | null;
   zonas: string[];
   rango: RangoPermanente;
   serviciosSemana: number;
@@ -104,6 +105,7 @@ export class AsignacionService {
       candidatas.push({
         nannieId: n.id,
         nombre: n.nombre,
+        foto: n.foto,
         zonas: n.zonas,
         rango: n.rangoPermanente,
         serviciosSemana,

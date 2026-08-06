@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { pagoDeServicio } from './pago-servicio';
 import { EditarFinanzaDto } from './dto/editar-finanza.dto';
 import { CrearBonoDto } from './dto/crear-bono.dto';
+import { reglaPorNumero, UMBRAL_STRIKES } from '../nannies/incidencias.catalogo';
 
 /**
  * Nivel-tarifa del mes entrante según horas del mes que cerró (§6.2):
@@ -17,6 +18,18 @@ function nivelPara(horas: number, rango: RangoPermanente): NivelTarifa {
   if (rango === RangoPermanente.JUNIOR) return NivelTarifa.JUNIOR;
   if (rango === RangoPermanente.SENIOR) return NivelTarifa.SENIOR;
   return NivelTarifa.TARIFA_25HRS; // rango Base pero cumplió 25 h
+}
+
+/**
+ * Rango de carrera según servicios de por vida (umbrales confirmados por Paula):
+ * Rookie 50, Junior 80, Senior 130. Se asciende automático en el cierre de mes;
+ * no baja. (Querétaro no tiene rango: el cierre lo omite.)
+ */
+function rangoPorServicios(serviciosAcumulados: number): RangoPermanente {
+  if (serviciosAcumulados >= 130) return RangoPermanente.SENIOR;
+  if (serviciosAcumulados >= 80) return RangoPermanente.JUNIOR;
+  if (serviciosAcumulados >= 50) return RangoPermanente.ROOKIE;
+  return RangoPermanente.BASE;
 }
 
 // Servicios individuales que cuentan como ingreso (confirmados; se excluyen
@@ -41,9 +54,19 @@ export class FinanzasService {
     const servicios = await this.prisma.servicio.findMany({
       where: { estado: 'COMPLETADO', nannieId: { not: null }, fecha: { gte, lte } },
       include: {
-        nannie: { select: { id: true, nombre: true, nivelTarifaMesActual: true } },
+        nannie: {
+          select: {
+            id: true,
+            nombre: true,
+            foto: true,
+            nivelTarifaMesActual: true,
+            documentacionCompleta: true,
+            capacitacionCompleta: true,
+          },
+        },
         paquete: { select: { horasTotales: true } },
         familia: { select: { nombreContacto: true } },
+        finanza: { select: { descuentoNannie: true } },
       },
       orderBy: { fecha: 'asc' },
     });
@@ -54,6 +77,7 @@ export class FinanzasService {
       {
         nannieId: string;
         nombre: string;
+        foto: string | null;
         nivel: string;
         servicios: {
           id: string;
@@ -62,11 +86,14 @@ export class FinanzasService {
           fecha: string;
           duracionHoras: number;
           monto: number | null;
+          descuento?: number;
           motivo?: string;
         }[];
         bonos: { id: string; monto: number; motivo: string; fecha: string }[];
         total: number;
         tienePendientes: boolean;
+        documentacionCompleta: boolean;
+        capacitacionCompleta: boolean;
       }
     >();
 
@@ -83,25 +110,32 @@ export class FinanzasService {
         grupo = {
           nannieId: n.id,
           nombre: n.nombre,
+          foto: n.foto,
           nivel: n.nivelTarifaMesActual,
           servicios: [],
           bonos: [],
           total: 0,
           tienePendientes: false,
+          documentacionCompleta: n.documentacionCompleta,
+          capacitacionCompleta: n.capacitacionCompleta,
         };
         porNannie.set(n.id, grupo);
       }
+      // Descuento por incidencia (M4): reduce el pago de la nannie.
+      const descuento = s.finanza?.descuentoNannie ? Number(s.finanza.descuentoNannie) : 0;
+      const montoNeto = pago.monto == null ? null : redondea2(pago.monto - descuento);
       grupo.servicios.push({
         id: s.id,
         tipoServicio: s.tipoServicio,
         familia: s.familia?.nombreContacto ?? '—',
         fecha: s.fecha.toISOString().slice(0, 10),
         duracionHoras: s.duracionHoras,
-        monto: pago.monto,
+        monto: montoNeto,
+        descuento: descuento > 0 ? descuento : undefined,
         motivo: pago.motivo,
       });
-      if (pago.monto == null) grupo.tienePendientes = true;
-      else grupo.total += pago.monto;
+      if (montoNeto == null) grupo.tienePendientes = true;
+      else grupo.total += montoNeto;
     }
 
     // Bonos de la semana: se pagan junto con la nómina (reunión M3 con Paula).
@@ -109,7 +143,18 @@ export class FinanzasService {
     // servicios completados esa semana: se crea su grupo igual.
     const bonos = await this.prisma.bono.findMany({
       where: { fecha: { gte, lte } },
-      include: { nannie: { select: { id: true, nombre: true, nivelTarifaMesActual: true } } },
+      include: {
+        nannie: {
+          select: {
+            id: true,
+            nombre: true,
+            foto: true,
+            nivelTarifaMesActual: true,
+            documentacionCompleta: true,
+            capacitacionCompleta: true,
+          },
+        },
+      },
       orderBy: { fecha: 'asc' },
     });
     for (const b of bonos) {
@@ -119,11 +164,14 @@ export class FinanzasService {
         grupo = {
           nannieId: n.id,
           nombre: n.nombre,
+          foto: n.foto,
           nivel: n.nivelTarifaMesActual,
           servicios: [],
           bonos: [],
           total: 0,
           tienePendientes: false,
+          documentacionCompleta: n.documentacionCompleta,
+          capacitacionCompleta: n.capacitacionCompleta,
         };
         porNannie.set(n.id, grupo);
       }
@@ -137,8 +185,30 @@ export class FinanzasService {
     const pagos = await this.prisma.nominaPago.findMany({ where: { semana } });
     const pagadoSet = new Set(pagos.map((p) => p.nannieId));
 
+    // Recordatorio M4: descuentos por strikes ya identificados (3 strikes = un
+    // −20%) que la Directora aún no aplica a un servicio. Se cuentan strikes
+    // ACUMULANDO de todas las nannies de esta nómina.
+    const ids = [...porNannie.keys()];
+    const incidencias = ids.length
+      ? await this.prisma.incidencia.findMany({
+          where: { nannieId: { in: ids }, estado: 'ACUMULANDO' },
+          select: { nannieId: true, regla: true },
+        })
+      : [];
+    const strikeConteo = new Map<string, number>();
+    for (const inc of incidencias) {
+      if (reglaPorNumero(inc.regla)?.esStrike) {
+        strikeConteo.set(inc.nannieId, (strikeConteo.get(inc.nannieId) ?? 0) + 1);
+      }
+    }
+
     const nannies = [...porNannie.values()]
-      .map((g) => ({ ...g, total: redondea2(g.total), pagado: pagadoSet.has(g.nannieId) }))
+      .map((g) => ({
+        ...g,
+        total: redondea2(g.total),
+        pagado: pagadoSet.has(g.nannieId),
+        strikesPendientes: Math.floor((strikeConteo.get(g.nannieId) ?? 0) / UMBRAL_STRIKES),
+      }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
     return {
@@ -197,7 +267,10 @@ export class FinanzasService {
             zona: s.zona,
           })
         : { monto: null as number | null, motivo: 'Servicio sin nannie asignada' };
-      const margen = pago.monto == null ? null : redondea2(cobro - pago.monto - comision - ajuste);
+      // Descuento por incidencia (M4): reduce el pago de la nannie → margen sube.
+      const descuentoNannie = s.finanza?.descuentoNannie ? Number(s.finanza.descuentoNannie) : 0;
+      const margen =
+        pago.monto == null ? null : redondea2(cobro - (pago.monto - descuentoNannie) - comision - ajuste);
       return {
         servicioId: s.id,
         nannie: s.nannie?.nombre ?? '—',
@@ -207,6 +280,7 @@ export class FinanzasService {
         fecha: s.fecha.toISOString().slice(0, 10),
         cobro,
         pago: pago.monto,
+        descuentoNannie,
         comision,
         ajuste,
         margen,
@@ -241,6 +315,7 @@ export class FinanzasService {
       totales: {
         cobro: suma((x) => x.cobro),
         pago: suma((x) => x.pago ?? 0),
+        descuentoNannie: suma((x) => x.descuentoNannie),
         comision: suma((x) => x.comision),
         ajuste: suma((x) => x.ajuste),
         bonos: totalBonos,
@@ -293,7 +368,14 @@ export class FinanzasService {
     const sigMes = mes === 12 ? 1 : mes + 1;
 
     const nannies = await this.prisma.nannie.findMany({
-      select: { id: true, nombre: true, rangoPermanente: true, nivelTarifaMesActual: true, plaza: true },
+      select: {
+        id: true,
+        nombre: true,
+        rangoPermanente: true,
+        nivelTarifaMesActual: true,
+        serviciosAcumulados: true,
+        plaza: true,
+      },
     });
 
     return this.prisma.$transaction(async (tx) => {
@@ -306,11 +388,14 @@ export class FinanzasService {
           select: { duracionHoras: true },
         });
         const horas = servs.reduce((s, x) => s + x.duracionHoras, 0);
-        const nivel = nivelPara(horas, n.rangoPermanente);
+        // Ascenso de rango automático por servicios de por vida, y con ese rango
+        // el nivel-tarifa del mes según las horas.
+        const rango = rangoPorServicios(n.serviciosAcumulados);
+        const nivel = nivelPara(horas, rango);
 
         await tx.nannie.update({
           where: { id: n.id },
-          data: { nivelTarifaMesActual: nivel },
+          data: { rangoPermanente: rango, nivelTarifaMesActual: nivel },
         });
         await tx.cierreMes.upsert({
           where: { nannieId_anio_mes: { nannieId: n.id, anio: sigAnio, mes: sigMes } },

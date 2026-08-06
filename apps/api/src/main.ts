@@ -2,17 +2,23 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
     // Mensajes de error discretos: sin stack traces al cliente (SEGURIDAD §10)
     logger: ['error', 'warn', 'log'],
+    // Sustituimos el body parser por defecto para subir el límite (fotos de
+    // perfil en data URL). El tope real de tamaño lo aplica el DTO.
+    bodyParser: false,
   });
 
   // Cabeceras de seguridad
   app.use(helmet());
   app.use(cookieParser(process.env.COOKIE_SECRET));
+  app.use(json({ limit: '1mb' }));
+  app.use(urlencoded({ extended: true, limit: '1mb' }));
 
   // CORS restrictivo: solo el dominio del sistema (SEGURIDAD §10)
   app.enableCors({

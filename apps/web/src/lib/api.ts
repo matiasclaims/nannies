@@ -13,6 +13,84 @@ export interface Sesion {
   nombre: string;
   rol: Rol;
   nannieId: string | null;
+  debeCambiarPassword: boolean;
+  foto: string | null;
+}
+
+// M4 · Expediente de nannie
+export interface NannieExpediente {
+  id: string;
+  nombre: string;
+  foto: string | null;
+  correo: string | null;
+  telefono: string | null;
+  plaza: Plaza;
+  zonas: string[];
+  color: string | null;
+  rango: string;
+  estado: 'ACTIVA' | 'PAUSA' | 'PRUEBA' | 'BAJA';
+  documentacionCompleta: boolean;
+  capacitacionCompleta: boolean;
+  documentosEntregados: string[];
+  cursosCompletados: string[];
+  serviciosAcumulados: number;
+  tieneCuenta: boolean;
+}
+export interface NanniePerfil extends NannieExpediente {
+  nivelActual: string;
+}
+export interface NuevaNannie {
+  nombre: string;
+  correo: string;
+  telefono?: string;
+  plaza: Plaza;
+  zonas: string[];
+  color?: string;
+}
+
+// M4 · Incidencias
+export interface ReglaIncidencia {
+  numero: number;
+  situacion: string;
+  esStrike: boolean;
+  tipo?: string;
+  consecuenciaTexto: string;
+}
+export interface PenalidadPendiente {
+  clave: string;
+  regla: number | null;
+  descripcion: string;
+  tipo: string;
+  pct?: number;
+  consecuenciaTexto: string;
+  ocurrenciasIds: string[];
+}
+export interface IncidenciaHistorial {
+  id: string;
+  regla: number;
+  situacion: string;
+  fecha: string;
+  registradaPor: string;
+  nota: string | null;
+  estado: string;
+}
+export interface BandejaNannie {
+  historial: IncidenciaHistorial[];
+  pendientes: PenalidadPendiente[];
+  progreso: { etiqueta: string; actual: number; umbral: number }[];
+}
+export interface ServicioDescuento {
+  servicioId: string;
+  fecha: string;
+  tipo: TipoServicio;
+  pago: number | null;
+  descuentoActual: number;
+}
+export interface AltaNannieResultado {
+  id: string;
+  correo: string;
+  correoEnviado: boolean;
+  passwordTemporal?: string;
 }
 
 /** Error con código HTTP; status = 0 si ni siquiera se pudo conectar. */
@@ -196,6 +274,7 @@ export interface NinoInput {
 export interface Candidata {
   nannieId: string;
   nombre: string;
+  foto: string | null;
   zonas: string[];
   rango: Rango;
   serviciosSemana: number;
@@ -227,7 +306,8 @@ export interface NominaServicio {
   familia: string;
   fecha: string;
   duracionHoras: number;
-  monto: number | null; // null = tarifa pendiente de definir
+  monto: number | null; // null = tarifa pendiente de definir (ya neto del descuento)
+  descuento?: number; // descuento por incidencia aplicado a este servicio
   motivo?: string;
 }
 export interface NominaBono {
@@ -239,12 +319,16 @@ export interface NominaBono {
 export interface NominaNannie {
   nannieId: string;
   nombre: string;
+  foto: string | null;
   nivel: string;
   servicios: NominaServicio[];
   bonos: NominaBono[];
   total: number;
   tienePendientes: boolean;
   pagado: boolean;
+  documentacionCompleta: boolean;
+  capacitacionCompleta: boolean;
+  strikesPendientes: number;
 }
 export interface Nomina {
   rango: { desde: string; hasta: string };
@@ -261,6 +345,7 @@ export interface MargenServicio {
   fecha: string;
   cobro: number;
   pago: number | null;
+  descuentoNannie: number;
   comision: number;
   ajuste: number;
   margen: number | null;
@@ -281,6 +366,7 @@ export interface Margen {
   totales: {
     cobro: number;
     pago: number;
+    descuentoNannie: number;
     comision: number;
     ajuste: number;
     bonos: number;
@@ -354,6 +440,12 @@ export const api = {
     }),
   logout: () => req<{ ok: true }>('/auth/logout', { method: 'POST' }),
   me: () => req<Sesion>('/auth/me'),
+  // Foto de perfil propia (barra lateral).
+  miFoto: (foto: string | null) =>
+    req<{ ok: true; foto: string | null }>('/auth/mi-foto', {
+      method: 'PATCH',
+      body: JSON.stringify({ foto }),
+    }),
 
   // M1 · Calendario
   listarServicios: (f: { desde?: string; hasta?: string; nannieId?: string; estado?: string }) =>
@@ -455,6 +547,48 @@ export const api = {
   nomina: (desde: string, hasta: string) =>
     req<Nomina>(`/finanzas/nomina${qs({ desde, hasta })}`),
   miReporte: () => req<MiReporte>('/finanzas/mi-reporte'),
+
+  // M4 · Expediente de nannies
+  listarExpedientes: () => req<NannieExpediente[]>('/nannies'),
+  perfilNannie: (id: string) => req<NanniePerfil>(`/nannies/${id}`),
+  crearNannie: (body: NuevaNannie) =>
+    req<AltaNannieResultado>('/nannies', { method: 'POST', body: JSON.stringify(body) }),
+  editarNannie: (id: string, body: Partial<Omit<NannieExpediente, 'id' | 'correo' | 'tieneCuenta' | 'serviciosAcumulados'>>) =>
+    req<{ ok: true }>(`/nannies/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  darDeBajaNannie: (id: string) =>
+    req<{ ok: true }>(`/nannies/${id}/baja`, { method: 'POST' }),
+  fotoNannie: (id: string, foto: string | null) =>
+    req<{ ok: true; foto: string | null }>(`/nannies/${id}/foto`, {
+      method: 'PATCH',
+      body: JSON.stringify({ foto }),
+    }),
+  cambiarMiPassword: (actual: string, nueva: string) =>
+    req<{ ok: true }>('/nannies/mi-password', {
+      method: 'POST',
+      body: JSON.stringify({ actual, nueva }),
+    }),
+
+  // M4 · Incidencias
+  catalogoIncidencias: () => req<ReglaIncidencia[]>('/incidencias/catalogo'),
+  incidenciasDeNannie: (id: string) => req<BandejaNannie>(`/incidencias/nannie/${id}`),
+  registrarIncidencia: (nannieId: string, regla: number, nota?: string) =>
+    req<{ ok: true }>('/incidencias', {
+      method: 'POST',
+      body: JSON.stringify({ nannieId, regla, ...(nota ? { nota } : {}) }),
+    }),
+  aplicarIncidencia: (
+    nannieId: string,
+    ocurrenciasIds: string[],
+    extra?: { servicioId?: string; monto?: number },
+  ) =>
+    req<{ ok: true; aplicado?: string }>('/incidencias/aplicar', {
+      method: 'POST',
+      body: JSON.stringify({ nannieId, ocurrenciasIds, ...(extra ?? {}) }),
+    }),
+  serviciosDescuento: (id: string) =>
+    req<ServicioDescuento[]>(`/incidencias/nannie/${id}/servicios`),
+  descartarIncidencia: (id: string) =>
+    req<{ ok: true }>(`/incidencias/${id}/descartar`, { method: 'POST' }),
   margen: (desde: string, hasta: string) =>
     req<Margen>(`/finanzas/margen${qs({ desde, hasta })}`),
   crearBono: (nannieId: string, monto: number, motivo: string) =>

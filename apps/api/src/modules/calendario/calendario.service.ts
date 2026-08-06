@@ -380,9 +380,20 @@ export class CalendarioService {
     if (servicio.estado !== 'ACEPTADO') {
       throw new BadRequestException('Solo un servicio aceptado se puede marcar como terminado.');
     }
-    return this.prisma.servicio.update({
-      where: { id: servicioId },
-      data: { estado: 'COMPLETADO' },
+    // Al completar, cuenta un servicio de por vida (base del ascenso de rango,
+    // que se evalúa en el cierre de mes). Transición ACEPTADO→COMPLETADO única.
+    return this.prisma.$transaction(async (tx) => {
+      const actualizado = await tx.servicio.update({
+        where: { id: servicioId },
+        data: { estado: 'COMPLETADO' },
+      });
+      if (servicio.nannieId) {
+        await tx.nannie.update({
+          where: { id: servicio.nannieId },
+          data: { serviciosAcumulados: { increment: 1 } },
+        });
+      }
+      return actualizado;
     });
   }
 

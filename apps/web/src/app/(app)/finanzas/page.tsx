@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   ChevronLeft,
   ChevronRight,
@@ -24,6 +25,7 @@ import {
 } from '@/lib/api';
 import { TIPO_LABEL } from '@/lib/dominio';
 import { inicioSemana, sumarSemanas, rangoSemana, etiquetaSemana } from '@/lib/semana';
+import { Avatar } from '@/components/avatar';
 import { cn } from '@/lib/utils';
 
 const MESES = [
@@ -323,6 +325,7 @@ function NominaNannieCard({
           <ChevronDown
             className={cn('h-4 w-4 shrink-0 text-texto-suave transition', abierto && 'rotate-180')}
           />
+          <Avatar foto={n.foto} nombre={n.nombre} size={36} />
           <div className="min-w-0">
             <p className="text-sm font-semibold text-texto-fuerte">{n.nombre}</p>
             <p className="text-xs text-texto-suave">Nivel: {NIVEL_LABEL[n.nivel] ?? n.nivel}</p>
@@ -347,6 +350,39 @@ function NominaNannieCard({
         </div>
       </div>
 
+      {(!n.documentacionCompleta || !n.capacitacionCompleta) && (
+        <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            {!n.documentacionCompleta && !n.capacitacionCompleta
+              ? 'Documentación y capacitación incompletas'
+              : !n.documentacionCompleta
+                ? 'Documentación incompleta'
+                : 'Capacitación incompleta'}
+            {' — considera retener el pago hasta que la complete.'}
+          </span>
+        </div>
+      )}
+
+      {n.strikesPendientes > 0 && (
+        <div className="mt-2 flex items-start justify-between gap-2 rounded-lg bg-[#5B292D]/8 px-3 py-2 text-xs text-[#5B292D]">
+          <span className="flex items-start gap-1.5">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              {n.strikesPendientes === 1
+                ? 'Descuento por 3 strikes pendiente de aplicar (−20% de un servicio).'
+                : `${n.strikesPendientes} descuentos por strikes pendientes de aplicar (−20% c/u).`}
+            </span>
+          </span>
+          <Link
+            href={`/nannies/${n.nannieId}`}
+            className="shrink-0 font-semibold underline underline-offset-2 hover:no-underline"
+          >
+            Aplicar
+          </Link>
+        </div>
+      )}
+
       {abierto && (
         <>
           <div className="mt-2 divide-y divide-borde">
@@ -358,6 +394,9 @@ function NominaNannieCard({
                   </p>
                   <p className="text-xs text-texto-suave">
                     {fechaCorta(s.fecha)} · {s.duracionHoras} h
+                    {s.descuento ? (
+                      <span className="text-[#5B292D]"> · −{money(s.descuento)} incidencia</span>
+                    ) : null}
                   </p>
                 </div>
                 {s.monto == null ? (
@@ -599,6 +638,12 @@ function MargenFila({ s, onGuardar }: { s: import('@/lib/api').MargenServicio; o
           />
         </label>
       </div>
+      {s.descuentoNannie > 0 && (
+        <p className="mt-2 text-xs text-[#5B292D]">
+          Descuento por incidencia al pago: −{money(s.descuentoNannie)}
+          {s.pago != null && ` (pago neto ${money(s.pago - s.descuentoNannie)})`} — el margen ya lo refleja.
+        </p>
+      )}
     </div>
   );
 }

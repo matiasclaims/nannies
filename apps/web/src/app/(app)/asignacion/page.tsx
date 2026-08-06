@@ -11,6 +11,7 @@ import {
   type TipoServicio,
 } from '@/lib/api';
 import { TIPO_LABEL } from '@/lib/dominio';
+import { Avatar } from '@/components/avatar';
 import { HoraSelect } from '@/components/hora-select';
 import { dividirDiaNoche, TARIFA_NOCHE_MIN } from '@/lib/dia-noche';
 import {
@@ -590,27 +591,30 @@ export default function AsignacionPage() {
                   key={c.nannieId}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-borde p-3"
                 >
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 text-sm font-medium text-texto-fuerte">
-                      {i === 0 && !c.aproximada && (
-                        <span className="rounded-full bg-marca-azul/15 px-2 py-0.5 text-[10px] font-semibold text-marca-azul">
-                          Sugerida
-                        </span>
-                      )}
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar foto={c.foto} nombre={c.nombre} size={40} />
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-2 text-sm font-medium text-texto-fuerte">
+                        {i === 0 && !c.aproximada && (
+                          <span className="rounded-full bg-marca-azul/15 px-2 py-0.5 text-[10px] font-semibold text-marca-azul">
+                            Sugerida
+                          </span>
+                        )}
+                        {c.aproximada && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                            Aproximada
+                          </span>
+                        )}
+                        {c.nombre}
+                      </p>
+                      <p className="text-xs text-texto-suave">
+                        Disponible {c.bloque} · {RANGO_LABEL[c.rango]} · {c.serviciosSemana} servicios
+                        esta semana · {c.zonas.join(', ')}
+                      </p>
                       {c.aproximada && (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                          Aproximada
-                        </span>
+                        <p className="text-xs text-amber-700">No cubre exacto: {descHueco(c)}.</p>
                       )}
-                      {c.nombre}
-                    </p>
-                    <p className="text-xs text-texto-suave">
-                      Disponible {c.bloque} · {RANGO_LABEL[c.rango]} · {c.serviciosSemana} servicios
-                      esta semana · {c.zonas.join(', ')}
-                    </p>
-                    {c.aproximada && (
-                      <p className="text-xs text-amber-700">No cubre exacto: {descHueco(c)}.</p>
-                    )}
+                    </div>
                   </div>
                   <button
                     onClick={() => ofertar(c.nannieId)}

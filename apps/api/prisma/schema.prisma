@@ -64,6 +64,7 @@ enum EstadoNannie {
   ACTIVA
   PAUSA
   PRUEBA // p.ej. calificación < 7.5 → 1 mes de prueba (incidencia #14)
+  BAJA // ya no colabora (incidencias #7/#11); conserva historial
 }
 
 enum EstadoFamilia {
@@ -129,6 +130,10 @@ model Usuario {
   passwordHash String // argon2/bcrypt — NUNCA texto plano (SEGURIDAD §4)
   rol          Rol
   activo       Boolean  @default(true)
+  foto         String? // avatar (data URL redimensionada ~400px); solo coord/directora
+
+  // Contraseña temporal al alta (M4): fuerza el cambio en el primer ingreso.
+  debeCambiarPassword Boolean @default(false)
   // Si rol = NANNIE, enlaza con su ficha. La pertenencia (token.nannieId
   // == recurso) se verifica en cada consulta de nannie (SEGURIDAD §4).
   nannieId     String?  @unique
@@ -146,12 +151,23 @@ model Usuario {
 model Nannie {
   id                  String          @id @default(cuid())
   nombre              String
+  telefono            String? // contacto (M4 expediente)
+  foto                String? // avatar (data URL redimensionada ~400px)
   plaza               Plaza
   zonas               String[] // zonas que cubre (perfil geográfico)
+  color               String? // color para identificarla rápido (M4; se asigna al alta)
   rangoPermanente     RangoPermanente @default(BASE)
   serviciosAcumulados Int             @default(0) // contador de por vida (M4)
   nivelTarifaMesActual NivelTarifa    @default(BASE) // lo fija M3 en el cierre de mes
   estado              EstadoNannie    @default(PRUEBA)
+  // Cumplimiento (base de las incidencias #1 y #3): sin docs no se asignan
+  // servicios; sin capacitación se retiene el pago. Los booleanos se DERIVAN de
+  // tener todas las claves del catálogo (ver catalogos.ts); los arreglos guardan
+  // qué documentos/cursos ya cumplió cada nannie.
+  documentacionCompleta Boolean       @default(false)
+  capacitacionCompleta  Boolean       @default(false)
+  documentosEntregados  String[]      @default([])
+  cursosCompletados     String[]      @default([])
   creadoEn            DateTime        @default(now())
   actualizadoEn       DateTime        @updatedAt
 
@@ -162,8 +178,35 @@ model Nannie {
   cierres         CierreMes[]
   bonos           Bono[]
   nominaPagos     NominaPago[]
+  incidencias     Incidencia[]
 
   @@map("nannies")
+}
+
+// Incidencia registrada contra una nannie (M4). Detección MANUAL (coordinación),
+// cálculo de consecuencia AUTOMÁTICO, aplicación al pago MANUAL (Directora).
+// El catálogo de reglas y sus consecuencias viven en código (incidencias.catalogo.ts).
+// `estado`: ACUMULANDO (cuenta hacia el umbral), PENDIENTE (penalización lista),
+// APLICADA, DESCARTADA.
+enum EstadoIncidencia {
+  ACUMULANDO
+  APLICADA
+  DESCARTADA
+}
+
+model Incidencia {
+  id            String           @id @default(cuid())
+  nannieId      String
+  nannie        Nannie           @relation(fields: [nannieId], references: [id])
+  regla         Int // 2..14 (ver catálogo)
+  fecha         DateTime         @default(now())
+  registradaPor String // nombre de quien la registró
+  nota          String?
+  estado        EstadoIncidencia @default(ACUMULANDO)
+  aplicadaEn    DateTime?
+
+  @@index([nannieId, regla])
+  @@map("incidencias")
 }
 
 // Bono manual a una nannie (M3): monto + motivo, decidido por la Directora. No
@@ -365,7 +408,10 @@ model FinanzaServicio {
   pagoNannie    Decimal?     @db.Decimal(10, 2) // se fija al COMPLETAR
   nivelAplicado NivelTarifa? // nivel-tarifa con el que se pagó (auditable)
   comision      Decimal?     @db.Decimal(10, 2) // manual, opcional (en blanco por defecto)
-  ajuste        Decimal?     @db.Decimal(10, 2) // manual (descuento/ajuste)
+  ajuste        Decimal?     @db.Decimal(10, 2) // manual (descuento/ajuste al COBRO de la familia)
+  // Descuento al PAGO de la nannie por incidencia (M4). Reduce su pago → el
+  // margen SUBE. Lo aplica la Directora desde la bandeja de incidencias.
+  descuentoNannie Decimal?   @db.Decimal(10, 2)
   creadoEn      DateTime     @default(now())
   actualizadoEn DateTime     @updatedAt
 

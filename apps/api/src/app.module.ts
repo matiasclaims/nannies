@@ -3,11 +3,13 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
+import { MailModule } from './core/mail/mail.module';
 import { AuthModule } from './core/auth/auth.module';
 import { CalendarioModule } from './modules/calendario/calendario.module';
 import { AsignacionModule } from './modules/asignacion/asignacion.module';
 import { FamiliasModule } from './modules/familias/familias.module';
 import { FinanzasModule } from './modules/finanzas/finanzas.module';
+import { NanniesModule } from './modules/nannies/nannies.module';
 
 @Module({
   imports: [
@@ -21,11 +23,13 @@ import { FinanzasModule } from './modules/finanzas/finanzas.module';
       },
     ]),
     PrismaModule,
+    MailModule,
     AuthModule,
     CalendarioModule,
     AsignacionModule,
     FamiliasModule,
     FinanzasModule,
+    NanniesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

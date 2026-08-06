@@ -41,11 +41,18 @@ async function main(): Promise<void> {
   // Rango/nivel variados para que el cierre de mes muestre movimientos:
   // Beatriz es Senior (pero hará <25 h → caerá a Base); Nannie Demo es Base y
   // hará ≥25 h → subirá a "25 hrs"; Jackie es Rookie.
+  const DOCS_TODOS = [
+    'ine', 'cv', 'comprobante_domicilio', 'comprobante_estudios', 'referencias_laborales',
+    'referencias_personales', 'antecedentes_no_penales', 'convenio_colaboracion', 'formato_zonas',
+  ];
+  const CURSOS_TODOS = [
+    'cuidador_ninos', 'primer_respondiente', 'promotor_desarrollo', 'jugar_para_crecer', 'cuidado_infantil',
+  ];
   const nannies = [
-    { id: 'nannie-jackie', nombre: 'Jackeline', plaza: 'TOLUCA' as const, zonas: ['Toluca Centro'], rango: 'ROOKIE' as const, serv: 55, nivel: 'ROOKIE' as const },
-    { id: 'seed-nannie-01', nombre: 'Nannie Demo', plaza: 'TOLUCA' as const, zonas: ['Metepec'], rango: 'BASE' as const, serv: 12, nivel: 'BASE' as const },
-    { id: 'seed-nannie-02', nombre: 'Beatriz', plaza: 'TOLUCA' as const, zonas: ['Toluca Centro'], rango: 'SENIOR' as const, serv: 140, nivel: 'SENIOR' as const },
-    { id: 'seed-nannie-03', nombre: 'Carla', plaza: 'QUERETARO' as const, zonas: ['Corazón', 'Conecta'], rango: 'BASE' as const, serv: 3, nivel: 'BASE' as const },
+    { id: 'nannie-jackie', nombre: 'Jackeline', plaza: 'TOLUCA' as const, zonas: ['Toluca Centro'], rango: 'ROOKIE' as const, serv: 55, nivel: 'ROOKIE' as const, docs: DOCS_TODOS, cursos: CURSOS_TODOS },
+    { id: 'seed-nannie-01', nombre: 'Nannie Demo', plaza: 'TOLUCA' as const, zonas: ['Metepec'], rango: 'BASE' as const, serv: 12, nivel: 'BASE' as const, docs: DOCS_TODOS, cursos: CURSOS_TODOS.slice(0, 3) },
+    { id: 'seed-nannie-02', nombre: 'Beatriz', plaza: 'TOLUCA' as const, zonas: ['Toluca Centro'], rango: 'SENIOR' as const, serv: 140, nivel: 'SENIOR' as const, docs: DOCS_TODOS, cursos: CURSOS_TODOS },
+    { id: 'seed-nannie-03', nombre: 'Carla', plaza: 'QUERETARO' as const, zonas: ['Corazón', 'Conecta'], rango: 'BASE' as const, serv: 3, nivel: 'BASE' as const, docs: DOCS_TODOS, cursos: CURSOS_TODOS },
   ];
   for (const n of nannies) {
     const datos = {
@@ -55,11 +62,16 @@ async function main(): Promise<void> {
       rangoPermanente: n.rango,
       serviciosAcumulados: n.serv,
       nivelTarifaMesActual: n.nivel,
+      estado: 'ACTIVA' as const,
+      documentosEntregados: n.docs,
+      cursosCompletados: n.cursos,
+      documentacionCompleta: n.docs.length === DOCS_TODOS.length,
+      capacitacionCompleta: n.cursos.length === CURSOS_TODOS.length,
     };
     await prisma.nannie.upsert({
       where: { id: n.id },
       update: datos,
-      create: { id: n.id, estado: 'ACTIVA', ...datos },
+      create: { id: n.id, ...datos },
     });
   }
 
@@ -111,6 +123,7 @@ async function main(): Promise<void> {
   // --- Limpieza de datos de calendario (idempotencia) ---
   await prisma.ofertaRespuesta.deleteMany({});
   await prisma.finanzaServicio.deleteMany({});
+  await prisma.incidencia.deleteMany({});
   await prisma.cierreMes.deleteMany({});
   await prisma.servicio.deleteMany({});
   await prisma.paquete.deleteMany({});

@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, Res, HttpCode, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Res, HttpCode, UnauthorizedException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { ActualizarFotoDto } from './dto/actualizar-foto.dto';
 import { Publico } from './decorators/publico.decorator';
 import { UsuarioActual } from './decorators/usuario-actual.decorator';
 import type { UsuarioAutenticado } from './auth.types';
@@ -42,10 +43,21 @@ export class AuthController {
     return { ok: true };
   }
 
-  /** Devuelve la identidad de la sesión actual (para el frontend). */
+  /** Devuelve la identidad de la sesión actual (para el frontend). Incluye si
+   *  debe cambiar su contraseña temporal (M4), consultado fresco de la BD. */
   @Get('me')
-  me(@UsuarioActual() user: UsuarioAutenticado | undefined): UsuarioAutenticado {
+  async me(
+    @UsuarioActual() user: UsuarioAutenticado | undefined,
+  ): Promise<UsuarioAutenticado & { debeCambiarPassword: boolean; foto: string | null }> {
     if (!user) throw new UnauthorizedException();
-    return user;
+    const { debeCambiarPassword, foto } = await this.auth.datosSesion(user);
+    return { ...user, debeCambiarPassword, foto };
+  }
+
+  /** Foto de perfil propia (cualquier usuario autenticado, sobre lo suyo). */
+  @Patch('mi-foto')
+  async miFoto(@UsuarioActual() user: UsuarioAutenticado | undefined, @Body() dto: ActualizarFotoDto) {
+    if (!user) throw new UnauthorizedException();
+    return this.auth.actualizarMiFoto(user, dto.foto ?? null);
   }
 }
