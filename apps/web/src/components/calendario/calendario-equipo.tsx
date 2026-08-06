@@ -11,6 +11,7 @@ import {
 import { TIPO_LABEL, ESTADO_DISPONIBILIDAD } from '@/lib/dominio';
 import type { DiaSemana } from '@/lib/semana';
 import { dividirDiaNoche, horasEntre, TARIFA_NOCHE_MIN } from '@/lib/dia-noche';
+import { Avatar } from '@/components/avatar';
 import { cn } from '@/lib/utils';
 import { FormMarcarDisponibilidad } from './form-marcar-disponibilidad';
 import { HoraSelect } from '../hora-select';
@@ -237,12 +238,13 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
                     key={n.id}
                     onClick={() => setNannieSel(n.id)}
                     className={cn(
-                      'rounded-lg px-3 py-2 text-left text-sm transition',
+                      'flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition',
                       activa
                         ? 'bg-marca-azul/10 font-medium text-marca-azul'
                         : 'text-texto-suave hover:bg-fondo',
                     )}
                   >
+                    <Avatar foto={n.foto} nombre={n.nombre} size={28} />
                     {n.nombre}
                   </button>
                 );

@@ -182,6 +182,7 @@ export type RespuestaOferta = 'ACEPTO' | 'RECHAZO';
 export interface NannieLite {
   id: string;
   nombre: string;
+  foto: string | null;
   zonas: string[];
   plaza: Plaza;
   estado: 'ACTIVA' | 'PAUSA' | 'PRUEBA';

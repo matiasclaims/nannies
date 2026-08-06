@@ -6,6 +6,7 @@ import { UserPlus, Mail, KeyRound, X } from 'lucide-react';
 import { api, ApiError, type NannieExpediente, type Plaza, type AltaNannieResultado } from '@/lib/api';
 import { ZONAS_QRO } from '@/lib/queretaro';
 import { COLORES_NANNIE, ESTADO_NANNIE as ESTADO } from '@/lib/nannie-ui';
+import { Avatar } from '@/components/avatar';
 import { cn } from '@/lib/utils';
 
 export default function NanniesPage() {
@@ -58,12 +59,7 @@ export default function NanniesPage() {
               href={`/nannies/${n.id}`}
               className="flex items-center gap-3 rounded-2xl bg-panel p-3 shadow-card transition hover:brightness-[0.98]"
             >
-              <span
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-bold text-white"
-                style={{ backgroundColor: n.color ?? '#94A3B8' }}
-              >
-                {n.nombre.slice(0, 2).toUpperCase()}
-              </span>
+              <Avatar foto={n.foto} nombre={n.nombre} size={36} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-texto-fuerte">{n.nombre}</p>
                 <p className="truncate text-xs text-texto-suave">
