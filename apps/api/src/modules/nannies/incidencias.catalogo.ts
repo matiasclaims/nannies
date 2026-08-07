@@ -18,6 +18,7 @@ export interface ReglaIncidencia {
   esStrike: boolean; // true = suma 1 strike (al 3º → −20%); false = directa
   tipo?: TipoConsecuencia; // solo reglas directas (BAJA/PRUEBA/DESCONTAR_HORAS)
   consecuenciaTexto: string;
+  notaObligatoria?: boolean; // la regla "Otro" exige describir qué pasó
 }
 
 const STRIKE_TXT = 'Suma 1 strike (al 3º: −20% del próximo servicio)';
@@ -35,6 +36,7 @@ export const REGLAS_INCIDENCIA: ReglaIncidencia[] = [
   { numero: 11, situacion: 'No cubre 25 h mínimo durante 2 meses seguidos', esStrike: false, tipo: 'BAJA', consecuenciaTexto: 'Baja de la agencia' },
   { numero: 14, situacion: 'Calificación menor a 7.5 en la evaluación semestral', esStrike: false, tipo: 'PRUEBA', consecuenciaTexto: '1 mes de prueba' },
   { numero: 10, situacion: 'No envía justificante médico de un servicio que no cubrió', esStrike: false, tipo: 'DESCONTAR_HORAS', consecuenciaTexto: 'Descontar las horas del servicio del siguiente pago' },
+  { numero: 15, situacion: 'Otro (describe qué pasó)', esStrike: true, consecuenciaTexto: STRIKE_TXT, notaObligatoria: true },
 ];
 
 export const REGLAS_VALIDAS = REGLAS_INCIDENCIA.map((r) => r.numero);

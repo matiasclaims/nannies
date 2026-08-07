@@ -19,6 +19,7 @@ export interface Candidata {
   nannieId: string;
   nombre: string;
   foto: string | null;
+  color: string | null;
   zonas: string[];
   rango: RangoPermanente;
   serviciosSemana: number;
@@ -106,6 +107,7 @@ export class AsignacionService {
         nannieId: n.id,
         nombre: n.nombre,
         foto: n.foto,
+        color: n.color,
         zonas: n.zonas,
         rango: n.rangoPermanente,
         serviciosSemana,

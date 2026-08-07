@@ -325,7 +325,7 @@ function NominaNannieCard({
           <ChevronDown
             className={cn('h-4 w-4 shrink-0 text-texto-suave transition', abierto && 'rotate-180')}
           />
-          <Avatar foto={n.foto} nombre={n.nombre} size={36} />
+          <Avatar foto={n.foto} nombre={n.nombre} color={n.color} size={36} />
           <div className="min-w-0">
             <p className="text-sm font-semibold text-texto-fuerte">{n.nombre}</p>
             <p className="text-xs text-texto-suave">Nivel: {NIVEL_LABEL[n.nivel] ?? n.nivel}</p>

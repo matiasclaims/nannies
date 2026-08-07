@@ -1,8 +1,12 @@
 import type { NannieExpediente } from './api';
 
-/** Paleta para el color de la nannie (arcoíris + marca). */
+/** Paleta amplia (~30) para el color de la nannie. El color la identifica en
+ *  todos los perfiles (anillo del avatar / nombre en texto). */
 export const COLORES_NANNIE = [
-  '#FF66C4', '#0CC0DF', '#CB6CE6', '#9DCD5A', '#F97316', '#3B82F6', '#EF476F', '#118AB2',
+  '#EF476F', '#F94144', '#E5383B', '#D00000', '#DC2F02', '#F97316', '#FB8500', '#FFB703',
+  '#F4A261', '#E9C46A', '#9DCD5A', '#80B918', '#55A630', '#2D6A4F', '#06D6A0', '#0CC0DF',
+  '#00B4D8', '#118AB2', '#0077B6', '#3B82F6', '#4361EE', '#3A0CA3', '#7209B7', '#9D4EDD',
+  '#CB6CE6', '#C77DFF', '#FF66C4', '#FF5D8F', '#8D99AE', '#6D6875',
 ];
 
 /** Estilo del badge de estado de la nannie. */

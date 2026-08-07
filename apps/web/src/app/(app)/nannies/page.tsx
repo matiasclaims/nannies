@@ -59,7 +59,7 @@ export default function NanniesPage() {
               href={`/nannies/${n.id}`}
               className="flex items-center gap-3 rounded-2xl bg-panel p-3 shadow-card transition hover:brightness-[0.98]"
             >
-              <Avatar foto={n.foto} nombre={n.nombre} size={36} />
+              <Avatar foto={n.foto} nombre={n.nombre} color={n.color} size={36} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-texto-fuerte">{n.nombre}</p>
                 <p className="truncate text-xs text-texto-suave">

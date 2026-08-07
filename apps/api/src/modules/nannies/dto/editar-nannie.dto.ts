@@ -14,6 +14,11 @@ export class EditarNannieDto {
   telefono?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  especialidad?: string;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   zonas?: string[];

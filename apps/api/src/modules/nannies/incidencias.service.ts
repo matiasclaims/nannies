@@ -7,7 +7,6 @@ import { RegistrarIncidenciaDto } from './dto/registrar-incidencia.dto';
 const redondea2 = (n: number) => Math.round(n * 100) / 100;
 import {
   REGLAS_INCIDENCIA,
-  REGLAS_VALIDAS,
   UMBRAL_STRIKES,
   PCT_STRIKES,
   reglaPorNumero,
@@ -35,8 +34,12 @@ export class IncidenciasService {
   }
 
   async registrar(dto: RegistrarIncidenciaDto, registradaPor: string) {
-    if (!REGLAS_VALIDAS.includes(dto.regla)) {
+    const regla = reglaPorNumero(dto.regla);
+    if (!regla) {
       throw new BadRequestException('Regla de incidencia inválida.');
+    }
+    if (regla.notaObligatoria && !dto.nota?.trim()) {
+      throw new BadRequestException('Describe qué pasó en la nota.');
     }
     const nannie = await this.prisma.nannie.findUnique({ where: { id: dto.nannieId } });
     if (!nannie) throw new NotFoundException('Nannie no encontrada');
@@ -91,6 +94,20 @@ export class IncidenciasService {
       .update({ where: { id }, data: { estado: 'DESCARTADA' } })
       .catch(() => undefined);
     return { ok: true };
+  }
+
+  /**
+   * Condona una penalización por strikes (M4): en vez de aplicar el descuento,
+   * la Directora "deja pasar". Las ocurrencias se marcan CONDONADA (salen del
+   * conteo, resetea strikes) pero QUEDAN en el historial como constancia.
+   */
+  async condonar(nannieId: string, ocurrenciasIds: string[]) {
+    const res = await this.prisma.incidencia.updateMany({
+      where: { id: { in: ocurrenciasIds }, nannieId, estado: 'ACUMULANDO' },
+      data: { estado: 'CONDONADA', aplicadaEn: new Date() },
+    });
+    if (res.count === 0) throw new BadRequestException('No hay ocurrencias válidas para condonar.');
+    return { ok: true, condonadas: res.count };
   }
 
   /**

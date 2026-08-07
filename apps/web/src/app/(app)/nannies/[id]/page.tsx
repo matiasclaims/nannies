@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, UserMinus, Check, Camera } from 'lucide-react';
+import { ArrowLeft, UserMinus, Check, Camera, Pencil } from 'lucide-react';
 import { api, ApiError, type NanniePerfil } from '@/lib/api';
 import { ZONAS_QRO } from '@/lib/queretaro';
 import { CATALOGO_DOCUMENTOS, CATALOGO_CURSOS, type ItemChecklist } from '@/lib/nannie-catalogos';
 import { COLORES_NANNIE, ESTADO_NANNIE, RANGO_LABEL, NIVEL_LABEL, UMBRALES_RANGO } from '@/lib/nannie-ui';
 import { IncidenciasNannie } from '@/components/incidencias-nannie';
+import { BitacoraNannie } from '@/components/bitacora-nannie';
 import { Avatar } from '@/components/avatar';
 import { FotoModal } from '@/components/foto-modal';
 import { cn } from '@/lib/utils';
@@ -48,14 +49,14 @@ export default function NanniePerfilPage() {
         <ArrowLeft className="h-4 w-4" /> Nannies
       </Link>
 
-      <div className="flex items-center gap-3 rounded-2xl bg-panel p-4 shadow-card">
+      <div className="flex items-start gap-3 rounded-2xl bg-panel p-4 shadow-card">
         <button
           type="button"
           onClick={() => setEditandoFoto(true)}
           className="group relative shrink-0"
           title="Cambiar foto"
         >
-          <Avatar foto={perfil.foto} nombre={perfil.nombre} size={48} />
+          <Avatar foto={perfil.foto} nombre={perfil.nombre} color={perfil.color} size={48} />
           <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full bg-panel text-texto-suave shadow-card">
             <Camera className="h-3 w-3" />
           </span>
@@ -65,6 +66,7 @@ export default function NanniePerfilPage() {
           <p className="truncate text-xs text-texto-suave">
             {perfil.correo ?? 'sin cuenta'} · {perfil.plaza === 'QUERETARO' ? 'Querétaro' : 'Toluca'}
           </p>
+          <EspecialidadHeader perfil={perfil} onGuardado={cargar} />
         </div>
         <span className={cn('shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold', ESTADO_NANNIE[perfil.estado].clase)}>
           {ESTADO_NANNIE[perfil.estado].label}
@@ -95,6 +97,8 @@ export default function NanniePerfilPage() {
 
       <IncidenciasNannie nannieId={perfil.id} nombre={perfil.nombre} esDirectora={esDirectora} />
 
+      <BitacoraNannie nannieId={perfil.id} />
+
       {editandoFoto && (
         <FotoModal
           nombre={perfil.nombre}
@@ -108,6 +112,73 @@ export default function NanniePerfilPage() {
         />
       )}
     </div>
+  );
+}
+
+/** Especialidad/experiencia editable dentro de la tarjeta del encabezado. */
+function EspecialidadHeader({ perfil, onGuardado }: { perfil: NanniePerfil; onGuardado: () => void }) {
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor] = useState(perfil.especialidad ?? '');
+  const [busy, setBusy] = useState(false);
+
+  async function guardar() {
+    setBusy(true);
+    await api.editarNannie(perfil.id, { especialidad: valor }).catch(() => undefined);
+    setBusy(false);
+    setEditando(false);
+    onGuardado();
+  }
+
+  if (editando) {
+    return (
+      <div className="mt-1.5">
+        <textarea
+          value={valor}
+          onChange={(e) => setValor(e.target.value)}
+          rows={2}
+          autoFocus
+          className="w-full resize-none rounded-lg border border-borde bg-white px-2 py-1 text-xs outline-none focus:border-marca-azul"
+          placeholder="Especialidad y experiencia (ej. recién nacidos, necesidades especiales, fiestas)"
+        />
+        <div className="mt-1 flex gap-2">
+          <button
+            onClick={guardar}
+            disabled={busy}
+            className="rounded-lg bg-marca-azul px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+          >
+            {busy ? 'Guardando…' : 'Guardar'}
+          </button>
+          <button
+            onClick={() => {
+              setValor(perfil.especialidad ?? '');
+              setEditando(false);
+            }}
+            className="rounded-lg border border-borde px-2.5 py-1 text-[11px] text-texto-suave"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setValor(perfil.especialidad ?? '');
+        setEditando(true);
+      }}
+      className="mt-1 flex items-start gap-1 text-left"
+      title="Editar especialidad y experiencia"
+    >
+      {perfil.especialidad ? (
+        <span className="line-clamp-2 text-xs text-texto-fuerte">{perfil.especialidad}</span>
+      ) : (
+        <span className="text-xs italic text-texto-suave">Agregar especialidad y experiencia</span>
+      )}
+      <Pencil className="mt-0.5 h-3 w-3 shrink-0 text-texto-suave" />
+    </button>
   );
 }
 

@@ -19,6 +19,7 @@ const ESTADO_INC: Record<string, string> = {
   ACUMULANDO: 'contando',
   APLICADA: 'aplicada',
   DESCARTADA: 'descartada',
+  CONDONADA: 'condonada',
 };
 
 /** Sección de incidencias del expediente: pendientes, progreso, historial y
@@ -47,6 +48,10 @@ export function IncidenciasNannie({
   }
   async function descartar(id: string) {
     await api.descartarIncidencia(id).catch(() => undefined);
+    cargar();
+  }
+  async function condonar(ocurrenciasIds: string[]) {
+    await api.condonarIncidencia(nannieId, ocurrenciasIds).catch(() => undefined);
     cargar();
   }
 
@@ -89,12 +94,21 @@ export function IncidenciasNannie({
                         Aplicar
                       </button>
                     ) : (
-                      <button
-                        onClick={() => setAplicandoDescuento(p)}
-                        className="shrink-0 rounded-lg bg-marca-azul px-2.5 py-1 text-[11px] font-semibold text-white hover:brightness-95"
-                      >
-                        Aplicar al pago
-                      </button>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          onClick={() => setAplicandoDescuento(p)}
+                          className="rounded-lg bg-marca-azul px-2.5 py-1 text-[11px] font-semibold text-white hover:brightness-95"
+                        >
+                          Aplicar al pago
+                        </button>
+                        <button
+                          onClick={() => condonar(p.ocurrenciasIds)}
+                          title="Deja pasar el descuento pero queda registrado en el historial"
+                          className="rounded-lg border border-amber-300 px-2.5 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+                        >
+                          Condonar
+                        </button>
+                      </div>
                     )}
                   </div>
                 );
@@ -280,9 +294,10 @@ function RegistrarModal({
   }, []);
 
   const sel = reglas.find((r) => r.numero === regla);
+  const notaReq = sel?.notaObligatoria ?? false;
 
   async function guardar() {
-    if (regla === '') return;
+    if (regla === '' || (notaReq && !nota.trim())) return;
     setBusy(true);
     setError('');
     try {
@@ -326,7 +341,9 @@ function RegistrarModal({
         )}
 
         <label className="mt-3 block">
-          <span className="mb-1 block text-xs font-medium text-texto-suave">Nota (opcional)</span>
+          <span className="mb-1 block text-xs font-medium text-texto-suave">
+            Nota {notaReq ? '(obligatoria)' : '(opcional)'}
+          </span>
           <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={2} className={cn(input, 'resize-none')} placeholder="Detalle de lo que pasó" />
         </label>
 
@@ -334,7 +351,7 @@ function RegistrarModal({
 
         <button
           onClick={guardar}
-          disabled={busy || regla === ''}
+          disabled={busy || regla === '' || (notaReq && !nota.trim())}
           className="mt-3 w-full rounded-xl bg-marca-azul px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
         >
           {busy ? 'Registrando…' : 'Registrar'}

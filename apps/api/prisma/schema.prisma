@@ -153,6 +153,7 @@ model Nannie {
   nombre              String
   telefono            String? // contacto (M4 expediente)
   foto                String? // avatar (data URL redimensionada ~400px)
+  especialidad        String? // perfil: para qué es especialista / experiencia (M4)
   plaza               Plaza
   zonas               String[] // zonas que cubre (perfil geográfico)
   color               String? // color para identificarla rápido (M4; se asigna al alta)
@@ -179,6 +180,7 @@ model Nannie {
   bonos           Bono[]
   nominaPagos     NominaPago[]
   incidencias     Incidencia[]
+  notas           NotaNannie[]
 
   @@map("nannies")
 }
@@ -192,6 +194,7 @@ enum EstadoIncidencia {
   ACUMULANDO
   APLICADA
   DESCARTADA
+  CONDONADA
 }
 
 model Incidencia {
@@ -207,6 +210,21 @@ model Incidencia {
 
   @@index([nannieId, regla])
   @@map("incidencias")
+}
+
+// Bitácora de coordinación por nannie (M4): notas libres que SOLO ven Paula y
+// Jackie (no la nannie). No son incidencias ni penalizan; sirven para la
+// asignación (química con familias, cancelaciones justificadas, etc.).
+model NotaNannie {
+  id          String   @id @default(cuid())
+  nannieId    String
+  nannie      Nannie   @relation(fields: [nannieId], references: [id])
+  texto       String
+  autorNombre String // quién la escribió (Paula/Jackie)
+  creadoEn    DateTime @default(now())
+
+  @@index([nannieId])
+  @@map("notas_nannie")
 }
 
 // Bono manual a una nannie (M3): monto + motivo, decidido por la Directora. No

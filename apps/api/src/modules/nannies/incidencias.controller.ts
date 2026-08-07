@@ -58,4 +58,12 @@ export class IncidenciasController {
   aplicar(@Body() dto: AplicarIncidenciaDto) {
     return this.incidencias.aplicar(dto.nannieId, dto.ocurrenciasIds, dto.servicioId, dto.monto);
   }
+
+  // Condonar (dejar pasar) una penalización por strikes: resetea el conteo pero
+  // queda en el historial. SOLO Directora.
+  @RequiereAccion('incidencia.descuento.aplicar')
+  @Post('condonar')
+  condonar(@Body() dto: AplicarIncidenciaDto) {
+    return this.incidencias.condonar(dto.nannieId, dto.ocurrenciasIds);
+  }
 }

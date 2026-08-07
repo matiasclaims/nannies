@@ -402,7 +402,7 @@ export class CalendarioService {
   /** Lista ligera de nannies para el selector de oferta (coordinación). */
   async listarNannies() {
     return this.prisma.nannie.findMany({
-      select: { id: true, nombre: true, foto: true, zonas: true, plaza: true, estado: true },
+      select: { id: true, nombre: true, foto: true, color: true, zonas: true, plaza: true, estado: true },
       orderBy: { nombre: 'asc' },
     });
   }

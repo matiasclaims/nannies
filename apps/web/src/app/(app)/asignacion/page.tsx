@@ -592,7 +592,7 @@ export default function AsignacionPage() {
                   className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-borde p-3"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <Avatar foto={c.foto} nombre={c.nombre} size={40} />
+                    <Avatar foto={c.foto} nombre={c.nombre} color={c.color} size={40} />
                     <div className="min-w-0">
                       <p className="flex items-center gap-2 text-sm font-medium text-texto-fuerte">
                         {i === 0 && !c.aproximada && (

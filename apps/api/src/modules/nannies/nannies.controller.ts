@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { NanniesService } from './nannies.service';
 import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decorator';
 import { UsuarioActual } from '../../core/auth/decorators/usuario-actual.decorator';
@@ -7,6 +7,7 @@ import { CrearNannieDto } from './dto/crear-nannie.dto';
 import { EditarNannieDto } from './dto/editar-nannie.dto';
 import { CambiarPasswordDto } from './dto/cambiar-password.dto';
 import { ActualizarFotoDto } from '../../core/auth/dto/actualizar-foto.dto';
+import { AgregarNotaDto } from './dto/agregar-nota.dto';
 
 @Controller('nannies')
 export class NanniesController {
@@ -53,5 +54,28 @@ export class NanniesController {
   @Post(':id/baja')
   darDeBaja(@Param('id') id: string) {
     return this.nannies.darDeBaja(id);
+  }
+
+  // --- Bitácora de coordinación (Directora + Subdirectora) ---
+  @RequiereAccion('nannie.gestionar')
+  @Get(':id/notas')
+  listarNotas(@Param('id') id: string) {
+    return this.nannies.listarNotas(id);
+  }
+
+  @RequiereAccion('nannie.gestionar')
+  @Post(':id/notas')
+  agregarNota(
+    @Param('id') id: string,
+    @Body() dto: AgregarNotaDto,
+    @UsuarioActual() user: UsuarioAutenticado,
+  ) {
+    return this.nannies.agregarNota(id, dto.texto, user.nombre);
+  }
+
+  @RequiereAccion('nannie.gestionar')
+  @Delete('notas/:notaId')
+  borrarNota(@Param('notaId') notaId: string) {
+    return this.nannies.borrarNota(notaId);
   }
 }

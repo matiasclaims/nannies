@@ -59,6 +59,7 @@ export class FinanzasService {
             id: true,
             nombre: true,
             foto: true,
+            color: true,
             nivelTarifaMesActual: true,
             documentacionCompleta: true,
             capacitacionCompleta: true,
@@ -78,6 +79,7 @@ export class FinanzasService {
         nannieId: string;
         nombre: string;
         foto: string | null;
+        color: string | null;
         nivel: string;
         servicios: {
           id: string;
@@ -111,6 +113,7 @@ export class FinanzasService {
           nannieId: n.id,
           nombre: n.nombre,
           foto: n.foto,
+          color: n.color,
           nivel: n.nivelTarifaMesActual,
           servicios: [],
           bonos: [],
@@ -149,6 +152,7 @@ export class FinanzasService {
             id: true,
             nombre: true,
             foto: true,
+            color: true,
             nivelTarifaMesActual: true,
             documentacionCompleta: true,
             capacitacionCompleta: true,
@@ -165,6 +169,7 @@ export class FinanzasService {
           nannieId: n.id,
           nombre: n.nombre,
           foto: n.foto,
+          color: n.color,
           nivel: n.nivelTarifaMesActual,
           servicios: [],
           bonos: [],

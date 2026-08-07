@@ -69,6 +69,7 @@ export class NanniesService {
       id: n.id,
       nombre: n.nombre,
       foto: n.foto,
+      especialidad: n.especialidad,
       correo: n.usuario?.email ?? null,
       telefono: n.telefono,
       plaza: n.plaza,
@@ -160,6 +161,7 @@ export class NanniesService {
       data: {
         ...(dto.nombre !== undefined ? { nombre: dto.nombre.trim() } : {}),
         ...(dto.telefono !== undefined ? { telefono: dto.telefono.trim() || null } : {}),
+        ...(dto.especialidad !== undefined ? { especialidad: dto.especialidad.trim() || null } : {}),
         ...(dto.zonas !== undefined ? { zonas: dto.zonas } : {}),
         ...(dto.color !== undefined ? { color: dto.color || null } : {}),
         ...(dto.estado !== undefined ? { estado: dto.estado } : {}),
@@ -180,6 +182,34 @@ export class NanniesService {
     if (!n) throw new NotFoundException('Nannie no encontrada');
     await this.prisma.nannie.update({ where: { id }, data: { foto: foto ?? null } });
     return { ok: true, foto: foto ?? null };
+  }
+
+  /** Bitácora de coordinación (M4): notas libres que solo ven Paula y Jackie. */
+  async listarNotas(nannieId: string) {
+    const notas = await this.prisma.notaNannie.findMany({
+      where: { nannieId },
+      orderBy: { creadoEn: 'desc' },
+    });
+    return notas.map((n) => ({
+      id: n.id,
+      texto: n.texto,
+      autor: n.autorNombre,
+      fecha: n.creadoEn.toISOString(),
+    }));
+  }
+
+  async agregarNota(nannieId: string, texto: string, autorNombre: string) {
+    const limpio = texto.trim();
+    if (!limpio) throw new BadRequestException('La nota no puede estar vacía.');
+    const n = await this.prisma.nannie.findUnique({ where: { id: nannieId }, select: { id: true } });
+    if (!n) throw new NotFoundException('Nannie no encontrada');
+    await this.prisma.notaNannie.create({ data: { nannieId, texto: limpio, autorNombre } });
+    return { ok: true };
+  }
+
+  async borrarNota(notaId: string) {
+    await this.prisma.notaNannie.delete({ where: { id: notaId } }).catch(() => undefined);
+    return { ok: true };
   }
 
   /** Baja lógica: estado BAJA + desactiva su cuenta (conserva historial). */

@@ -244,7 +244,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
                         : 'text-texto-suave hover:bg-fondo',
                     )}
                   >
-                    <Avatar foto={n.foto} nombre={n.nombre} size={28} />
+                    <Avatar foto={n.foto} nombre={n.nombre} color={n.color} size={28} />
                     {n.nombre}
                   </button>
                 );

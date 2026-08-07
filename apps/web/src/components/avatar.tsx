@@ -6,14 +6,19 @@ export function Avatar({
   foto,
   nombre,
   size = 40,
+  color,
   className,
 }: {
   foto?: string | null;
   nombre: string;
   size?: number;
+  /** Color de la nannie: dibuja un anillo alrededor del avatar. */
+  color?: string | null;
   className?: string;
 }) {
-  const dim = { width: size, height: size };
+  // Anillo de color (con un pequeño hueco blanco) cuando hay color de nannie.
+  const anillo = color ? { boxShadow: `0 0 0 2px #fff, 0 0 0 4px ${color}` } : undefined;
+  const dim = { width: size, height: size, ...anillo };
   if (foto) {
     return (
       // eslint-disable-next-line @next/next/no-img-element

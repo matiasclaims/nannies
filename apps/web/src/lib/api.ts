@@ -22,6 +22,7 @@ export interface NannieExpediente {
   id: string;
   nombre: string;
   foto: string | null;
+  especialidad: string | null;
   correo: string | null;
   telefono: string | null;
   plaza: Plaza;
@@ -39,6 +40,12 @@ export interface NannieExpediente {
 export interface NanniePerfil extends NannieExpediente {
   nivelActual: string;
 }
+export interface NotaNannie {
+  id: string;
+  texto: string;
+  autor: string;
+  fecha: string;
+}
 export interface NuevaNannie {
   nombre: string;
   correo: string;
@@ -55,6 +62,7 @@ export interface ReglaIncidencia {
   esStrike: boolean;
   tipo?: string;
   consecuenciaTexto: string;
+  notaObligatoria?: boolean;
 }
 export interface PenalidadPendiente {
   clave: string;
@@ -183,6 +191,7 @@ export interface NannieLite {
   id: string;
   nombre: string;
   foto: string | null;
+  color: string | null;
   zonas: string[];
   plaza: Plaza;
   estado: 'ACTIVA' | 'PAUSA' | 'PRUEBA';
@@ -276,6 +285,7 @@ export interface Candidata {
   nannieId: string;
   nombre: string;
   foto: string | null;
+  color: string | null;
   zonas: string[];
   rango: Rango;
   serviciosSemana: number;
@@ -321,6 +331,7 @@ export interface NominaNannie {
   nannieId: string;
   nombre: string;
   foto: string | null;
+  color: string | null;
   nivel: string;
   servicios: NominaServicio[];
   bonos: NominaBono[];
@@ -563,6 +574,12 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ foto }),
     }),
+  // Bitácora de coordinación (solo Paula + Jackie).
+  notasNannie: (id: string) => req<NotaNannie[]>(`/nannies/${id}/notas`),
+  agregarNotaNannie: (id: string, texto: string) =>
+    req<{ ok: true }>(`/nannies/${id}/notas`, { method: 'POST', body: JSON.stringify({ texto }) }),
+  borrarNotaNannie: (notaId: string) =>
+    req<{ ok: true }>(`/nannies/notas/${notaId}`, { method: 'DELETE' }),
   cambiarMiPassword: (actual: string, nueva: string) =>
     req<{ ok: true }>('/nannies/mi-password', {
       method: 'POST',
@@ -590,6 +607,11 @@ export const api = {
     req<ServicioDescuento[]>(`/incidencias/nannie/${id}/servicios`),
   descartarIncidencia: (id: string) =>
     req<{ ok: true }>(`/incidencias/${id}/descartar`, { method: 'POST' }),
+  condonarIncidencia: (nannieId: string, ocurrenciasIds: string[]) =>
+    req<{ ok: true }>('/incidencias/condonar', {
+      method: 'POST',
+      body: JSON.stringify({ nannieId, ocurrenciasIds }),
+    }),
   margen: (desde: string, hasta: string) =>
     req<Margen>(`/finanzas/margen${qs({ desde, hasta })}`),
   crearBono: (nannieId: string, monto: number, motivo: string) =>
