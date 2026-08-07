@@ -2,17 +2,27 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { UserPlus, Mail, KeyRound, X } from 'lucide-react';
+import { UserPlus, Mail, KeyRound, X, MapPin } from 'lucide-react';
 import { api, ApiError, type NannieExpediente, type Plaza, type AltaNannieResultado } from '@/lib/api';
 import { ZONAS_QRO } from '@/lib/queretaro';
 import { COLORES_NANNIE, ESTADO_NANNIE as ESTADO } from '@/lib/nannie-ui';
 import { Avatar } from '@/components/avatar';
+import { NombreNannie } from '@/components/nombre-nannie';
 import { cn } from '@/lib/utils';
+
+const CIUDADES: { id: Plaza; label: string }[] = [
+  { id: 'TOLUCA', label: 'Toluca' },
+  { id: 'QUERETARO', label: 'Querétaro' },
+];
 
 export default function NanniesPage() {
   const [lista, setLista] = useState<NannieExpediente[] | null>(null);
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'prohibido' | 'error'>('cargando');
+  const [ciudad, setCiudad] = useState<Plaza>('TOLUCA');
   const [alta, setAlta] = useState(false);
+
+  const filtradas = lista?.filter((n) => n.plaza === ciudad) ?? [];
+  const ciudadLabel = CIUDADES.find((c) => c.id === ciudad)?.label ?? '';
 
   const cargar = () => {
     setEstado('cargando');
@@ -52,16 +62,54 @@ export default function NanniesPage() {
       ) : lista && lista.length === 0 ? (
         <Aviso texto="Aún no hay nannies. Agrega la primera con el botón de arriba." />
       ) : (
-        <div className="space-y-2">
-          {lista?.map((n) => (
-            <Link
-              key={n.id}
-              href={`/nannies/${n.id}`}
-              className="flex items-center gap-3 rounded-2xl bg-panel p-3 shadow-card transition hover:brightness-[0.98]"
-            >
+        <>
+          {/* Pestañas por ciudad */}
+          <div className="flex gap-2">
+            {CIUDADES.map((c) => {
+              const cuenta = lista?.filter((n) => n.plaza === c.id).length ?? 0;
+              const activa = ciudad === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setCiudad(c.id)}
+                  className={cn(
+                    'flex flex-1 items-center justify-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition',
+                    activa
+                      ? 'border-marca-azul bg-marca-azul/10 text-marca-azul'
+                      : 'border-borde bg-panel text-texto-suave hover:bg-fondo',
+                  )}
+                >
+                  <MapPin className="h-4 w-4" />
+                  {c.label}
+                  <span
+                    className={cn(
+                      'grid min-w-5 place-items-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold',
+                      activa ? 'bg-marca-azul text-white' : 'bg-fondo text-texto-suave',
+                    )}
+                  >
+                    {cuenta}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Nannies de la ciudad seleccionada */}
+          {filtradas.length === 0 ? (
+            <Aviso texto={`Aún no hay nannies en ${ciudadLabel}.`} />
+          ) : (
+            <div className="space-y-2">
+              {filtradas.map((n) => (
+                <Link
+                  key={n.id}
+                  href={`/nannies/${n.id}`}
+                  className="flex items-center gap-3 rounded-2xl bg-panel p-3 shadow-card transition hover:brightness-[0.98]"
+                >
               <Avatar foto={n.foto} nombre={n.nombre} color={n.color} size={36} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-texto-fuerte">{n.nombre}</p>
+                <p className="truncate text-sm font-semibold text-texto-fuerte">
+                  <NombreNannie nombre={n.nombre} color={n.color} />
+                </p>
                 <p className="truncate text-xs text-texto-suave">
                   {n.plaza === 'QUERETARO' ? 'Querétaro' : 'Toluca'}
                   {n.zonas.length > 0 && ` · ${n.zonas.join(', ')}`}
@@ -77,9 +125,11 @@ export default function NanniesPage() {
                   {ESTADO[n.estado].label}
                 </span>
               </div>
-            </Link>
-          ))}
-        </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {alta && (

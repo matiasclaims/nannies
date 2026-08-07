@@ -160,6 +160,7 @@ export class NanniesService {
       where: { id },
       data: {
         ...(dto.nombre !== undefined ? { nombre: dto.nombre.trim() } : {}),
+        ...(dto.plaza !== undefined ? { plaza: dto.plaza } : {}),
         ...(dto.telefono !== undefined ? { telefono: dto.telefono.trim() || null } : {}),
         ...(dto.especialidad !== undefined ? { especialidad: dto.especialidad.trim() || null } : {}),
         ...(dto.zonas !== undefined ? { zonas: dto.zonas } : {}),

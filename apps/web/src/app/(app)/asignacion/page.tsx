@@ -12,6 +12,7 @@ import {
 } from '@/lib/api';
 import { TIPO_LABEL } from '@/lib/dominio';
 import { Avatar } from '@/components/avatar';
+import { NombreNannie } from '@/components/nombre-nannie';
 import { HoraSelect } from '@/components/hora-select';
 import { dividirDiaNoche, TARIFA_NOCHE_MIN } from '@/lib/dia-noche';
 import {
@@ -605,7 +606,7 @@ export default function AsignacionPage() {
                             Aproximada
                           </span>
                         )}
-                        {c.nombre}
+                        <NombreNannie nombre={c.nombre} color={c.color} />
                       </p>
                       <p className="text-xs text-texto-suave">
                         Disponible {c.bloque} · {RANGO_LABEL[c.rango]} · {c.serviciosSemana} servicios

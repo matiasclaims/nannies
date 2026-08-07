@@ -124,6 +124,15 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     const cuerpo = (await res.json().catch(() => ({}))) as { message?: string };
+    // Sesión expirada o ausente: manda a login (salvo en el propio login).
+    if (
+      res.status === 401 &&
+      typeof window !== 'undefined' &&
+      !path.startsWith('/auth/login') &&
+      window.location.pathname !== '/login'
+    ) {
+      window.location.href = '/login';
+    }
     throw new ApiError(res.status, cuerpo.message ?? `Error ${res.status}`);
   }
   return res.json() as Promise<T>;

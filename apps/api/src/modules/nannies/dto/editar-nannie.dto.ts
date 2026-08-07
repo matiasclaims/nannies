@@ -1,5 +1,5 @@
 import { IsArray, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
-import { EstadoNannie } from '@prisma/client';
+import { EstadoNannie, Plaza } from '@prisma/client';
 
 /** Edición del expediente de una nannie (M4). Todo opcional. */
 export class EditarNannieDto {
@@ -7,6 +7,10 @@ export class EditarNannieDto {
   @IsString()
   @MaxLength(120)
   nombre?: string;
+
+  @IsOptional()
+  @IsEnum(Plaza)
+  plaza?: Plaza;
 
   @IsOptional()
   @IsString()

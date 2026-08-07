@@ -12,6 +12,7 @@ import { TIPO_LABEL, ESTADO_DISPONIBILIDAD } from '@/lib/dominio';
 import type { DiaSemana } from '@/lib/semana';
 import { dividirDiaNoche, horasEntre, TARIFA_NOCHE_MIN } from '@/lib/dia-noche';
 import { Avatar } from '@/components/avatar';
+import { NombreNannie } from '@/components/nombre-nannie';
 import { cn } from '@/lib/utils';
 import { FormMarcarDisponibilidad } from './form-marcar-disponibilidad';
 import { HoraSelect } from '../hora-select';
@@ -204,7 +205,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
           <>
             {modo === 'nannie' && nannieActiva && (
               <p className="mb-2 text-sm font-medium text-texto-fuerte">
-                {nannieActiva.nombre}
+                <NombreNannie nombre={nannieActiva.nombre} color={nannieActiva.color} />
                 {nannieActiva.zonas.length > 0 && (
                   <span className="text-texto-suave"> · {nannieActiva.zonas.join(', ')}</span>
                 )}
@@ -245,7 +246,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
                     )}
                   >
                     <Avatar foto={n.foto} nombre={n.nombre} color={n.color} size={28} />
-                    {n.nombre}
+                    <NombreNannie nombre={n.nombre} color={n.color} />
                   </button>
                 );
               })}

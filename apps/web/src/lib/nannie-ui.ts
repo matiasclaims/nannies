@@ -1,12 +1,14 @@
 import type { NannieExpediente } from './api';
 
-/** Paleta amplia (~30) para el color de la nannie. El color la identifica en
- *  todos los perfiles (anillo del avatar / nombre en texto). */
+/** Paleta amplia (30) para el color de la nannie. El color la identifica en
+ *  TODOS los módulos: el nombre se pinta con este color y hace aro en el avatar.
+ *  Se eligieron tonos medios/oscuros para que el NOMBRE sea legible sobre blanco. */
 export const COLORES_NANNIE = [
-  '#EF476F', '#F94144', '#E5383B', '#D00000', '#DC2F02', '#F97316', '#FB8500', '#FFB703',
-  '#F4A261', '#E9C46A', '#9DCD5A', '#80B918', '#55A630', '#2D6A4F', '#06D6A0', '#0CC0DF',
-  '#00B4D8', '#118AB2', '#0077B6', '#3B82F6', '#4361EE', '#3A0CA3', '#7209B7', '#9D4EDD',
-  '#CB6CE6', '#C77DFF', '#FF66C4', '#FF5D8F', '#8D99AE', '#6D6875',
+  '#E03131', '#C92A2A', '#A61E4D', '#C2255C', '#E64980', '#D6336C',
+  '#E8590C', '#D9480F', '#F76707', '#B08900', '#946200', '#66A80F',
+  '#2F9E44', '#2B8A3E', '#087F5B', '#099268', '#0C8599', '#1098AD',
+  '#0B7285', '#1C7ED6', '#1971C2', '#1864AB', '#364FC7', '#4263EB',
+  '#7048E8', '#6741D9', '#9C36B5', '#862E9C', '#AE3EC9', '#495057',
 ];
 
 /** Estilo del badge de estado de la nannie. */

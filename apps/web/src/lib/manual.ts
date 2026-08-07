@@ -289,4 +289,96 @@ export const MANUAL: CapituloModulo[] = [
       ],
     },
   },
+  {
+    modulo: 'M4',
+    nombre: 'Nannies (expediente, incidencias y bitácora)',
+    contenido: {
+      coordinacion: [
+        {
+          titulo: 'Nannies, de un vistazo',
+          intro:
+            'En "Nannies" está tu equipo completo. Cada nannie tiene una tarjeta (foto, nombre, ciudad, estado y especialidad) y su expediente con cuatro secciones desplegables: Desempeño, Expediente, Incidencias y Bitácora. Todo esto es de coordinación; la nannie no lo ve.',
+        },
+        {
+          titulo: 'Dar de alta una nannie',
+          intro:
+            'El alta la puede hacer tanto la Directora como la Subdirectora. La nannie entra en estado "Prueba" (aprox. un mes); si se queda, la pasas a "Activa".',
+          pasos: [
+            'Entra a "Nannies" › botón "Agregar nannie".',
+            'Captura su nombre, correo (será su acceso), teléfono, ciudad y las zonas que cubre, y elige un color para identificarla.',
+            'Al crearla se genera una contraseña temporal: si el correo está configurado le llega por email; si no, el sistema te la muestra para que se la pases.',
+            'Ella cambia esa contraseña la primera vez que entra.',
+          ],
+          nota: 'El color se elige aquí, al alta; después se modifica desde el botón "Editar" del perfil.',
+        },
+        {
+          titulo: 'Editar el perfil de la nannie',
+          intro: 'En la tarjeta de la nannie, el botón "Editar" abre todo su perfil de una sola vez.',
+          pasos: [
+            'Puedes cambiar: nombre, foto, estado, ciudad, teléfono, zonas que cubre, color y su especialidad/experiencia.',
+            'Para la foto usa "Cambiar foto": se recorta en cuadrado y se ajusta sola.',
+            'Guarda con "Guardar".',
+          ],
+          nota: 'La foto de cada nannie se ve donde aparezca: lista, expediente, nómina, asignación y calendario. Su color hace un aro alrededor de su foto. "Dar de baja" desactiva su cuenta y conserva su historial.',
+        },
+        {
+          titulo: 'Desempeño (todo automático)',
+          intro:
+            'La sección "Desempeño" muestra sus servicios de por vida, su rango de carrera y su nivel del mes. No se editan a mano: el sistema los calcula.',
+          nota: 'El rango sube solo en el cierre de mes por servicios acumulados (Rookie 50 · Junior 80 · Senior 130) y nunca baja. Querétaro no usa rango (cobra por zona).',
+        },
+        {
+          titulo: 'Expediente: documentación y capacitación',
+          intro:
+            'En la sección "Expediente" llevas dos listas: los documentos de ingreso (9) y los cursos (5). Vas marcando cada uno conforme la nannie lo entrega o lo concluye.',
+          nota: 'Si a una nannie le falta documentación o capacitación, te aparece una alerta ámbar en su tarjeta de Nómina para que tú decidas retener el pago. No bloquea asignarle servicios; el control es tuyo.',
+        },
+        {
+          titulo: 'Registrar una incidencia',
+          intro:
+            'En la sección "Incidencias" registras las faltas de la nannie según el reglamento. Registran tanto la Directora como la Subdirectora. El sistema nunca castiga ni da de baja solo: te avisa y tú decides.',
+          pasos: [
+            'En el expediente › "Incidencias" › botón "Registrar".',
+            'Elige la incidencia de la lista (o "Otro" y describe qué pasó en la nota).',
+            'Guarda. Cada incidencia de descuento suma un "strike".',
+          ],
+          nota: 'Las reglas graves (maltrato, no cubrir el mínimo de horas, etc.) marcan baja o prueba: el sistema te avisa y tú confirmas si procede.',
+        },
+        {
+          titulo: 'Strikes y el descuento del 20%',
+          intro:
+            'Cuando una nannie junta 3 strikes, el sistema marca un descuento del 20% de su próximo servicio. Tú decides qué hacer con él.',
+          pasos: [
+            '"Aplicar al pago": eliges en cuál de sus servicios se descuenta; el sistema calcula el 20% y lo resta de su pago.',
+            '"Condonar": dejas pasar el descuento esta vez, pero las incidencias quedan registradas en el historial (para el día que sí lo apliques).',
+          ],
+          nota: 'El descuento reduce el pago de la nannie (tu margen sube). Además, en la sección de Nómina aparece un recordatorio cuando hay un descuento por strikes pendiente de aplicar.',
+        },
+        {
+          titulo: 'Bitácora de la nannie (solo tú y Jackie)',
+          intro:
+            'La sección "Bitácora" son notas libres de coordinación sobre cada nannie: química con familias, cancelaciones justificadas, observaciones. NO son incidencias y no penalizan.',
+          nota: 'Solo la Directora y la Subdirectora ven la bitácora. Sirve para que no dependas de tu memoria al asignar.',
+        },
+      ],
+      nannie: [
+        {
+          titulo: 'Tu primer ingreso',
+          intro:
+            'La primera vez que entras usas la contraseña temporal que te dieron. El sistema te pedirá crear tu propia contraseña antes de continuar.',
+          nota: 'Nadie más ve tu contraseña. Si la olvidas, tu coordinación puede generarte una nueva.',
+        },
+        {
+          titulo: 'Tu foto de perfil',
+          intro: 'Puedes poner o cambiar tu foto tú misma.',
+          pasos: [
+            'Abre "Mi foto" (tu avatar, abajo en el menú).',
+            'Sube una imagen; se recorta en cuadrado automáticamente.',
+            'Guarda.',
+          ],
+          nota: 'Tu coordinación también puede ponerte una foto (por ejemplo, de tu credencial).',
+        },
+      ],
+    },
+  },
 ];

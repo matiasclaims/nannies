@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, TriangleAlert } from 'lucide-react';
 import {
   api,
   ApiError,
@@ -11,6 +11,7 @@ import {
   type ServicioDescuento,
 } from '@/lib/api';
 import { TIPO_LABEL } from '@/lib/dominio';
+import { Seccion } from '@/components/seccion';
 import { cn } from '@/lib/utils';
 
 const money = (n: number) => n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
@@ -55,18 +56,17 @@ export function IncidenciasNannie({
     cargar();
   }
 
-  return (
-    <div className="rounded-2xl bg-panel p-4 shadow-card">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-texto-fuerte">Incidencias</h2>
-        <button
-          onClick={() => setRegistrar(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-borde px-2.5 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
-        >
-          <Plus className="h-3.5 w-3.5" /> Registrar
-        </button>
-      </div>
+  const registrarBtn = (
+    <button
+      onClick={() => setRegistrar(true)}
+      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-borde px-2.5 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
+    >
+      <Plus className="h-3.5 w-3.5" /> Registrar
+    </button>
+  );
 
+  return (
+    <Seccion icon={TriangleAlert} title="Incidencias" tint="vino" headerRight={registrarBtn} defaultOpen={false}>
       {!data ? (
         <div className="h-16 animate-pulse rounded-xl bg-fondo" />
       ) : data.pendientes.length === 0 && data.progreso.length === 0 && data.historial.length === 0 ? (
@@ -175,7 +175,7 @@ export function IncidenciasNannie({
           }}
         />
       )}
-    </div>
+    </Seccion>
   );
 }
 

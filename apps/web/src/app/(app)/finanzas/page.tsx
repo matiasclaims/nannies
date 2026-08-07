@@ -26,6 +26,7 @@ import {
 import { TIPO_LABEL } from '@/lib/dominio';
 import { inicioSemana, sumarSemanas, rangoSemana, etiquetaSemana } from '@/lib/semana';
 import { Avatar } from '@/components/avatar';
+import { NombreNannie } from '@/components/nombre-nannie';
 import { cn } from '@/lib/utils';
 
 const MESES = [
@@ -327,7 +328,9 @@ function NominaNannieCard({
           />
           <Avatar foto={n.foto} nombre={n.nombre} color={n.color} size={36} />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-texto-fuerte">{n.nombre}</p>
+            <p className="text-sm font-semibold text-texto-fuerte">
+              <NombreNannie nombre={n.nombre} color={n.color} />
+            </p>
             <p className="text-xs text-texto-suave">Nivel: {NIVEL_LABEL[n.nivel] ?? n.nivel}</p>
           </div>
         </button>

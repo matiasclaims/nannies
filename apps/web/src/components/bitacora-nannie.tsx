@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, NotebookPen } from 'lucide-react';
 import { api, type NotaNannie } from '@/lib/api';
+import { Seccion } from '@/components/seccion';
 import { cn } from '@/lib/utils';
 
 /** Bitácora de coordinación por nannie (M4): notas libres que SOLO ven Paula y
@@ -33,11 +34,7 @@ export function BitacoraNannie({ nannieId }: { nannieId: string }) {
   const input = 'w-full rounded-xl border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-marca-azul';
 
   return (
-    <div className="rounded-2xl bg-panel p-4 shadow-card">
-      <div className="mb-1 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-texto-fuerte">Bitácora</h2>
-        <span className="text-[10px] text-texto-suave">Solo tú y Jackie</span>
-      </div>
+    <Seccion icon={NotebookPen} title="Bitácora" tint="morado" subtitle="Solo tú y Jackie" defaultOpen={false}>
       <p className="mb-3 text-[11px] text-texto-suave">
         Notas de coordinación (química con familias, cancelaciones justificadas…). No penalizan.
       </p>
@@ -80,7 +77,7 @@ export function BitacoraNannie({ nannieId }: { nannieId: string }) {
           ))}
         </div>
       )}
-    </div>
+    </Seccion>
   );
 }
 
