@@ -233,11 +233,12 @@ function calcular(incidencias: Incidencia[]) {
   }
 
   // Reglas directas (Baja #7/#11, Prueba #14, Descontar horas #10): cada
-  // ocurrencia aplica por sí sola.
+  // ocurrencia aplica por sí sola. Las NO CULPOSAS (justificadas) se excluyen:
+  // solo se registran, nunca penalizan.
   const directas = acumulando
     .filter((i) => {
       const r = reglaPorNumero(i.regla);
-      return r && !r.esStrike;
+      return r && !r.esStrike && !r.noCulposa;
     })
     .sort((a, b) => t(a) - t(b));
   for (const oc of directas) {
@@ -257,6 +258,7 @@ function calcular(incidencias: Incidencia[]) {
       id: i.id,
       regla: i.regla,
       situacion: reglaPorNumero(i.regla)?.situacion ?? `Regla ${i.regla}`,
+      noCulposa: reglaPorNumero(i.regla)?.noCulposa ?? false,
       fecha: i.fecha.toISOString().slice(0, 10),
       registradaPor: i.registradaPor,
       nota: i.nota,

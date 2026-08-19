@@ -9,6 +9,7 @@ import { ZONAS_QRO } from '@/lib/queretaro';
 import { CATALOGO_DOCUMENTOS, CATALOGO_CURSOS, type ItemChecklist } from '@/lib/nannie-catalogos';
 import { COLORES_NANNIE, ESTADO_NANNIE, RANGO_LABEL, NIVEL_LABEL, UMBRALES_RANGO } from '@/lib/nannie-ui';
 import { IncidenciasNannie } from '@/components/incidencias-nannie';
+import { EvaluacionNannie } from '@/components/evaluacion-nannie';
 import { BitacoraNannie } from '@/components/bitacora-nannie';
 import { Avatar } from '@/components/avatar';
 import { NombreNannie } from '@/components/nombre-nannie';
@@ -115,6 +116,8 @@ export default function NanniePerfilPage() {
       <Seccion icon={ClipboardCheck} title="Expediente" subtitle="Documentación y capacitación" tint="verde" defaultOpen={false}>
         <ExpedienteChecklists perfil={perfil} onGuardado={cargar} />
       </Seccion>
+
+      <EvaluacionNannie nannieId={perfil.id} />
 
       <IncidenciasNannie nannieId={perfil.id} nombre={perfil.nombre} esDirectora={esDirectora} />
 

@@ -63,6 +63,7 @@ export interface ReglaIncidencia {
   tipo?: string;
   consecuenciaTexto: string;
   notaObligatoria?: boolean;
+  noCulposa?: boolean;
 }
 export interface PenalidadPendiente {
   clave: string;
@@ -77,6 +78,7 @@ export interface IncidenciaHistorial {
   id: string;
   regla: number;
   situacion: string;
+  noCulposa: boolean;
   fecha: string;
   registradaPor: string;
   nota: string | null;
@@ -93,6 +95,33 @@ export interface ServicioDescuento {
   tipo: TipoServicio;
   pago: number | null;
   descuentoActual: number;
+}
+// M4 · Evaluación de desempeño
+export type ClavePilar =
+  | 'atencionInfantil'
+  | 'cumplimientoServicio'
+  | 'comunicacion'
+  | 'profesionalismo'
+  | 'puntualidad';
+export interface PilarEval {
+  clave: ClavePilar;
+  titulo: string;
+  peso: number;
+  evalua: string;
+  incluye: string;
+}
+export interface NotasEval {
+  atencionInfantil: number;
+  cumplimientoServicio: number;
+  comunicacion: number;
+  profesionalismo: number;
+  puntualidad: number;
+}
+export interface EvaluacionData {
+  semana: string;
+  evaluacion: (NotasEval & { calificacion: number; evaluadaPor: string; nota: string | null }) | null;
+  incidenciasSemana: { id: string; situacion: string; fecha: string; pilar: ClavePilar | null }[];
+  historial: { semana: string; calificacion: number }[];
 }
 export interface AltaNannieResultado {
   id: string;
@@ -620,6 +649,15 @@ export const api = {
     req<{ ok: true }>('/incidencias/condonar', {
       method: 'POST',
       body: JSON.stringify({ nannieId, ocurrenciasIds }),
+    }),
+  // M4 · Evaluación de desempeño
+  pilaresEval: () => req<PilarEval[]>('/evaluaciones/pilares'),
+  evaluacionDeNannie: (id: string, semana?: string) =>
+    req<EvaluacionData>(`/evaluaciones/nannie/${id}${semana ? `?semana=${semana}` : ''}`),
+  guardarEvaluacion: (id: string, body: NotasEval & { semana: string; nota?: string }) =>
+    req<{ ok: true; calificacion: number }>(`/evaluaciones/nannie/${id}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
     }),
   margen: (desde: string, hasta: string) =>
     req<Margen>(`/finanzas/margen${qs({ desde, hasta })}`),

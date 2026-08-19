@@ -19,9 +19,11 @@ export interface ReglaIncidencia {
   tipo?: TipoConsecuencia; // solo reglas directas (BAJA/PRUEBA/DESCONTAR_HORAS)
   consecuenciaTexto: string;
   notaObligatoria?: boolean; // la regla "Otro" exige describir qué pasó
+  noCulposa?: boolean; // justificada: SOLO se registra, no penaliza ni suma strike
 }
 
 const STRIKE_TXT = 'Suma 1 strike (al 3º: −20% del próximo servicio)';
+const NO_CULPOSA_TXT = 'Solo queda registrada (no penaliza)';
 
 export const REGLAS_INCIDENCIA: ReglaIncidencia[] = [
   { numero: 2, situacion: 'No cumple una solicitud de actualizar su calendario', esStrike: true, consecuenciaTexto: STRIKE_TXT },
@@ -37,6 +39,20 @@ export const REGLAS_INCIDENCIA: ReglaIncidencia[] = [
   { numero: 14, situacion: 'Calificación menor a 7.5 en la evaluación semestral', esStrike: false, tipo: 'PRUEBA', consecuenciaTexto: '1 mes de prueba' },
   { numero: 10, situacion: 'No envía justificante médico de un servicio que no cubrió', esStrike: false, tipo: 'DESCONTAR_HORAS', consecuenciaTexto: 'Descontar las horas del servicio del siguiente pago' },
   { numero: 15, situacion: 'Otro (describe qué pasó)', esStrike: true, consecuenciaTexto: STRIKE_TXT, notaObligatoria: true },
+  // --- No culposas / justificadas (Jackie, 2026-08): solo se registran ---
+  { numero: 20, situacion: 'Enfermedad, incapacidad, lesión o accidente', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT },
+  { numero: 21, situacion: 'Enfermedad, hospitalización, emergencia o fallecimiento de un familiar de primer grado', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT },
+  { numero: 22, situacion: 'Accidente vehicular', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT },
+  { numero: 23, situacion: 'Avería mecánica del vehículo', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT },
+  { numero: 24, situacion: 'Retraso por condiciones climáticas', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT },
+  { numero: 25, situacion: 'Retraso por bloqueos viales o cierres de carretera', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT },
+  { numero: 26, situacion: 'Interrupción del transporte público', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT },
+  { numero: 27, situacion: 'Emergencia en el domicilio (fuga de gas, incendio, inundación, etc.)', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT },
+  { numero: 28, situacion: 'Emergencia relacionada con un hijo menor de edad o dependiente', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT },
+  { numero: 29, situacion: 'Comparecencia obligatoria ante una autoridad', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT },
+  { numero: 30, situacion: 'Asalto, robo o situación de inseguridad durante el traslado', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT },
+  { numero: 31, situacion: 'Procedimiento médico indispensable e impostergable', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT },
+  { numero: 32, situacion: 'Otra (justificada — describe qué pasó)', esStrike: false, noCulposa: true, consecuenciaTexto: NO_CULPOSA_TXT, notaObligatoria: true },
 ];
 
 export const REGLAS_VALIDAS = REGLAS_INCIDENCIA.map((r) => r.numero);

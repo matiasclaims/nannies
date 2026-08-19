@@ -9,6 +9,7 @@ const TINTS: Record<string, string> = {
   verde: 'bg-marca-verde/25 text-[#5c7a2e]',
   vino: 'bg-[#5B292D]/12 text-[#5B292D]',
   morado: 'bg-marca-morado/12 text-marca-morado',
+  ambar: 'bg-amber-100 text-amber-700',
 };
 
 /** Tarjeta desplegable con ícono (look & feel Nannies). Se usa en el expediente

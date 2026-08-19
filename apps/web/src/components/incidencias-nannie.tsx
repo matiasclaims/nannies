@@ -131,7 +131,14 @@ export function IncidenciasNannie({
               {data.historial.map((h) => (
                 <div key={h.id} className="flex items-start justify-between gap-2 py-2 text-xs">
                   <div className="min-w-0">
-                    <p className="text-texto-fuerte">{h.situacion}</p>
+                    <p className="text-texto-fuerte">
+                      {h.situacion}
+                      {h.noCulposa && (
+                        <span className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                          Justificada
+                        </span>
+                      )}
+                    </p>
                     <p className="text-[11px] text-texto-suave">
                       {fechaCorta(h.fecha)} · {h.registradaPor} · {ESTADO_INC[h.estado] ?? h.estado}
                       {h.nota ? ` · ${h.nota}` : ''}
@@ -326,11 +333,20 @@ function RegistrarModal({
           <span className="mb-1 block text-xs font-medium text-texto-suave">Regla</span>
           <select value={regla} onChange={(e) => setRegla(e.target.value === '' ? '' : Number(e.target.value))} className={input}>
             <option value="">Elige la incidencia…</option>
-            {reglas.map((r) => (
-              <option key={r.numero} value={r.numero}>
-                {r.situacion}
-              </option>
-            ))}
+            <optgroup label="Incidencias">
+              {reglas.filter((r) => !r.noCulposa).map((r) => (
+                <option key={r.numero} value={r.numero}>
+                  {r.situacion}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="No culposas (justificadas · no penalizan)">
+              {reglas.filter((r) => r.noCulposa).map((r) => (
+                <option key={r.numero} value={r.numero}>
+                  {r.situacion}
+                </option>
+              ))}
+            </optgroup>
           </select>
         </label>
 

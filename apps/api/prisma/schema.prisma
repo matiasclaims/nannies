@@ -181,8 +181,34 @@ model Nannie {
   nominaPagos     NominaPago[]
   incidencias     Incidencia[]
   notas           NotaNannie[]
+  evaluaciones    EvaluacionNannie[]
 
   @@map("nannies")
+}
+
+// Evaluación de desempeño de la nannie (M4, punto G). La registra coordinación
+// (Paula/Jackie) por SEMANA (dom-sáb). Cinco pilares 1-10 ponderados a 100%
+// (catálogo de pilares y pesos en evaluaciones.catalogo.ts). La calificación es
+// la suma ponderada. `semana` = domingo de inicio.
+model EvaluacionNannie {
+  id                   String   @id @default(cuid())
+  nannieId             String
+  nannie               Nannie   @relation(fields: [nannieId], references: [id])
+  semana               DateTime @db.Date
+  atencionInfantil     Int
+  cumplimientoServicio Int
+  comunicacion         Int
+  profesionalismo      Int
+  puntualidad          Int
+  calificacion         Decimal  @db.Decimal(4, 2) // ponderada 1-10 (ej. 8.35)
+  evaluadaPor          String
+  nota                 String?
+  creadoEn             DateTime @default(now())
+  actualizadoEn        DateTime @updatedAt
+
+  @@unique([nannieId, semana])
+  @@index([nannieId])
+  @@map("evaluaciones_nannie")
 }
 
 // Incidencia registrada contra una nannie (M4). Detección MANUAL (coordinación),
