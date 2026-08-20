@@ -11,8 +11,10 @@ import { AsignacionModule } from './modules/asignacion/asignacion.module';
 import { FamiliasModule } from './modules/familias/familias.module';
 import { FinanzasModule } from './modules/finanzas/finanzas.module';
 import { NanniesModule } from './modules/nannies/nannies.module';
+import { HealthController } from './health.controller';
 
 @Module({
+  controllers: [HealthController],
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     // Rate limiting global: frena fuerza bruta y protege el vCPU único
