@@ -376,6 +376,33 @@ export interface NinoInput {
   conductasRiesgo?: string;
   autorizacionCambioPanal?: boolean;
 }
+/** Una familia a importar (cardex + peques). M5 · Bloque 4. */
+export interface FamiliaImport {
+  nombreContacto: string;
+  apellido?: string;
+  plaza: Plaza;
+  zona?: string;
+  telefono?: string;
+  email?: string;
+  numeroEmergencia?: string;
+  direccion?: string;
+  expectativas?: string;
+  reglasEspecificas?: string;
+  adultoResponsablePresente?: boolean;
+  mascotas?: string;
+  areasATrabajar?: string[];
+  autorizacionAudiovisual?: string;
+  consentimientoReglamento?: boolean;
+  consentimientoMedico?: boolean;
+  consentimientoPrivacidad?: boolean;
+  consentimientoConfidencialidad?: boolean;
+  ninos: NinoInput[];
+}
+export interface ResultadoImport {
+  creadas: number;
+  total: number;
+  resultados: { nombreContacto: string; ok: boolean; id?: string; error?: string }[];
+}
 /** Campos editables del cardex de la familia (M5). Todos opcionales. */
 export interface FamiliaInput {
   nombreContacto?: string;
@@ -648,6 +675,8 @@ export const api = {
   }) => req<FamiliaLite>('/familias', { method: 'POST', body: JSON.stringify(body) }),
   editarFamilia: (id: string, body: FamiliaInput) =>
     req<{ ok: true }>(`/familias/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  importarFamilias: (familias: FamiliaImport[]) =>
+    req<ResultadoImport>('/familias/importar', { method: 'POST', body: JSON.stringify({ familias }) }),
   crearPaquete: (familiaId: string, horas: number, asignacionManual = false) =>
     req<PaqueteActivo>(`/familias/${familiaId}/paquetes`, {
       method: 'POST',

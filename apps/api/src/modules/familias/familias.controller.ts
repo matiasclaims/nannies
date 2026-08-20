@@ -5,6 +5,7 @@ import { UsuarioActual } from '../../core/auth/decorators/usuario-actual.decorat
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { CrearFamiliaDto } from './dto/crear-familia.dto';
 import { EditarFamiliaDto } from './dto/editar-familia.dto';
+import { ImportarFamiliasDto } from './dto/importar-familias.dto';
 import { CrearPaqueteDto } from './dto/crear-paquete.dto';
 import { CrearNinoDto, EditarNinoDto } from './dto/nino.dto';
 import { CrearNotaDto } from './dto/crear-nota.dto';
@@ -23,6 +24,13 @@ export class FamiliasController {
   @Post()
   crear(@Body() dto: CrearFamiliaDto) {
     return this.familias.crear(dto);
+  }
+
+  // Importación en lote de familias desde el formulario (M5 · Bloque 4). Coordinación.
+  @RequiereAccion('familia.gestionar')
+  @Post('importar')
+  importar(@Body() dto: ImportarFamiliasDto) {
+    return this.familias.importar(dto);
   }
 
   // Editar el cardex de la familia (M5). Coordinación.

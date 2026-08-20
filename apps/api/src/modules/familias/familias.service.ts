@@ -4,6 +4,7 @@ import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { filtrarCampos } from '../../core/rbac/permissions';
 import { CrearFamiliaDto } from './dto/crear-familia.dto';
 import { EditarFamiliaDto } from './dto/editar-familia.dto';
+import { ImportarFamiliasDto } from './dto/importar-familias.dto';
 import { CrearPaqueteDto } from './dto/crear-paquete.dto';
 import { CrearNinoDto, EditarNinoDto } from './dto/nino.dto';
 import { CrearNotaDto } from './dto/crear-nota.dto';
@@ -90,6 +91,30 @@ export class FamiliasService {
       },
       select: { id: true, nombreContacto: true, plaza: true, zona: true },
     });
+  }
+
+  /** Importación en lote de familias (M5 · Bloque 4). Cada familia trae su
+   *  cardex + sus peques; se crea en una transacción. El cliente ya validó y
+   *  mostró la vista previa, pero el DTO revalida cada fila. Devuelve el
+   *  resultado por fila (para reportar cuáles se crearon). */
+  async importar(dto: ImportarFamiliasDto) {
+    const resultados: { nombreContacto: string; ok: boolean; id?: string; error?: string }[] = [];
+    for (const f of dto.familias) {
+      try {
+        const { ninos, ...familia } = f;
+        const creada = await this.prisma.$transaction(async (tx) => {
+          const nueva = await tx.familia.create({ data: familia });
+          if (ninos.length) {
+            await tx.nino.createMany({ data: ninos.map((n) => ({ familiaId: nueva.id, ...n })) });
+          }
+          return nueva;
+        });
+        resultados.push({ nombreContacto: f.nombreContacto, ok: true, id: creada.id });
+      } catch {
+        resultados.push({ nombreContacto: f.nombreContacto, ok: false, error: 'No se pudo crear.' });
+      }
+    }
+    return { creadas: resultados.filter((r) => r.ok).length, total: dto.familias.length, resultados };
   }
 
   /** Edita el cardex de la familia (M5). Solo actualiza lo que venga en el DTO. */

@@ -434,7 +434,20 @@ export const MANUAL: CapituloModulo[] = [
             'Captura los datos esenciales: contacto, apellido, plaza, zona, teléfono, número de emergencia, correo y dirección.',
             'Presiona "Guardar familia".',
           ],
-          nota: 'Más adelante, las altas del formulario que llenan los papás se podrán importar al sistema. Por ahora, el alta manual cubre ese registro.',
+          nota: 'Para cargar varias familias de golpe (por ejemplo, las respuestas del formulario), usa "Importar" — ver la siguiente sección.',
+        },
+        {
+          titulo: 'Importar familias (varias de golpe)',
+          intro:
+            'Cuando tengas varias familias juntas (por ejemplo, exportadas del formulario que llenan los papás), puedes cargarlas en lote sin capturarlas una por una.',
+          pasos: [
+            'En "Familias" › botón "Importar".',
+            'Descarga la "Plantilla CSV" para ver el formato, o copia las filas desde Google Sheets y pégalas en el cuadro (también puedes subir un archivo CSV).',
+            'La primera fila deben ser los encabezados (contacto, apellido, plaza, peque1_nombre, etc.); el orden no importa y las columnas que no reconozca se ignoran.',
+            'Presiona "Revisar": verás una vista previa con cada familia marcada como Lista, Con error (te dice el motivo) o Posible duplicado.',
+            'Presiona "Confirmar importación": se crean solo las que están listas; las de error se omiten.',
+          ],
+          nota: 'Obligatorios por familia: contacto y plaza (Toluca o Querétaro). Los "posibles duplicados" (mismo contacto y apellido) se marcan pero no se crean, salvo que marques la casilla para incluirlos. Nada se crea hasta que confirmas.',
         },
         {
           titulo: 'El expediente de la familia',

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Upload } from 'lucide-react';
 import {
   api,
   type FamiliaLite,
@@ -63,13 +63,22 @@ export default function FamiliasPage() {
             Cardex de familias y su paquete de horas activo.
           </p>
         </div>
-        <button
-          onClick={() => setAlta((v) => !v)}
-          className="flex items-center gap-2 rounded-xl bg-marca-azul px-3 py-2 text-sm font-semibold text-white transition hover:brightness-95"
-        >
-          <UserPlus className="h-4 w-4" />
-          {alta ? 'Cerrar' : 'Nueva familia'}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/familias/importar"
+            className="flex items-center gap-2 rounded-xl border border-borde px-3 py-2 text-sm font-medium text-texto-suave transition hover:bg-fondo"
+          >
+            <Upload className="h-4 w-4" />
+            Importar
+          </Link>
+          <button
+            onClick={() => setAlta((v) => !v)}
+            className="flex items-center gap-2 rounded-xl bg-marca-azul px-3 py-2 text-sm font-semibold text-white transition hover:brightness-95"
+          >
+            <UserPlus className="h-4 w-4" />
+            {alta ? 'Cerrar' : 'Nueva familia'}
+          </button>
+        </div>
       </div>
 
       {alta && <AltaFamilia onCreada={() => { setAlta(false); void cargar(); }} />}
