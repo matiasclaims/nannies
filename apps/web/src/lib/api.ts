@@ -46,6 +46,13 @@ export interface NotaNannie {
   autor: string;
   fecha: string;
 }
+export interface DocumentoNannie {
+  clave: string;
+  tipo: 'DOCUMENTO' | 'CURSO';
+  nombreArchivo: string;
+  subidoEn: string;
+  url: string | null;
+}
 export interface NuevaNannie {
   nombre: string;
   correo: string;
@@ -525,6 +532,21 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ horaFin, ...(tarifaNoche != null ? { tarifaNoche } : {}) }),
     }),
+  reasignarServicio: (servicioId: string, nannieId: string) =>
+    req<{ ok: true }>(`/calendario/servicios/${servicioId}/reasignar`, {
+      method: 'PATCH',
+      body: JSON.stringify({ nannieId }),
+    }),
+  cancelarServicio: (servicioId: string, cobrar: boolean, motivo?: string) =>
+    req<{ ok: true }>(`/calendario/servicios/${servicioId}/cancelar`, {
+      method: 'PATCH',
+      body: JSON.stringify({ cobrar, ...(motivo ? { motivo } : {}) }),
+    }),
+  reprogramarServicio: (servicioId: string, nuevaFecha: string, horaInicio?: string) =>
+    req<{ ok: true }>(`/calendario/servicios/${servicioId}/reprogramar`, {
+      method: 'PATCH',
+      body: JSON.stringify({ nuevaFecha, ...(horaInicio ? { horaInicio } : {}) }),
+    }),
 
   // M1 · Ofertas y respuestas (1.3)
   listarNannies: () => req<NannieLite[]>('/calendario/nannies'),
@@ -618,6 +640,16 @@ export const api = {
     req<{ ok: true }>(`/nannies/${id}/notas`, { method: 'POST', body: JSON.stringify({ texto }) }),
   borrarNotaNannie: (notaId: string) =>
     req<{ ok: true }>(`/nannies/notas/${notaId}`, { method: 'DELETE' }),
+  // Documentos del expediente
+  documentosDeNannie: (id: string) => req<DocumentoNannie[]>(`/nannies/${id}/documentos`),
+  misDocumentos: () => req<DocumentoNannie[]>('/mis-documentos'),
+  subirMiDocumento: (clave: string, nombreArchivo: string, contenido: string) =>
+    req<{ ok: true }>('/mis-documentos', {
+      method: 'POST',
+      body: JSON.stringify({ clave, nombreArchivo, contenido }),
+    }),
+  borrarMiDocumento: (clave: string) =>
+    req<{ ok: true }>(`/mis-documentos/${clave}`, { method: 'DELETE' }),
   cambiarMiPassword: (actual: string, nueva: string) =>
     req<{ ok: true }>('/nannies/mi-password', {
       method: 'POST',

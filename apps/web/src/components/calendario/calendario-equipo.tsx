@@ -294,119 +294,231 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
       </div>
 
       {editando && (
-        <EditorHorario servicio={editando} onClose={() => setEditando(null)} onGuardado={cargar} />
+        <AccionesServicio
+          servicio={editando}
+          nannies={nannies}
+          onClose={() => setEditando(null)}
+          onGuardado={cargar}
+        />
       )}
     </div>
   );
 }
 
-/** Editor de la hora fin de un servicio (merodeo). Recalcula duración y cobro
- *  por bandas; si la nueva duración entra a horario de noche, pide la tarifa de
- *  noche (el backend la usa solo si el servicio aún no tenía una). */
-function EditorHorario({
+/** Acciones sobre un servicio asignado (coordinación): editar hora fin (merodeo),
+ *  reasignar a otra nannie, o cancelar (regla de 24h con decisión de cobro). */
+function AccionesServicio({
   servicio,
+  nannies,
   onClose,
   onGuardado,
 }: {
   servicio: Servicio;
+  nannies: NannieLite[];
   onClose: () => void;
   onGuardado: () => Promise<void>;
 }) {
-  const [horaFin, setHoraFin] = useState(servicio.horaFin);
-  const [tarifaNoche, setTarifaNoche] = useState(140);
+  const [modo, setModo] = useState<'horario' | 'reasignar' | 'reprogramar' | 'cancelar'>('horario');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-
-  const nuevaDur = horasEntre(servicio.horaInicio, horaFin);
-  const { horasNoche } = nuevaDur
-    ? dividirDiaNoche(servicio.horaInicio, nuevaDur)
-    : { horasNoche: 0 };
-  const cruzaNoche = horasNoche > 0;
-  const invalida = nuevaDur == null || nuevaDur < 3;
   const inputCls =
     'mt-1 w-full rounded-xl border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-marca-azul';
 
-  async function guardar() {
-    if (invalida) {
-      setError('El horario debe dar horas completas y mínimo 3 h.');
-      return;
-    }
+  // --- Horario (merodeo) ---
+  const [horaFin, setHoraFin] = useState(servicio.horaFin);
+  const [tarifaNoche, setTarifaNoche] = useState(140);
+  const nuevaDur = horasEntre(servicio.horaInicio, horaFin);
+  const { horasNoche } = nuevaDur ? dividirDiaNoche(servicio.horaInicio, nuevaDur) : { horasNoche: 0 };
+  const cruzaNoche = horasNoche > 0;
+  const invalida = nuevaDur == null || nuevaDur < 3;
+
+  // --- Reasignar ---
+  const [nannieSel, setNannieSel] = useState('');
+  const nombreActual = nannies.find((n) => n.id === servicio.nannieId)?.nombre;
+
+  // --- Reprogramar (política 16c: individual pagado, tope 7 días) ---
+  const [nuevaFecha, setNuevaFecha] = useState(servicio.fecha);
+  const [nuevaHora, setNuevaHora] = useState(servicio.horaInicio);
+  const diasReprog = Math.round(
+    (new Date(`${nuevaFecha}T00:00:00`).getTime() - new Date(`${servicio.fecha}T00:00:00`).getTime()) / 86_400_000,
+  );
+  const esIndividual = servicio.formato === 'INDIVIDUAL';
+  const excede7 = esIndividual && Math.abs(diasReprog) > 7;
+  const sinCambioReprog = diasReprog === 0 && nuevaHora === servicio.horaInicio;
+
+  // --- Cancelar (regla de 24h) ---
+  const inicioDt = new Date(`${servicio.fecha}T${servicio.horaInicio}:00`);
+  const horasHasta = (inicioDt.getTime() - Date.now()) / 3_600_000;
+  const menos24 = horasHasta < 24;
+  const [cobrar, setCobrar] = useState(menos24);
+  const [motivo, setMotivo] = useState('');
+
+  async function correr(fn: () => Promise<unknown>) {
     setBusy(true);
     setError('');
     try {
-      await api.editarHorario(servicio.id, horaFin, cruzaNoche ? tarifaNoche : undefined);
+      await fn();
       await onGuardado();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo actualizar el servicio.');
+      setError(e instanceof Error ? e.message : 'No se pudo completar la acción.');
       setBusy(false);
     }
   }
 
+  const guardarHorario = () => {
+    if (invalida) return setError('El horario debe dar horas completas y mínimo 3 h.');
+    return correr(() => api.editarHorario(servicio.id, horaFin, cruzaNoche ? tarifaNoche : undefined));
+  };
+  const reasignar = () => nannieSel && correr(() => api.reasignarServicio(servicio.id, nannieSel));
+  const cancelar = () => correr(() => api.cancelarServicio(servicio.id, cobrar, motivo.trim() || undefined));
+  const reprogramar = () => {
+    if (excede7) return setError('Un servicio individual pagado solo puede reprogramarse dentro de 7 días.');
+    if (sinCambioReprog) return setError('Elige una fecha u hora distinta a la actual.');
+    return correr(() =>
+      api.reprogramarServicio(servicio.id, nuevaFecha, nuevaHora !== servicio.horaInicio ? nuevaHora : undefined),
+    );
+  };
+
+  const tabs = [
+    { id: 'horario', label: 'Horario' },
+    { id: 'reasignar', label: 'Reasignar' },
+    { id: 'reprogramar', label: 'Reprogramar' },
+    { id: 'cancelar', label: 'Cancelar' },
+  ] as const;
+
   return (
-    <div
-      className="fixed inset-0 z-30 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <button
-        type="button"
-        aria-label="Cerrar"
-        className="absolute inset-0 bg-texto-fuerte/30 backdrop-blur-sm"
-        onClick={onClose}
-      />
+    <div className="fixed inset-0 z-30 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-texto-fuerte/30 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-sm rounded-2xl border border-borde bg-panel p-4 shadow-2xl">
-        <h3 className="text-sm font-semibold text-texto-fuerte">Editar horario del servicio</h3>
+        <h3 className="text-sm font-semibold text-texto-fuerte">Servicio</h3>
         <p className="mt-0.5 text-xs text-texto-suave">
-          {TIPO_LABEL[servicio.tipoServicio]} · {fechaCorta(servicio.fecha)} · empieza{' '}
-          {servicio.horaInicio} (hoy termina {servicio.horaFin})
+          {TIPO_LABEL[servicio.tipoServicio]} · {fechaCorta(servicio.fecha)} · {servicio.horaInicio}–{servicio.horaFin}
+          {nombreActual && <> · {nombreActual}</>}
         </p>
 
-        <label className="mt-3 block text-xs font-medium text-texto-suave">Nueva hora fin</label>
-        <HoraSelect value={horaFin} onChange={setHoraFin} className={inputCls} />
+        <div className="mt-3 flex rounded-xl border border-borde p-0.5 text-xs">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => { setModo(t.id); setError(''); }}
+              className={cn(
+                'flex-1 rounded-lg px-2 py-1 font-medium transition',
+                modo === t.id
+                  ? t.id === 'cancelar' ? 'bg-marca-rojo text-white' : 'bg-marca-azul text-white'
+                  : 'text-texto-suave hover:bg-fondo',
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-        {nuevaDur != null && !invalida && (
-          <p className="mt-2 text-xs text-texto-suave">
-            Nueva duración: <strong className="text-texto-fuerte">{nuevaDur} h</strong>
-            {cruzaNoche && (
-              <span className="text-marca-morado"> · entra a horario de noche ({horasNoche} h)</span>
+        {modo === 'horario' && (
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-texto-suave">Nueva hora fin</label>
+            <HoraSelect value={horaFin} onChange={setHoraFin} className={inputCls} />
+            {nuevaDur != null && !invalida && (
+              <p className="mt-2 text-xs text-texto-suave">
+                Nueva duración: <strong className="text-texto-fuerte">{nuevaDur} h</strong>
+                {cruzaNoche && <span className="text-marca-morado"> · entra a horario de noche ({horasNoche} h)</span>}
+              </p>
             )}
-          </p>
+            {cruzaNoche && (
+              <div className="mt-2">
+                <label className="block text-xs font-medium text-texto-suave">Tarifa de noche ($/h, mín ${TARIFA_NOCHE_MIN})</label>
+                <input type="number" min={TARIFA_NOCHE_MIN} value={tarifaNoche} onChange={(e) => setTarifaNoche(Number(e.target.value))} className={inputCls} />
+              </div>
+            )}
+          </div>
         )}
 
-        {cruzaNoche && (
-          <div className="mt-2">
-            <label className="block text-xs font-medium text-texto-suave">
-              Tarifa de noche ($/h, mín ${TARIFA_NOCHE_MIN})
+        {modo === 'reasignar' && (
+          <div className="mt-3">
+            <p className="text-xs text-texto-suave">Pasa este servicio a otra nannie (queda asignado directo).</p>
+            <label className="mt-2 block text-xs font-medium text-texto-suave">Nueva nannie</label>
+            <select value={nannieSel} onChange={(e) => setNannieSel(e.target.value)} className={inputCls}>
+              <option value="">Elige…</option>
+              {nannies.filter((n) => n.id !== servicio.nannieId).map((n) => (
+                <option key={n.id} value={n.id}>{n.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {modo === 'reprogramar' && (
+          <div className="mt-3">
+            <p className="text-xs text-texto-suave">Mueve el servicio a otra fecha (conserva nannie, duración y cobro).</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-medium text-texto-suave">Nueva fecha</label>
+                <input type="date" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-texto-suave">Hora inicio</label>
+                <HoraSelect value={nuevaHora} onChange={setNuevaHora} className={inputCls} />
+              </div>
+            </div>
+            {excede7 ? (
+              <p className="mt-2 rounded-lg bg-marca-rojo/10 px-3 py-2 text-xs text-marca-rojo">
+                Un servicio individual pagado solo puede reprogramarse dentro de 7 días (elegiste {Math.abs(diasReprog)}).
+              </p>
+            ) : (
+              esIndividual && (
+                <p className="mt-2 text-[11px] text-texto-suave">
+                  Servicio individual pagado: máximo 7 días de la fecha original. Recuerda avisar con ≥24 h.
+                </p>
+              )
+            )}
+          </div>
+        )}
+
+        {modo === 'cancelar' && (
+          <div className="mt-3">
+            <p className={cn('rounded-lg px-3 py-2 text-xs', menos24 ? 'bg-amber-50 text-amber-800' : 'bg-marca-verde/15 text-[#3b6d11]')}>
+              {horasHasta >= 0
+                ? <>Faltan <strong>{Math.round(horasHasta)} h</strong> para el servicio. Por la regla de 24 h, {menos24 ? <>se <strong>cobra</strong> la hora.</> : <>no se cobra.</>}</>
+                : 'El servicio ya pasó.'}
+            </p>
+            <label className="mt-3 flex items-center gap-2 text-sm text-texto-fuerte">
+              <input type="checkbox" checked={cobrar} onChange={(e) => setCobrar(e.target.checked)} className="h-4 w-4" />
+              Cobrar la hora
             </label>
-            <input
-              type="number"
-              min={TARIFA_NOCHE_MIN}
-              value={tarifaNoche}
-              onChange={(e) => setTarifaNoche(Number(e.target.value))}
-              className={inputCls}
-            />
+            <p className="mt-0.5 text-[11px] text-texto-suave">
+              {cobrar ? 'La hora se cobra (en paquete se pierde del saldo).' : 'No se cobra; en paquete se devuelve la hora al saldo.'}
+            </p>
+            <label className="mt-2 block text-xs font-medium text-texto-suave">Motivo (opcional)</label>
+            <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} className={cn(inputCls, 'resize-none')} placeholder="Ej. el niño está enfermo" />
           </div>
         )}
 
         {error && <p className="mt-2 text-xs text-marca-rojo">{error}</p>}
 
         <div className="mt-4 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-borde px-3 py-1.5 text-sm text-texto-suave hover:bg-fondo"
-          >
-            Cancelar
+          <button type="button" onClick={onClose} className="rounded-lg border border-borde px-3 py-1.5 text-sm text-texto-suave hover:bg-fondo">
+            Cerrar
           </button>
-          <button
-            type="button"
-            onClick={guardar}
-            disabled={busy || invalida || (cruzaNoche && tarifaNoche < TARIFA_NOCHE_MIN)}
-            className="rounded-lg bg-marca-azul px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {busy ? 'Guardando…' : 'Guardar'}
-          </button>
+          {modo === 'horario' && (
+            <button type="button" onClick={guardarHorario} disabled={busy || invalida || (cruzaNoche && tarifaNoche < TARIFA_NOCHE_MIN)} className="rounded-lg bg-marca-azul px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
+              {busy ? 'Guardando…' : 'Guardar'}
+            </button>
+          )}
+          {modo === 'reasignar' && (
+            <button type="button" onClick={reasignar} disabled={busy || !nannieSel} className="rounded-lg bg-marca-azul px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
+              {busy ? 'Reasignando…' : 'Reasignar'}
+            </button>
+          )}
+          {modo === 'reprogramar' && (
+            <button type="button" onClick={reprogramar} disabled={busy || excede7 || sinCambioReprog} className="rounded-lg bg-marca-azul px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
+              {busy ? 'Reprogramando…' : 'Reprogramar'}
+            </button>
+          )}
+          {modo === 'cancelar' && (
+            <button type="button" onClick={cancelar} disabled={busy} className="rounded-lg bg-marca-rojo px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
+              {busy ? 'Cancelando…' : 'Cancelar servicio'}
+            </button>
+          )}
         </div>
       </div>
     </div>

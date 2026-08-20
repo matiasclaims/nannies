@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { NanniesService } from './nannies.service';
+import { DocumentosService } from './documentos.service';
 import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decorator';
 import { UsuarioActual } from '../../core/auth/decorators/usuario-actual.decorator';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
@@ -11,7 +12,17 @@ import { AgregarNotaDto } from './dto/agregar-nota.dto';
 
 @Controller('nannies')
 export class NanniesController {
-  constructor(private readonly nannies: NanniesService) {}
+  constructor(
+    private readonly nannies: NanniesService,
+    private readonly documentos: DocumentosService,
+  ) {}
+
+  // Documentos que subió la nannie (coordinación los revisa/descarga).
+  @RequiereAccion('nannie.gestionar')
+  @Get(':id/documentos')
+  documentosDe(@Param('id') id: string) {
+    return this.documentos.listar(id);
+  }
 
   // Cambio de contraseña propio (cualquier usuario autenticado, sobre lo suyo).
   @Post('mi-password')

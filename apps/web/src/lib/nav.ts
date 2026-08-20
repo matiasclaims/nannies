@@ -6,6 +6,7 @@ import {
   Heart,
   Wallet,
   ClipboardList,
+  FolderUp,
   type LucideIcon,
 } from 'lucide-react';
 import type { Rol } from '@/lib/api';
@@ -32,6 +33,7 @@ export const NAV: NavItem[] = [
   { href: '/', label: 'Panorama', icon: LayoutDashboard, movil: true },
   { href: '/asignacion', label: 'Asignación', icon: ArrowLeftRight, movil: true, roles: COORD },
   { href: '/calendario', label: 'Calendario', icon: CalendarDays, movil: true },
+  { href: '/mis-documentos', label: 'Mis documentos', icon: FolderUp, movil: true, roles: ['NANNIE'] },
   { href: '/nannies', label: 'Nannies', icon: Users, movil: true, roles: COORD },
   { href: '/familias', label: 'Familias', icon: Heart, roles: COORD },
   { href: '/finanzas', label: 'Finanzas', icon: Wallet, roles: COORD },

@@ -488,8 +488,12 @@ export class FinanzasService {
         where: {
           servicio: {
             formato: 'INDIVIDUAL',
-            estado: { in: [...CONFIRMADOS] },
             fecha: { gte, lte },
+            // Confirmados + cancelaciones que SÍ se cobraron (aviso <24h).
+            OR: [
+              { estado: { in: [...CONFIRMADOS] } },
+              { estado: 'CANCELADO', canceladaCobrada: true },
+            ],
           },
         },
         include: {

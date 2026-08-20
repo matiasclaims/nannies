@@ -9,6 +9,9 @@ import { CrearServicioDto } from './dto/crear-servicio.dto';
 import { EditarHorarioDto } from './dto/editar-horario.dto';
 import { OfertarDto } from './dto/ofertar.dto';
 import { ResponderOfertaDto } from './dto/responder-oferta.dto';
+import { ReasignarServicioDto } from './dto/reasignar-servicio.dto';
+import { CancelarServicioDto } from './dto/cancelar-servicio.dto';
+import { ReprogramarServicioDto } from './dto/reprogramar-servicio.dto';
 
 @Controller('calendario')
 export class CalendarioController {
@@ -79,6 +82,27 @@ export class CalendarioController {
   @Patch('servicios/:id/horario')
   editarHorario(@Param('id') id: string, @Body() dto: EditarHorarioDto) {
     return this.calendario.editarHorario(id, dto);
+  }
+
+  // Reasignar un servicio a otra nannie (una nannie cubre a otra). Coordinación.
+  @RequiereAccion('servicio.asignar')
+  @Patch('servicios/:id/reasignar')
+  reasignar(@Param('id') id: string, @Body() dto: ReasignarServicioDto) {
+    return this.calendario.reasignarServicio(id, dto.nannieId);
+  }
+
+  // Cancelar un servicio (la familia canceló). Coordinación.
+  @RequiereAccion('servicio.asignar')
+  @Patch('servicios/:id/cancelar')
+  cancelar(@Param('id') id: string, @Body() dto: CancelarServicioDto) {
+    return this.calendario.cancelarServicio(id, dto.motivo, dto.cobrar);
+  }
+
+  // Reprogramar un servicio a otra fecha (la familia pide otro día). Coordinación.
+  @RequiereAccion('servicio.asignar')
+  @Patch('servicios/:id/reprogramar')
+  reprogramar(@Param('id') id: string, @Body() dto: ReprogramarServicioDto) {
+    return this.calendario.reprogramarServicio(id, dto.nuevaFecha, dto.horaInicio);
   }
 
   // --- Ofertas y respuestas (1.3) ---

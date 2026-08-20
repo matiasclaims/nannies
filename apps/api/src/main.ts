@@ -17,8 +17,9 @@ async function bootstrap(): Promise<void> {
   // Cabeceras de seguridad
   app.use(helmet());
   app.use(cookieParser(process.env.COOKIE_SECRET));
-  app.use(json({ limit: '1mb' }));
-  app.use(urlencoded({ extended: true, limit: '1mb' }));
+  // 15 MB: cabe una foto (data URL) y un documento del expediente (≤8 MB en base64).
+  app.use(json({ limit: '15mb' }));
+  app.use(urlencoded({ extended: true, limit: '15mb' }));
 
   // CORS restrictivo: solo el dominio del sistema (SEGURIDAD §10)
   app.enableCors({

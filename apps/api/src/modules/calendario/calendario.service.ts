@@ -397,6 +397,98 @@ export class CalendarioService {
     });
   }
 
+  /**
+   * Reasignar un servicio a otra nannie (una nannie cubre a otra). Coordinación.
+   * Queda directamente ASIGNADO (no se re-oferta). Sirve para suelto y paquete.
+   */
+  async reasignarServicio(servicioId: string, nannieId: string) {
+    const servicio = await this.prisma.servicio.findUnique({ where: { id: servicioId } });
+    if (!servicio) throw new NotFoundException('Servicio no encontrado');
+    if (servicio.estado !== 'OFERTADO' && servicio.estado !== 'ACEPTADO') {
+      throw new BadRequestException('Solo se puede reasignar un servicio ofertado o aceptado.');
+    }
+    const nannie = await this.prisma.nannie.findUnique({ where: { id: nannieId }, select: { id: true } });
+    if (!nannie) throw new BadRequestException('Nannie no encontrada.');
+    await this.prisma.servicio.update({
+      where: { id: servicioId },
+      data: { nannieId, estado: 'ACEPTADO' },
+    });
+    return { ok: true };
+  }
+
+  /**
+   * Cancelar un servicio (la familia canceló). Coordinación. La regla de 24h
+   * decide por defecto si se cobra, pero coordinación tiene la última palabra
+   * (`cobrar`). En paquete, si NO se cobra se devuelve la hora al saldo.
+   */
+  async cancelarServicio(servicioId: string, motivo: string | undefined, cobrar: boolean) {
+    const servicio = await this.prisma.servicio.findUnique({ where: { id: servicioId } });
+    if (!servicio) throw new NotFoundException('Servicio no encontrado');
+    if (servicio.estado === 'CANCELADO' || servicio.estado === 'COMPLETADO') {
+      throw new BadRequestException('Este servicio ya no se puede cancelar.');
+    }
+    return this.prisma.$transaction(async (tx) => {
+      await tx.servicio.update({
+        where: { id: servicioId },
+        data: { estado: 'CANCELADO', motivoCancelacion: motivo?.trim() || null, canceladaCobrada: cobrar },
+      });
+      if (!cobrar && servicio.formato === 'PAQUETE' && servicio.paqueteId) {
+        const paquete = await tx.paquete.findUnique({ where: { id: servicio.paqueteId } });
+        if (paquete) {
+          const consumidas = Math.max(0, paquete.horasConsumidas - servicio.duracionHoras);
+          await tx.paquete.update({
+            where: { id: paquete.id },
+            data: {
+              horasConsumidas: consumidas,
+              estado: paquete.estado === 'CONSUMIDO' ? 'ACTIVO' : paquete.estado,
+            },
+          });
+        }
+      }
+      return { ok: true };
+    });
+  }
+
+  /**
+   * Reprogramar un servicio a otra fecha (la familia pide otro día). Coordinación.
+   * Conserva nannie, duración y cobro; solo cambia la fecha (y opcionalmente la
+   * hora de inicio, corriendo la de fin la misma duración). Política 16c: un
+   * servicio individual pagado solo puede reprogramarse dentro de 7 días. El
+   * umbral de 24h queda a criterio de coordinación (no se bloquea aquí).
+   */
+  async reprogramarServicio(servicioId: string, nuevaFecha: string, horaInicio?: string) {
+    const servicio = await this.prisma.servicio.findUnique({ where: { id: servicioId } });
+    if (!servicio) throw new NotFoundException('Servicio no encontrado');
+    if (servicio.estado !== 'OFERTADO' && servicio.estado !== 'ACEPTADO') {
+      throw new BadRequestException('Solo se puede reprogramar un servicio ofertado o aceptado.');
+    }
+    const nueva = fecha(nuevaFecha);
+    if (!nueva) throw new BadRequestException('Fecha no válida.');
+
+    const dias = Math.round((nueva.getTime() - servicio.fecha.getTime()) / 86_400_000);
+    if (dias === 0 && (!horaInicio || horaInicio === servicio.horaInicio)) {
+      throw new BadRequestException('Elige una fecha u hora distinta a la actual.');
+    }
+    if (servicio.formato === 'INDIVIDUAL' && Math.abs(dias) > 7) {
+      throw new BadRequestException(
+        'Un servicio individual pagado solo puede reprogramarse dentro de 7 días.',
+      );
+    }
+
+    let horaIni = servicio.horaInicio;
+    let horaFin = servicio.horaFin;
+    if (horaInicio && horaInicio !== servicio.horaInicio) {
+      horaIni = horaInicio;
+      horaFin = sumarHoras(horaInicio, servicio.duracionHoras);
+    }
+
+    await this.prisma.servicio.update({
+      where: { id: servicioId },
+      data: { fecha: nueva, horaInicio: horaIni, horaFin },
+    });
+    return { ok: true };
+  }
+
   // ---------------- Ofertas y respuestas (1.3) ----------------
 
   /** Lista ligera de nannies para el selector de oferta (coordinación). */
@@ -536,6 +628,15 @@ function fecha(valor?: string): Date | undefined {
 /** Redondea a 2 decimales (centavos). */
 function redondea2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/** Suma horas enteras a un HH:mm y devuelve HH:mm (envuelve en 24 h). */
+function sumarHoras(hhmm: string, horas: number): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const total = (h * 60 + m + horas * 60) % (24 * 60);
+  const hh = Math.floor(total / 60);
+  const mm = total % 60;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
 /** Horas completas entre dos HH:mm (maneja cruce de medianoche). null si no da

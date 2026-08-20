@@ -4,6 +4,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { MailModule } from './core/mail/mail.module';
+import { StorageModule } from './core/storage/storage.module';
 import { AuthModule } from './core/auth/auth.module';
 import { CalendarioModule } from './modules/calendario/calendario.module';
 import { AsignacionModule } from './modules/asignacion/asignacion.module';
@@ -24,6 +25,7 @@ import { NanniesModule } from './modules/nannies/nannies.module';
     ]),
     PrismaModule,
     MailModule,
+    StorageModule,
     AuthModule,
     CalendarioModule,
     AsignacionModule,

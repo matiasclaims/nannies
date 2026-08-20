@@ -29,6 +29,10 @@ out/
 # === Prisma ===
 # el schema SÍ va al repo; los artefactos generados no
 apps/api/prisma/generated/
+# Scripts one-off con DATOS REALES de nannies (credenciales) — solo local
+apps/api/prisma/cargar-nannies-reales.ts
+apps/api/prisma/quitar-apellidos.ts
+apps/api/prisma/quitar-nannies-demo.ts
 
 # === Logs (SEGURIDAD §10: sin PII en logs) ===
 logs/

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, UserMinus, Check, Camera, Pencil, Award, ClipboardCheck, X } from 'lucide-react';
-import { api, ApiError, type NanniePerfil, type Plaza } from '@/lib/api';
+import { ArrowLeft, UserMinus, Check, Camera, Pencil, Award, ClipboardCheck, X, ExternalLink } from 'lucide-react';
+import { api, ApiError, type NanniePerfil, type Plaza, type DocumentoNannie } from '@/lib/api';
 import { ZONAS_QRO } from '@/lib/queretaro';
 import { CATALOGO_DOCUMENTOS, CATALOGO_CURSOS, type ItemChecklist } from '@/lib/nannie-catalogos';
 import { COLORES_NANNIE, ESTADO_NANNIE, RANGO_LABEL, NIVEL_LABEL, UMBRALES_RANGO } from '@/lib/nannie-ui';
@@ -357,8 +357,14 @@ function EditarPerfilModal({
 function ExpedienteChecklists({ perfil, onGuardado }: { perfil: NanniePerfil; onGuardado: () => void }) {
   const [docsEntregados, setDocsEntregados] = useState<string[]>(perfil.documentosEntregados);
   const [cursos, setCursos] = useState<string[]>(perfil.cursosCompletados);
+  const [subidos, setSubidos] = useState<DocumentoNannie[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    api.documentosDeNannie(perfil.id).then(setSubidos).catch(() => setSubidos([]));
+  }, [perfil.id]);
+  const archivos = new Map(subidos.map((d) => [d.clave, d]));
 
   async function guardar() {
     setBusy(true);
@@ -381,12 +387,14 @@ function ExpedienteChecklists({ perfil, onGuardado }: { perfil: NanniePerfil; on
           titulo="Documentación"
           items={CATALOGO_DOCUMENTOS}
           marcadas={docsEntregados}
+          archivos={archivos}
           onToggle={(k) => setDocsEntregados((t) => (t.includes(k) ? t.filter((x) => x !== k) : [...t, k]))}
         />
         <Checklist
           titulo="Capacitación (cursos)"
           items={CATALOGO_CURSOS}
           marcadas={cursos}
+          archivos={archivos}
           onToggle={(k) => setCursos((t) => (t.includes(k) ? t.filter((x) => x !== k) : [...t, k]))}
         />
       </div>
@@ -417,11 +425,13 @@ function Checklist({
   titulo,
   items,
   marcadas,
+  archivos,
   onToggle,
 }: {
   titulo: string;
   items: ItemChecklist[];
   marcadas: string[];
+  archivos: Map<string, DocumentoNannie>;
   onToggle: (clave: string) => void;
 }) {
   const hechas = items.filter((i) => marcadas.includes(i.clave)).length;
@@ -442,21 +452,39 @@ function Checklist({
       <div className="space-y-1.5">
         {items.map((it) => {
           const on = marcadas.includes(it.clave);
+          const archivo = archivos.get(it.clave);
           return (
-            <button key={it.clave} type="button" onClick={() => onToggle(it.clave)} className="flex w-full items-start gap-2 text-left">
-              <span
-                className={cn(
-                  'mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border transition',
-                  on ? 'border-marca-verde bg-marca-verde text-white' : 'border-borde',
-                )}
-              >
-                {on && <Check className="h-3 w-3" strokeWidth={3} />}
-              </span>
-              <span className="min-w-0">
-                <span className="block text-xs text-texto-fuerte">{it.nombre}</span>
-                {it.fuente && <span className="block text-[10px] text-texto-suave">{it.fuente}</span>}
-              </span>
-            </button>
+            <div key={it.clave} className="flex items-start gap-2">
+              <button type="button" onClick={() => onToggle(it.clave)} className="flex min-w-0 flex-1 items-start gap-2 text-left">
+                <span
+                  className={cn(
+                    'mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border transition',
+                    on ? 'border-marca-verde bg-marca-verde text-white' : 'border-borde',
+                  )}
+                >
+                  {on && <Check className="h-3 w-3" strokeWidth={3} />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs text-texto-fuerte">{it.nombre}</span>
+                  {archivo ? (
+                    <span className="block truncate text-[10px] text-marca-azul">{archivo.nombreArchivo}</span>
+                  ) : (
+                    it.fuente && <span className="block text-[10px] text-texto-suave">{it.fuente}</span>
+                  )}
+                </span>
+              </button>
+              {archivo?.url && (
+                <a
+                  href={archivo.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded text-texto-suave hover:text-marca-azul"
+                  title="Ver archivo"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              )}
+            </div>
           );
         })}
       </div>

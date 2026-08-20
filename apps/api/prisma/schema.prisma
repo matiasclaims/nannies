@@ -182,8 +182,27 @@ model Nannie {
   incidencias     Incidencia[]
   notas           NotaNannie[]
   evaluaciones    EvaluacionNannie[]
+  documentos      DocumentoNannie[]
 
   @@map("nannies")
+}
+
+// Archivo del expediente subido por la nannie (M4). El binario vive en Supabase
+// Storage; aquí solo la referencia. Uno por clave del catálogo (documento/curso);
+// re-subir reemplaza (upsert por nannieId+clave). Ver catalogos.ts.
+model DocumentoNannie {
+  id            String   @id @default(cuid())
+  nannieId      String
+  nannie        Nannie   @relation(fields: [nannieId], references: [id])
+  tipo          String // 'DOCUMENTO' | 'CURSO'
+  clave         String // clave del catálogo (INE, CV, cuidador_ninos, …)
+  path          String // ruta en el bucket de Supabase Storage
+  nombreArchivo String
+  subidoEn      DateTime @default(now())
+
+  @@unique([nannieId, clave])
+  @@index([nannieId])
+  @@map("documentos_nannie")
 }
 
 // Evaluación de desempeño de la nannie (M4, punto G). La registra coordinación
@@ -381,6 +400,11 @@ model Servicio {
   // Reglamento PF §15-16: solo horas completas, mínimo 3.
   duracionHoras Int // se valida en el backend: entero, >= 3
   estado       EstadoServicio @default(OFERTADO)
+  // Cancelación (M4/§15-16): motivo y si se cobró la hora igual (aviso <24h).
+  // Si se cobró, cuenta en ingresos aunque esté CANCELADO; en paquete la hora
+  // solo se devuelve al saldo cuando NO se cobra.
+  motivoCancelacion String?
+  canceladaCobrada  Boolean  @default(false)
   // Solo Ludoteca: +1 h de montaje/desmontaje en el PAGO a la nannie. Variable
   // (a veces no montan), por eso es un interruptor; encendido por defecto.
   ludotecaMontaje Boolean     @default(true)
