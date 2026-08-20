@@ -291,7 +291,7 @@ export const MANUAL: CapituloModulo[] = [
   },
   {
     modulo: 'M4',
-    nombre: 'Nannies (expediente, incidencias y bitácora)',
+    nombre: 'Nannies (expediente, incidencias, evaluación y bitácora)',
     contenido: {
       coordinacion: [
         {
@@ -340,6 +340,7 @@ export const MANUAL: CapituloModulo[] = [
           pasos: [
             'En el expediente › "Incidencias" › botón "Registrar".',
             'Elige la incidencia de la lista (o "Otro" y describe qué pasó en la nota).',
+            'Si la falta fue justificada (enfermedad, accidente vehicular, emergencia familiar, clima, etc.), elígela en el grupo "No culposas (justificadas)": queda registrada con su etiqueta pero NO suma strike ni penaliza.',
             'Guarda. Cada incidencia de descuento suma un "strike".',
           ],
           nota: 'Las reglas graves (maltrato, no cubrir el mínimo de horas, etc.) marcan baja o prueba: el sistema te avisa y tú confirmas si procede.',
@@ -360,6 +361,28 @@ export const MANUAL: CapituloModulo[] = [
             'La sección "Bitácora" son notas libres de coordinación sobre cada nannie: química con familias, cancelaciones justificadas, observaciones. NO son incidencias y no penalizan.',
           nota: 'Solo la Directora y la Subdirectora ven la bitácora. Sirve para que no dependas de tu memoria al asignar.',
         },
+        {
+          titulo: 'Evaluación de desempeño',
+          intro:
+            'Aparte de las incidencias (lo administrativo), la sección "Evaluación" mide la calidad del servicio de cada nannie sobre cinco pilares: puntualidad, reportes/comunicación, seguimiento, profesionalismo (incluye el vínculo con la familia) y la percepción de los papás.',
+          pasos: [
+            'En el expediente › sección "Evaluación", captura una calificación por pilar (escala 1 a 10) con una nota por cada uno.',
+            'El sistema calcula la calificación ponderada de la nannie.',
+            'Se hace de forma periódica (aprox. una vez por semana), no servicio por servicio.',
+          ],
+          nota: 'La evaluación mide lo cualitativo (calidad), separado de las incidencias (lo administrativo). La encuesta de los papás por QR se integra a este mismo apartado.',
+        },
+        {
+          titulo: 'Reasignar, reprogramar o cancelar un servicio',
+          intro:
+            'Desde el "Calendario", al tocar el bloque de un servicio se abre una ventana con pestañas para gestionarlo. Es de coordinación.',
+          pasos: [
+            'Reasignar: pasa el servicio a otra nannie (una cubre a otra). Queda asignado directo, sin volver a ofertarlo.',
+            'Reprogramar: muévelo a otra fecha u hora conservando nannie, duración y cobro. Un servicio individual pagado solo se puede reprogramar dentro de 7 días.',
+            'Cancelar: márcalo cancelado. La regla de 24 h sugiere si se cobra la hora, pero tú decides con el check "Cobrar la hora" (por si avisan tarde). En un paquete, si no se cobra, la hora se devuelve al saldo.',
+          ],
+          nota: 'También desde ahí puedes extender la hora de fin de un servicio (ver Finanzas · extender un servicio).',
+        },
       ],
       nannie: [
         {
@@ -377,6 +400,80 @@ export const MANUAL: CapituloModulo[] = [
             'Guarda.',
           ],
           nota: 'Tu coordinación también puede ponerte una foto (por ejemplo, de tu credencial).',
+        },
+        {
+          titulo: 'Mis documentos',
+          intro:
+            'Puedes subir tus documentos y constancias directo a la plataforma, sin mandarlos por otro lado. Coordinación los revisa desde tu expediente.',
+          pasos: [
+            'Entra a "Mis documentos" en el menú.',
+            'Verás la lista de documentos (9) y cursos (5). Junto a cada uno, presiona "Subir" y elige el archivo (PDF o foto, máx. 8 MB).',
+            'Para reemplazar uno, vuelve a subirlo; para quitarlo, usa el bote de basura.',
+          ],
+          nota: 'Solo tú y tu coordinación ven tus documentos.',
+        },
+      ],
+    },
+  },
+  {
+    modulo: 'M5',
+    nombre: 'Familias (cardex, inactividad y ficha de servicio)',
+    contenido: {
+      coordinacion: [
+        {
+          titulo: 'Familias, de un vistazo',
+          intro:
+            'En "Familias" llevas el expediente (cardex) de cada familia y sus peques: datos de contacto, dirección, reglas de la casa, y la información operativa de cada niño (rutinas, salud, carácter…). También ves su paquete de horas activo y su historial de servicios.',
+        },
+        {
+          titulo: 'Dar de alta una familia',
+          intro:
+            'Puedes registrar una familia directamente en el sistema, sin esperar el formulario. Solo el nombre de contacto y la plaza son obligatorios; el resto del cardex se completa después en el expediente.',
+          pasos: [
+            'Entra a "Familias" › botón "Nueva familia".',
+            'Captura los datos esenciales: contacto, apellido, plaza, zona, teléfono, número de emergencia, correo y dirección.',
+            'Presiona "Guardar familia".',
+          ],
+          nota: 'Más adelante, las altas del formulario que llenan los papás se podrán importar al sistema. Por ahora, el alta manual cubre ese registro.',
+        },
+        {
+          titulo: 'El expediente de la familia',
+          intro:
+            'Al abrir una familia ves su cardex completo. Con el botón "Editar" completas o corriges toda la información del formulario.',
+          pasos: [
+            'Datos de la familia: contacto, apellido, dirección + referencias, teléfono, número de emergencia, correo, mascotas y si hay un adulto responsable durante el servicio.',
+            'Servicio: expectativas, reglas de la casa, áreas a trabajar (Atención, Socialización, etc.), autorización audiovisual y los cuatro consentimientos.',
+            'Peques: agrega cada niño con su edad, salud/alergias, rutinas, carácter, temáticas de interés, restricciones de pantalla, conductas de riesgo y la autorización de cambio de pañal/baño.',
+          ],
+          nota: 'La zona de la familia es una referencia; la zona de cada servicio puede ser distinta y se captura al asignarlo (a veces piden el servicio en otra dirección).',
+        },
+        {
+          titulo: 'Familias inactivas (automático)',
+          intro:
+            'Cuando una familia pasa 60 días sin pedir un servicio, el sistema la marca "Inactiva" sola. Es solo una separación visual: no bloquea nada.',
+          pasos: [
+            'En la lista, las inactivas llevan una etiqueta ámbar "Inactiva"; en su expediente ves "Inactiva · N días sin servicio".',
+            'Para dejar la lista limpia, usa el filtro "Ocultar inactivas".',
+          ],
+          nota: 'Se reactiva sola en cuanto le agendas un nuevo servicio; no tienes que reactivarla a mano. "Suspendida" es un estado aparte que sí pones tú (por ejemplo, recontratación externa).',
+        },
+        {
+          titulo: 'Bitácora de la familia',
+          intro:
+            'Cada familia tiene su bitácora: notas y recomendaciones del equipo (conocimiento acumulado, química con nannies, observaciones). Es distinta de la bitácora de la nannie.',
+          nota: 'Agrega una nota escribiéndola y presionando "Agregar". Queda con quién la escribió y la fecha.',
+        },
+      ],
+      nannie: [
+        {
+          titulo: 'Ver la ficha de la familia',
+          intro:
+            'Para los servicios que ya aceptaste, puedes abrir una ficha con lo que necesitas para atender bien: la dirección para llegar, las reglas de la casa y la información operativa del peque.',
+          pasos: [
+            'En "Calendario" › "Mi semana", en tu servicio aceptado o terminado presiona "Ver ficha".',
+            'Verás dirección, zona, si hay un adulto responsable, mascotas, reglas, expectativas y áreas a trabajar; y de cada peque: salud/alergias, conductas de riesgo, rutinas, carácter y demás.',
+          ],
+          nota: 'Por privacidad de la familia, la ficha no muestra apellidos ni datos de contacto. Solo la ves de familias con un servicio tuyo confirmado.',
         },
       ],
     },

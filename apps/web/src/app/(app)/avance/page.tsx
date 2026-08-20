@@ -40,7 +40,7 @@ const FASES: Fase[] = [
   { clave: 'Fase 1', nombre: 'Diseño visual', entrega: '24 jul', ini: 12, fin: 23, progreso: 100 },
   { clave: 'Fase 2', nombre: 'Arquitectura', entrega: '7 ago', ini: 26, fin: 37, progreso: 100 },
   { clave: 'Fase 3', nombre: 'Núcleo (M1–M3)', entrega: '4 sep', ini: 40, fin: 65, progreso: 100 },
-  { clave: 'Fase 4', nombre: 'Gestión (M4–M6)', entrega: '25 sep', ini: 68, fin: 86, progreso: 0 },
+  { clave: 'Fase 4', nombre: 'Gestión (M4–M6)', entrega: '25 sep', ini: 68, fin: 86, progreso: 55 },
   { clave: 'Fase 5', nombre: 'Dashboard 360 (M7)', entrega: '2 oct', ini: 89, fin: 93, progreso: 0 },
   { clave: 'Fase 6', nombre: 'Pruebas y liberación', entrega: '16 oct', ini: 96, fin: 107, progreso: 0 },
 ];
@@ -96,8 +96,9 @@ export default function AvancePage() {
           />
         </div>
         <p className="mt-2 text-xs text-texto-suave">
-          Diseño, arquitectura y el núcleo completo (M1 Calendario, M2 Asignación, M3 Finanzas) —
-          vamos muy adelantados respecto al cronograma.
+          Núcleo completo (M1 Calendario, M2 Asignación, M3 Finanzas) y la etapa de Gestión ya muy
+          avanzada: M4 Nannies (expediente, incidencias, evaluación) terminado y M5 Familias casi
+          listo. Vamos muy adelantados respecto al cronograma.
         </p>
       </div>
 
