@@ -4,6 +4,7 @@ import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decor
 import { UsuarioActual } from '../../core/auth/decorators/usuario-actual.decorator';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { CrearFamiliaDto } from './dto/crear-familia.dto';
+import { EditarFamiliaDto } from './dto/editar-familia.dto';
 import { CrearPaqueteDto } from './dto/crear-paquete.dto';
 import { CrearNinoDto, EditarNinoDto } from './dto/nino.dto';
 import { CrearNotaDto } from './dto/crear-nota.dto';
@@ -22,6 +23,13 @@ export class FamiliasController {
   @Post()
   crear(@Body() dto: CrearFamiliaDto) {
     return this.familias.crear(dto);
+  }
+
+  // Editar el cardex de la familia (M5). Coordinación.
+  @RequiereAccion('familia.gestionar')
+  @Patch(':id')
+  editar(@Param('id') id: string, @Body() dto: EditarFamiliaDto) {
+    return this.familias.editar(id, dto);
   }
 
   // Proyección de horas de un paquete (para el PDF que se comparte con la familia).
@@ -71,6 +79,14 @@ export class FamiliasController {
   @Delete('notas/:notaId')
   eliminarNota(@Param('notaId') notaId: string) {
     return this.familias.eliminarNota(notaId);
+  }
+
+  // --- M5 · Ficha operativa para la nannie asignada (Opción A) ---
+  // Sin @RequiereAccion: cualquier autenticado; la pertenencia (la nannie solo
+  // ve familias con un servicio suyo confirmado) se valida en el servicio.
+  @Get(':id/ficha')
+  ficha(@Param('id') id: string, @UsuarioActual() user: UsuarioAutenticado) {
+    return this.familias.fichaOperativa(id, user);
   }
 
   // --- M5 · Perfil (debe ir al final para no capturar rutas más específicas) ---

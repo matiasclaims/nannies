@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 /** Alta de un niño en el perfil de familia (M5). Solo `nombre` es obligatorio. */
 export class CrearNinoDto {
@@ -36,6 +36,35 @@ export class CrearNinoDto {
   @IsString()
   @MaxLength(2000)
   salud?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  reaccionAnteLoNuevo?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  caracter?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  tematicasInteres?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  restriccionesPantalla?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  conductasRiesgo?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  autorizacionCambioPanal?: boolean;
 }
 
 /** Edición de un niño: todos los campos opcionales. */
@@ -75,4 +104,33 @@ export class EditarNinoDto {
   @IsString()
   @MaxLength(2000)
   salud?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  reaccionAnteLoNuevo?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  caracter?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  tematicasInteres?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  restriccionesPantalla?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  conductasRiesgo?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  autorizacionCambioPanal?: boolean;
 }

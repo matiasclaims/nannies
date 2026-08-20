@@ -103,6 +103,30 @@ export const FIELD_ACCESS: Record<string, Record<string, readonly Rol[]>> = {
     rutinas: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
     necesidades: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
     salud: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
+    reaccionAnteLoNuevo: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
+    caracter: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
+    tematicasInteres: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
+    restriccionesPantalla: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
+    conductasRiesgo: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
+    autorizacionCambioPanal: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
+  },
+
+  // Familia — la nannie asignada ve SOLO la vista operativa + dirección (Opción A
+  // de Paula, M5). Se le OCULTAN los datos identificables y de contacto. Lo
+  // operativo (plaza, zona, direccion, expectativas, reglasEspecificas, mascotas,
+  // adultoResponsablePresente, areasATrabajar) no se lista → visible por defecto.
+  familia: {
+    nombreContacto: ['DIRECTORA', 'SUBDIRECTORA'],
+    apellido: ['DIRECTORA', 'SUBDIRECTORA'],
+    telefono: ['DIRECTORA', 'SUBDIRECTORA'],
+    email: ['DIRECTORA', 'SUBDIRECTORA'],
+    numeroEmergencia: ['DIRECTORA', 'SUBDIRECTORA'],
+    autorizacionAudiovisual: ['DIRECTORA', 'SUBDIRECTORA'],
+    consentimientoReglamento: ['DIRECTORA', 'SUBDIRECTORA'],
+    consentimientoMedico: ['DIRECTORA', 'SUBDIRECTORA'],
+    consentimientoPrivacidad: ['DIRECTORA', 'SUBDIRECTORA'],
+    consentimientoConfidencialidad: ['DIRECTORA', 'SUBDIRECTORA'],
+    estado: ['DIRECTORA', 'SUBDIRECTORA'],
   },
 
   // Finanzas — el MARGEN solo a Directora (misma pantalla, sección no enviada)

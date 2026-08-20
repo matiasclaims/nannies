@@ -271,8 +271,12 @@ export interface PaqueteActivo {
 export interface FamiliaLite {
   id: string;
   nombreContacto: string;
+  apellido?: string | null;
   plaza: Plaza;
   zona: string | null;
+  estado?: string;
+  inactiva?: boolean;
+  diasSinServicio?: number;
   nServicios?: number;
   ultimaAtencion?: string | null;
   paqueteActivo?: PaqueteActivo | null;
@@ -287,6 +291,12 @@ export interface NinoPerfil {
   rutinas?: string | null;
   necesidades?: string | null;
   salud?: string | null;
+  reaccionAnteLoNuevo?: string | null;
+  caracter?: string | null;
+  tematicasInteres?: string | null;
+  restriccionesPantalla?: string | null;
+  conductasRiesgo?: string | null;
+  autorizacionCambioPanal?: boolean | null;
 }
 export interface ServicioHist {
   id: string;
@@ -305,16 +315,51 @@ export interface NotaFamilia {
 }
 export interface PerfilFamilia {
   id: string;
+  inactiva: boolean;
+  diasSinServicio: number;
   nombreContacto: string;
+  apellido: string | null;
   telefono: string | null;
   email: string | null;
+  numeroEmergencia: string | null;
   plaza: Plaza;
   zona: string | null;
+  direccion: string | null;
   estado: string;
+  expectativas: string | null;
+  reglasEspecificas: string | null;
+  adultoResponsablePresente: boolean | null;
+  mascotas: string | null;
+  areasATrabajar: string[];
+  autorizacionAudiovisual: string | null;
+  consentimientoReglamento: boolean;
+  consentimientoMedico: boolean;
+  consentimientoPrivacidad: boolean;
+  consentimientoConfidencialidad: boolean;
   ninos: NinoPerfil[];
   servicios: ServicioHist[];
   notas: NotaFamilia[];
   paqueteActivo: PaqueteActivo | null;
+}
+/** Ficha OPERATIVA de la familia para la nannie (M5, Opción A). Los campos
+ *  ocultos por rol llegan ausentes, por eso todo es opcional. */
+export interface FichaFamilia {
+  id: string;
+  nombreContacto?: string;
+  apellido?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  numeroEmergencia?: string | null;
+  plaza?: Plaza;
+  zona?: string | null;
+  direccion?: string | null;
+  expectativas?: string | null;
+  reglasEspecificas?: string | null;
+  adultoResponsablePresente?: boolean | null;
+  mascotas?: string | null;
+  areasATrabajar?: string[];
+  autorizacionAudiovisual?: string | null;
+  ninos: NinoPerfil[];
 }
 export interface NinoInput {
   nombre?: string;
@@ -324,6 +369,34 @@ export interface NinoInput {
   rutinas?: string;
   necesidades?: string;
   salud?: string;
+  reaccionAnteLoNuevo?: string;
+  caracter?: string;
+  tematicasInteres?: string;
+  restriccionesPantalla?: string;
+  conductasRiesgo?: string;
+  autorizacionCambioPanal?: boolean;
+}
+/** Campos editables del cardex de la familia (M5). Todos opcionales. */
+export interface FamiliaInput {
+  nombreContacto?: string;
+  apellido?: string;
+  plaza?: Plaza;
+  zona?: string;
+  telefono?: string;
+  email?: string;
+  numeroEmergencia?: string;
+  direccion?: string;
+  expectativas?: string;
+  reglasEspecificas?: string;
+  adultoResponsablePresente?: boolean;
+  mascotas?: string;
+  areasATrabajar?: string[];
+  autorizacionAudiovisual?: string;
+  consentimientoReglamento?: boolean;
+  consentimientoMedico?: boolean;
+  consentimientoPrivacidad?: boolean;
+  consentimientoConfidencialidad?: boolean;
+  estado?: string;
 }
 
 export interface Candidata {
@@ -563,8 +636,18 @@ export const api = {
 
   // M5 mínimo · Familias (selector + alta rápida)
   listarFamilias: () => req<FamiliaLite[]>('/familias'),
-  crearFamilia: (body: { nombreContacto: string; plaza: Plaza; zona?: string; telefono?: string }) =>
-    req<FamiliaLite>('/familias', { method: 'POST', body: JSON.stringify(body) }),
+  crearFamilia: (body: {
+    nombreContacto: string;
+    plaza: Plaza;
+    apellido?: string;
+    zona?: string;
+    telefono?: string;
+    email?: string;
+    numeroEmergencia?: string;
+    direccion?: string;
+  }) => req<FamiliaLite>('/familias', { method: 'POST', body: JSON.stringify(body) }),
+  editarFamilia: (id: string, body: FamiliaInput) =>
+    req<{ ok: true }>(`/familias/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   crearPaquete: (familiaId: string, horas: number, asignacionManual = false) =>
     req<PaqueteActivo>(`/familias/${familiaId}/paquetes`, {
       method: 'POST',
@@ -572,6 +655,8 @@ export const api = {
     }),
   // M5 · Perfil de familia
   perfilFamilia: (id: string) => req<PerfilFamilia>(`/familias/${id}`),
+  // M5 · Ficha operativa (vista de la nannie asignada)
+  fichaFamilia: (id: string) => req<FichaFamilia>(`/familias/${id}/ficha`),
   crearNino: (familiaId: string, body: NinoInput) =>
     req<unknown>(`/familias/${familiaId}/ninos`, { method: 'POST', body: JSON.stringify(body) }),
   editarNino: (ninoId: string, body: NinoInput) =>

@@ -34,6 +34,7 @@ export default function FamiliasPage() {
   const [nannies, setNannies] = useState<NannieLite[]>([]);
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'error'>('cargando');
   const [alta, setAlta] = useState(false);
+  const [ocultarInactivas, setOcultarInactivas] = useState(false);
 
   const cargar = useCallback(async () => {
     try {
@@ -73,13 +74,24 @@ export default function FamiliasPage() {
 
       {alta && <AltaFamilia onCreada={() => { setAlta(false); void cargar(); }} />}
 
+      {(() => {
+        const nInactivas = familias.filter((f) => f.inactiva).length;
+        if (nInactivas === 0) return null;
+        return (
+          <label className="flex items-center gap-2 text-xs text-texto-suave">
+            <input type="checkbox" checked={ocultarInactivas} onChange={(e) => setOcultarInactivas(e.target.checked)} className="h-3.5 w-3.5" />
+            Ocultar inactivas ({nInactivas} sin servicio en {60}+ días)
+          </label>
+        );
+      })()}
+
       {estado === 'cargando' ? (
         <div className="h-32 animate-pulse rounded-2xl bg-panel" />
       ) : familias.length === 0 ? (
         <Aviso texto="Aún no hay familias. Crea la primera con “Nueva familia”." />
       ) : (
         <ul className="space-y-2">
-          {familias.map((f) => (
+          {familias.filter((f) => !ocultarInactivas || !f.inactiva).map((f) => (
             <li
               key={f.id}
               className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-panel p-4 shadow-card"
@@ -89,8 +101,17 @@ export default function FamiliasPage() {
                   href={`/familias/${f.id}`}
                   className="text-sm font-semibold text-texto-fuerte hover:text-marca-azul hover:underline"
                 >
-                  {f.nombreContacto}
+                  {f.nombreContacto} {f.apellido ?? ''}
                 </Link>
+                {f.estado === 'SUSPENDIDA' ? (
+                  <span className="ml-2 rounded-full bg-marca-rojo/10 px-1.5 py-0.5 text-[10px] font-semibold text-marca-rojo">
+                    Suspendida
+                  </span>
+                ) : f.inactiva ? (
+                  <span className="ml-2 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                    Inactiva
+                  </span>
+                ) : null}
                 <p className="text-xs text-texto-suave">
                   {f.plaza === 'TOLUCA' ? 'Toluca' : 'Querétaro'}
                   {f.zona ? ` · ${f.zona}` : ''} · {f.nServicios ?? 0} servicios
@@ -368,16 +389,34 @@ function ProgramarPaquete({
 }
 
 function AltaFamilia({ onCreada }: { onCreada: () => void }) {
-  const [nombre, setNombre] = useState('');
-  const [plaza, setPlaza] = useState<Plaza>('TOLUCA');
-  const [zona, setZona] = useState('');
+  const [f, setF] = useState({
+    nombre: '',
+    apellido: '',
+    plaza: 'TOLUCA' as Plaza,
+    zona: '',
+    telefono: '',
+    email: '',
+    numeroEmergencia: '',
+    direccion: '',
+  });
   const [guardando, setGuardando] = useState(false);
+  const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }) as typeof p);
 
   async function guardar() {
-    if (!nombre.trim()) return;
+    if (!f.nombre.trim()) return;
     setGuardando(true);
     try {
-      await api.crearFamilia({ nombreContacto: nombre, plaza, zona: zona || undefined });
+      const t = (s: string) => s.trim() || undefined;
+      await api.crearFamilia({
+        nombreContacto: f.nombre.trim(),
+        apellido: t(f.apellido),
+        plaza: f.plaza,
+        zona: t(f.zona),
+        telefono: t(f.telefono),
+        email: t(f.email),
+        numeroEmergencia: t(f.numeroEmergencia),
+        direccion: t(f.direccion),
+      });
       onCreada();
     } finally {
       setGuardando(false);
@@ -386,29 +425,25 @@ function AltaFamilia({ onCreada }: { onCreada: () => void }) {
 
   return (
     <div className="rounded-2xl bg-panel p-4 shadow-card">
-      <p className="mb-2 text-sm font-semibold text-texto-fuerte">Nueva familia</p>
-      <div className="grid gap-2 sm:grid-cols-3">
-        <input
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          placeholder="Nombre de contacto"
-          className={inputCls}
-        />
-        <select value={plaza} onChange={(e) => setPlaza(e.target.value as Plaza)} className={inputCls}>
+      <p className="mb-1 text-sm font-semibold text-texto-fuerte">Nueva familia</p>
+      <p className="mb-3 text-xs text-texto-suave">Datos esenciales; el resto del cardex se completa en el expediente.</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <input value={f.nombre} onChange={(e) => set('nombre', e.target.value)} placeholder="Nombre de contacto *" className={inputCls} />
+        <input value={f.apellido} onChange={(e) => set('apellido', e.target.value)} placeholder="Apellido de la familia" className={inputCls} />
+        <select value={f.plaza} onChange={(e) => set('plaza', e.target.value)} className={inputCls}>
           <option value="TOLUCA">Toluca</option>
           <option value="QUERETARO">Querétaro</option>
         </select>
-        <input
-          value={zona}
-          onChange={(e) => setZona(e.target.value)}
-          placeholder="Zona"
-          className={inputCls}
-        />
+        <input value={f.zona} onChange={(e) => set('zona', e.target.value)} placeholder="Zona / colonia" className={inputCls} />
+        <input value={f.telefono} onChange={(e) => set('telefono', e.target.value)} placeholder="Teléfono" className={inputCls} />
+        <input value={f.numeroEmergencia} onChange={(e) => set('numeroEmergencia', e.target.value)} placeholder="Número de emergencia" className={inputCls} />
+        <input value={f.email} onChange={(e) => set('email', e.target.value)} placeholder="Correo" className={inputCls} />
+        <input value={f.direccion} onChange={(e) => set('direccion', e.target.value)} placeholder="Dirección + referencias" className={inputCls} />
       </div>
       <button
         onClick={guardar}
-        disabled={guardando || !nombre.trim()}
-        className="mt-2 rounded-lg bg-marca-azul px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+        disabled={guardando || !f.nombre.trim()}
+        className="mt-3 rounded-lg bg-marca-azul px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
       >
         {guardando ? 'Guardando…' : 'Guardar familia'}
       </button>

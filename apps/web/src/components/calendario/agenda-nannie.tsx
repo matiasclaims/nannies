@@ -1,12 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Pencil, Trash2, Check, X } from 'lucide-react';
+import { Pencil, Trash2, Check, X, ClipboardList, HeartPulse } from 'lucide-react';
 import {
   api,
   type Servicio,
   type Disponibilidad,
   type RespuestaOferta,
+  type FichaFamilia,
+  type NinoPerfil,
 } from '@/lib/api';
 import { TIPO_LABEL, ESTADO_DISPONIBILIDAD } from '@/lib/dominio';
 import type { DiaSemana } from '@/lib/semana';
@@ -20,6 +22,7 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
   const [dispon, setDispon] = useState<Disponibilidad[]>([]);
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'error'>('cargando');
   const [marcando, setMarcando] = useState(false);
+  const [fichaId, setFichaId] = useState<string | null>(null);
 
   const desde = dias[0]?.fecha;
   const hasta = dias[dias.length - 1]?.fecha;
@@ -160,6 +163,14 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
                             <span className="font-medium">{TIPO_LABEL[s.tipoServicio]}</span>{' '}
                             {s.horaInicio}–{s.horaFin} · {s.zona}
                           </p>
+                          {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
+                            <button
+                              onClick={() => setFichaId(s.familiaId)}
+                              className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
+                            >
+                              <ClipboardList className="h-3.5 w-3.5" /> Ver ficha
+                            </button>
+                          )}
                           {s.estado === 'ACEPTADO' && (
                             <button
                               onClick={() => completar(s.id)}
@@ -186,7 +197,123 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
           </div>
         )}
       </div>
+
+      {fichaId && <FichaFamiliaModal familiaId={fichaId} onCerrar={() => setFichaId(null)} />}
     </div>
+  );
+}
+
+/** Ficha OPERATIVA de la familia (Opción A): la nannie solo ve lo necesario para
+ *  el servicio; sin apellidos ni contactos (el backend los omite). */
+function FichaFamiliaModal({ familiaId, onCerrar }: { familiaId: string; onCerrar: () => void }) {
+  const [ficha, setFicha] = useState<FichaFamilia | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.fichaFamilia(familiaId).then(setFicha).catch(() => setError('No se pudo cargar la ficha.'));
+  }, [familiaId]);
+
+  const adulto = ficha?.adultoResponsablePresente;
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-texto-fuerte/30 backdrop-blur-sm" onClick={onCerrar} />
+      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-borde bg-panel p-5 shadow-2xl">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-texto-fuerte">Ficha de la familia</h3>
+          <button onClick={onCerrar} className="text-texto-suave hover:text-texto-fuerte"><X className="h-4 w-4" /></button>
+        </div>
+
+        {error ? (
+          <p className="text-sm text-marca-rojo">{error}</p>
+        ) : !ficha ? (
+          <div className="h-32 animate-pulse rounded-xl bg-fondo" />
+        ) : (
+          <div className="space-y-3 text-sm">
+            {ficha.direccion && <Info label="Dirección" valor={ficha.direccion} />}
+            {ficha.zona && <Info label="Zona" valor={ficha.zona} />}
+            {adulto != null && <Info label="Adulto responsable durante el servicio" valor={adulto ? 'Sí' : 'No'} />}
+            {ficha.mascotas && <Info label="Mascotas" valor={ficha.mascotas} />}
+            {ficha.reglasEspecificas && <Info label="Reglas de la casa" valor={ficha.reglasEspecificas} />}
+            {ficha.expectativas && <Info label="Expectativas del servicio" valor={ficha.expectativas} />}
+            {ficha.areasATrabajar && ficha.areasATrabajar.length > 0 && (
+              <div>
+                <p className="mb-1 text-[11px] text-texto-suave">Áreas a trabajar</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ficha.areasATrabajar.map((a) => (
+                    <span key={a} className="rounded-full bg-marca-azul/10 px-2 py-0.5 text-[11px] font-medium text-marca-azul">{a}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-borde pt-3">
+              <p className="mb-2 text-xs font-semibold text-texto-fuerte">
+                {ficha.ninos.length === 1 ? 'Peque' : 'Peques'} ({ficha.ninos.length})
+              </p>
+              <div className="space-y-2">
+                {ficha.ninos.length === 0 ? (
+                  <p className="text-xs text-texto-suave">Sin datos operativos del peque.</p>
+                ) : (
+                  ficha.ninos.map((n, i) => <NinoOperativo key={n.id} nino={n} idx={i} />)
+                )}
+              </div>
+            </div>
+
+            <p className="border-t border-borde pt-2 text-[11px] text-texto-suave">
+              Vista operativa: por privacidad no se muestran apellidos ni contactos de la familia.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NinoOperativo({ nino, idx }: { nino: NinoPerfil; idx: number }) {
+  return (
+    <div className="rounded-xl border border-borde p-3">
+      <p className="mb-1 text-xs font-semibold text-texto-fuerte">
+        Peque {idx + 1}{nino.edad != null ? ` · ${nino.edad} años` : ''}
+      </p>
+      {nino.salud && (
+        <p className="mb-1 flex items-start gap-1.5 rounded-lg bg-[#5B292D]/10 px-2 py-1 text-xs text-[#5B292D]">
+          <HeartPulse className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span><strong>Salud / alergias:</strong> {nino.salud}</span>
+        </p>
+      )}
+      {nino.conductasRiesgo && (
+        <p className="mb-1 rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-800">
+          <strong>Conductas de riesgo:</strong> {nino.conductasRiesgo}
+        </p>
+      )}
+      {nino.rutinas && <CampoNino label="Rutinas" valor={nino.rutinas} />}
+      {nino.necesidades && <CampoNino label="Necesidades" valor={nino.necesidades} />}
+      {nino.caracter && <CampoNino label="Carácter" valor={nino.caracter} />}
+      {nino.reaccionAnteLoNuevo && <CampoNino label="Reacción ante lo nuevo" valor={nino.reaccionAnteLoNuevo} />}
+      {nino.tematicasInteres && <CampoNino label="Temáticas de interés" valor={nino.tematicasInteres} />}
+      {nino.restriccionesPantalla && <CampoNino label="Restricciones de pantalla" valor={nino.restriccionesPantalla} />}
+      {nino.autorizacionCambioPanal != null && (
+        <CampoNino label="Cambio de pañal / baño" valor={nino.autorizacionCambioPanal ? 'Autorizado' : 'No autorizado'} />
+      )}
+    </div>
+  );
+}
+
+function Info({ label, valor }: { label: string; valor: string }) {
+  return (
+    <div>
+      <p className="text-[11px] text-texto-suave">{label}</p>
+      <p className="text-texto-fuerte">{valor}</p>
+    </div>
+  );
+}
+
+function CampoNino({ label, valor }: { label: string; valor: string }) {
+  return (
+    <p className="text-xs text-texto-suave">
+      <strong className="text-texto-fuerte">{label}:</strong> {valor}
+    </p>
   );
 }
 

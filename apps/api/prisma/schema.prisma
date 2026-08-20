@@ -307,11 +307,26 @@ model NominaPago {
 model Familia {
   id            String        @id @default(cuid())
   nombreContacto String
+  apellido      String? // apellido de la familia (lo captura coordinación; el form no lo pide, M5)
   telefono      String?
   email         String?
+  numeroEmergencia String? // contacto de emergencia (M5, form §1)
   plaza         Plaza
-  zona          String?
+  zona          String? // zona/colonia de referencia; la del servicio puede variar (Servicio.zona)
+  direccion     String? // dirección completa + referencias para llegar (M5)
   estado        EstadoFamilia @default(ACTIVA)
+  // --- Cardex M5 (form §1) · lo ve coordinación; la nannie solo la vista operativa ---
+  expectativas       String? // expectativas del servicio
+  reglasEspecificas  String? // reglas específicas de la casa
+  adultoResponsablePresente Boolean? // hay un adulto responsable durante el servicio (sí/no)
+  mascotas           String? // descripción de mascotas
+  areasATrabajar     String[] @default([]) // Atención, Concentración, Memoria, Tolerancia, Motricidad, Socialización, Creatividad
+  autorizacionAudiovisual String? // autorización de uso audiovisual (opción elegida en el form)
+  // 4 consentimientos del form (§1)
+  consentimientoReglamento       Boolean @default(false)
+  consentimientoMedico           Boolean @default(false)
+  consentimientoPrivacidad       Boolean @default(false)
+  consentimientoConfidencialidad Boolean @default(false)
   fechaAlta     DateTime      @default(now())
   actualizadoEn DateTime      @updatedAt
 
@@ -335,10 +350,16 @@ model Nino {
   apellidos   String?
   edad        Int?
   genero      String?
-  // --- Operativo: visible a la nannie asignada ---
-  rutinas     String?
-  necesidades String?
-  salud       String? // alergias/condiciones — sensible; vista operativa acotada
+  // --- Operativo: visible a la nannie asignada (form §2-4) ---
+  rutinas             String?
+  necesidades         String?
+  salud               String? // alergias/condiciones — sensible; vista operativa acotada
+  reaccionAnteLoNuevo String? // cómo reacciona ante lo nuevo
+  caracter            String? // carácter (casillas del form)
+  tematicasInteres    String? // temáticas de interés
+  restriccionesPantalla String? // restricciones de pantalla
+  conductasRiesgo     String? // conductas de riesgo (seguridad)
+  autorizacionCambioPanal Boolean? // autoriza cambio de pañal / baño
   creadoEn    DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
