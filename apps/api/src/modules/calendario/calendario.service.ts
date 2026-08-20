@@ -382,16 +382,33 @@ export class CalendarioService {
     }
     // Al completar, cuenta un servicio de por vida (base del ascenso de rango,
     // que se evalúa en el cierre de mes). Transición ACEPTADO→COMPLETADO única.
+    // Conteo para niveles (Paula, Opción A): un servicio INDIVIDUAL cuenta 1;
+    // un PAQUETE cuenta 1 por nannie — solo su PRIMERA sesión completada de ese
+    // paquete —, sin importar cuántas sesiones haga (para no acelerar el rango).
     return this.prisma.$transaction(async (tx) => {
       const actualizado = await tx.servicio.update({
         where: { id: servicioId },
         data: { estado: 'COMPLETADO' },
       });
       if (servicio.nannieId) {
-        await tx.nannie.update({
-          where: { id: servicio.nannieId },
-          data: { serviciosAcumulados: { increment: 1 } },
-        });
+        let cuentaParaNivel = true;
+        if (servicio.formato === 'PAQUETE' && servicio.paqueteId) {
+          const yaContado = await tx.servicio.count({
+            where: {
+              paqueteId: servicio.paqueteId,
+              nannieId: servicio.nannieId,
+              estado: 'COMPLETADO',
+              id: { not: servicioId }, // excluye el que se acaba de completar
+            },
+          });
+          cuentaParaNivel = yaContado === 0;
+        }
+        if (cuentaParaNivel) {
+          await tx.nannie.update({
+            where: { id: servicio.nannieId },
+            data: { serviciosAcumulados: { increment: 1 } },
+          });
+        }
       }
       return actualizado;
     });
