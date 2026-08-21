@@ -27,7 +27,12 @@ export interface Candidata {
   aproximada: boolean; // true = no cubre exacto, entró por tolerancia ±1h
   faltaInicioMin: number; // minutos que la nannie empieza tarde (0 si cubre)
   faltaFinMin: number; // minutos que la nannie termina antes (0 si cubre)
+  distanciaKm: number | null; // Toluca: km de su colonia más cercana al servicio (null en Qro)
 }
+
+// Toluca (M5): el match es geográfico — la nannie cubre el servicio si tiene una
+// colonia ACTIVA ese día a ≤ 4 km de la colonia del servicio.
+const RADIO_KM = 4;
 
 /**
  * M2 · Motor de asignación. NO tiene tabla propia: lee de M1 (disponibilidad,
@@ -59,11 +64,45 @@ export class AsignacionService {
     ]);
 
     const zona = norm(dto.zona);
+
+    // Toluca: preparación del match por km. Cargamos la colonia del servicio y
+    // las colonias-por-día de todas las nannies (con sus coordenadas).
+    const esGeoToluca = dto.plaza === 'TOLUCA' && !!dto.coloniaId;
+    const diaSemana = fecha.getUTCDay(); // 0=dom … 6=sáb
+    let coloniaServ: { lat: number | null; lng: number | null } | null = null;
+    const coloniasPorNannie = new Map<string, { lat: number | null; lng: number | null; dias: number[] }[]>();
+    if (esGeoToluca) {
+      const [cs, ncs] = await Promise.all([
+        this.prisma.coloniaToluca.findUnique({ where: { id: dto.coloniaId }, select: { lat: true, lng: true } }),
+        this.prisma.nannieColonia.findMany({ include: { colonia: { select: { lat: true, lng: true } } } }),
+      ]);
+      coloniaServ = cs;
+      for (const nc of ncs) {
+        const arr = coloniasPorNannie.get(nc.nannieId) ?? [];
+        arr.push({ lat: nc.colonia.lat, lng: nc.colonia.lng, dias: nc.dias });
+        coloniasPorNannie.set(nc.nannieId, arr);
+      }
+    }
+
     const candidatas: Candidata[] = [];
 
     for (const n of nannies) {
-      // Zona compatible (por nombre; el criterio de radio lo definirá la clienta).
-      if (!n.zonas.some((z) => norm(z) === zona)) continue;
+      let distanciaKm: number | null = null;
+      if (esGeoToluca) {
+        // Sin coordenadas del servicio no hay match geográfico.
+        if (coloniaServ?.lat == null || coloniaServ?.lng == null) continue;
+        let min = Infinity;
+        for (const c of coloniasPorNannie.get(n.id) ?? []) {
+          if (c.lat == null || c.lng == null || !c.dias.includes(diaSemana)) continue;
+          const d = haversineKm(coloniaServ.lat, coloniaServ.lng, c.lat, c.lng);
+          if (d < min) min = d;
+        }
+        if (min > RADIO_KM) continue; // ninguna colonia activa ese día dentro del radio
+        distanciaKm = Math.round(min * 10) / 10;
+      } else {
+        // Querétaro (y compatibilidad): match por nombre de zona.
+        if (!n.zonas.some((z) => norm(z) === zona)) continue;
+      }
 
       const susBloques = disp.filter((d) => d.nannieId === n.id);
 
@@ -115,15 +154,17 @@ export class AsignacionService {
         aproximada: mejor.faltaInicio + mejor.faltaFin > 0,
         faltaInicioMin: mejor.faltaInicio,
         faltaFinMin: mejor.faltaFin,
+        distanciaKm,
       });
     }
 
-    // Exactas primero; entre aproximadas, menor hueco; luego equidad de carga
-    // (menos servicios) y por último mayor rango.
+    // Exactas primero; entre aproximadas, menor hueco; en Toluca la MÁS CERCANA;
+    // luego equidad de carga (menos servicios) y por último mayor rango.
     candidatas.sort(
       (a, b) =>
         Number(a.aproximada) - Number(b.aproximada) ||
         a.faltaInicioMin + a.faltaFinMin - (b.faltaInicioMin + b.faltaFinMin) ||
+        (a.distanciaKm ?? 0) - (b.distanciaKm ?? 0) ||
         a.serviciosSemana - b.serviciosSemana ||
         RANGO_ORDEN[b.rango] - RANGO_ORDEN[a.rango],
     );
@@ -227,6 +268,18 @@ export class AsignacionService {
 
 function norm(s: string): string {
   return s.trim().toLowerCase();
+}
+
+/** Distancia en km entre dos coordenadas (fórmula de haversine). */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // radio de la Tierra en km
+  const rad = (g: number) => (g * Math.PI) / 180;
+  const dLat = rad(lat2 - lat1);
+  const dLng = rad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 /** "HH:mm" → minutos desde medianoche. */

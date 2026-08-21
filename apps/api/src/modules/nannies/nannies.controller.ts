@@ -1,6 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
 import { NanniesService } from './nannies.service';
 import { DocumentosService } from './documentos.service';
+import { ColoniasService } from './colonias.service';
+import { GuardarColoniasDto } from './dto/guardar-colonias.dto';
 import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decorator';
 import { UsuarioActual } from '../../core/auth/decorators/usuario-actual.decorator';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
@@ -15,6 +17,7 @@ export class NanniesController {
   constructor(
     private readonly nannies: NanniesService,
     private readonly documentos: DocumentosService,
+    private readonly colonias: ColoniasService,
   ) {}
 
   // Documentos que subió la nannie (coordinación los revisa/descarga).
@@ -22,6 +25,20 @@ export class NanniesController {
   @Get(':id/documentos')
   documentosDe(@Param('id') id: string) {
     return this.documentos.listar(id);
+  }
+
+  // Colonias de trabajo de la nannie (coordinación las ve y edita, y puede
+  // fijar/levantar el candado que impide que la nannie las cambie sola).
+  @RequiereAccion('nannie.gestionar')
+  @Get(':id/colonias')
+  coloniasDe(@Param('id') id: string) {
+    return this.colonias.deNannie(id);
+  }
+
+  @RequiereAccion('nannie.gestionar')
+  @Put(':id/colonias')
+  guardarColonias(@Param('id') id: string, @Body() dto: GuardarColoniasDto) {
+    return this.colonias.guardarCoordinacion(id, dto);
   }
 
   // Cambio de contraseña propio (cualquier usuario autenticado, sobre lo suyo).

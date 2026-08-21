@@ -11,6 +11,7 @@ import { COLORES_NANNIE, ESTADO_NANNIE, RANGO_LABEL, NIVEL_LABEL, UMBRALES_RANGO
 import { IncidenciasNannie } from '@/components/incidencias-nannie';
 import { EvaluacionNannie } from '@/components/evaluacion-nannie';
 import { BitacoraNannie } from '@/components/bitacora-nannie';
+import { ColoniasNannie } from '@/components/colonias-nannie';
 import { Avatar } from '@/components/avatar';
 import { NombreNannie } from '@/components/nombre-nannie';
 import { FotoModal } from '@/components/foto-modal';
@@ -116,6 +117,8 @@ export default function NanniePerfilPage() {
       <Seccion icon={ClipboardCheck} title="Expediente" subtitle="Documentación y capacitación" tint="verde" defaultOpen={false}>
         <ExpedienteChecklists perfil={perfil} onGuardado={cargar} />
       </Seccion>
+
+      <ColoniasNannie nannieId={perfil.id} />
 
       <EvaluacionNannie nannieId={perfil.id} />
 

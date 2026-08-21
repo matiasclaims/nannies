@@ -169,6 +169,9 @@ model Nannie {
   capacitacionCompleta  Boolean       @default(false)
   documentosEntregados  String[]      @default([])
   cursosCompletados     String[]      @default([])
+  // Colonias de trabajo (M5 · Toluca): la nannie las define al inicio; luego
+  // quedan bloqueadas para ella (un cambio lo autoriza coordinación).
+  coloniasBloqueadas  Boolean         @default(false)
   creadoEn            DateTime        @default(now())
   actualizadoEn       DateTime        @updatedAt
 
@@ -183,6 +186,7 @@ model Nannie {
   notas           NotaNannie[]
   evaluaciones    EvaluacionNannie[]
   documentos      DocumentoNannie[]
+  coloniasTrabajo NannieColonia[]
 
   @@map("nannies")
 }
@@ -410,6 +414,13 @@ model Servicio {
   nannie       Nannie?        @relation(fields: [nannieId], references: [id])
   plaza        Plaza
   zona         String
+  // Dirección de ESTE servicio (M5): a veces es distinta al domicilio de la
+  // familia (casa de un familiar, salón, etc.). Si está vacía, se usa la del
+  // cardex de la familia. La nannie ve la efectiva en su ficha.
+  direccion    String?
+  // Colonia del servicio (Toluca, M5): da las coordenadas para el match por km.
+  coloniaId    String?
+  coloniaToluca ColoniaToluca? @relation(fields: [coloniaId], references: [id])
   tipoServicio TipoServicio
   formato      Formato
   paqueteId    String? // si formato = PAQUETE, contra qué saldo se consume
@@ -522,4 +533,45 @@ model CierreMes {
   @@unique([nannieId, anio, mes])
   @@index([nannieId])
   @@map("cierres_mes")
+}
+
+/**
+ * Catálogo de colonias de Toluca (M5 · match por mapa/km). Fuente: Excel
+ * "zonas tol 2024.xlsx" (4 municipios). Cada colonia se geocodifica UNA vez;
+ * el motor mide distancia (colonia del servicio ↔ colonias de la nannie) para
+ * el radio de 4 km. `precision` guarda el location_type de Google (para revisar
+ * las aproximadas). Querétaro NO usa esto (va por zona).
+ */
+model ColoniaToluca {
+  id        String  @id @default(cuid())
+  municipio String
+  colonia   String
+  lat       Float?
+  lng       Float?
+  precision String? // location_type de Google: ROOFTOP / GEOMETRIC_CENTER / APPROXIMATE…
+
+  nannies   NannieColonia[]
+  servicios Servicio[]
+
+  @@unique([municipio, colonia])
+  @@index([municipio])
+  @@map("colonias_toluca")
+}
+
+/**
+ * Colonia de trabajo de una nannie con los DÍAS en que aplica (M5 · Toluca).
+ * dias: 0=domingo … 6=sábado. El match por km toma solo las colonias activas
+ * el día del servicio y mide la distancia contra la del servicio (≤4 km).
+ */
+model NannieColonia {
+  id        String        @id @default(cuid())
+  nannieId  String
+  nannie    Nannie        @relation(fields: [nannieId], references: [id])
+  coloniaId String
+  colonia   ColoniaToluca @relation(fields: [coloniaId], references: [id])
+  dias      Int[] // 0-6 (dom-sáb)
+
+  @@unique([nannieId, coloniaId])
+  @@index([nannieId])
+  @@map("nannie_colonias")
 }

@@ -22,7 +22,7 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
   const [dispon, setDispon] = useState<Disponibilidad[]>([]);
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'error'>('cargando');
   const [marcando, setMarcando] = useState(false);
-  const [fichaId, setFichaId] = useState<string | null>(null);
+  const [fichaServ, setFichaServ] = useState<Servicio | null>(null);
 
   const desde = dias[0]?.fecha;
   const hasta = dias[dias.length - 1]?.fecha;
@@ -165,7 +165,7 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
                           </p>
                           {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
                             <button
-                              onClick={() => setFichaId(s.familiaId)}
+                              onClick={() => setFichaServ(s)}
                               className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
                             >
                               <ClipboardList className="h-3.5 w-3.5" /> Ver ficha
@@ -198,22 +198,27 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
         )}
       </div>
 
-      {fichaId && <FichaFamiliaModal familiaId={fichaId} onCerrar={() => setFichaId(null)} />}
+      {fichaServ && <FichaFamiliaModal servicio={fichaServ} onCerrar={() => setFichaServ(null)} />}
     </div>
   );
 }
 
 /** Ficha OPERATIVA de la familia (Opción A): la nannie solo ve lo necesario para
  *  el servicio; sin apellidos ni contactos (el backend los omite). */
-function FichaFamiliaModal({ familiaId, onCerrar }: { familiaId: string; onCerrar: () => void }) {
+function FichaFamiliaModal({ servicio, onCerrar }: { servicio: Servicio; onCerrar: () => void }) {
   const [ficha, setFicha] = useState<FichaFamilia | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.fichaFamilia(familiaId).then(setFicha).catch(() => setError('No se pudo cargar la ficha.'));
-  }, [familiaId]);
+    api.fichaFamilia(servicio.familiaId).then(setFicha).catch(() => setError('No se pudo cargar la ficha.'));
+  }, [servicio.familiaId]);
 
   const adulto = ficha?.adultoResponsablePresente;
+  // Dirección EFECTIVA: la del servicio si se capturó (ubicación distinta al
+  // domicilio); si no, la del cardex de la familia.
+  const otraUbicacion = Boolean(servicio.direccion?.trim());
+  const direccion = servicio.direccion?.trim() || ficha?.direccion || null;
+  const zona = servicio.zona || ficha?.zona || null;
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center p-4" role="dialog" aria-modal="true">
@@ -230,8 +235,20 @@ function FichaFamiliaModal({ familiaId, onCerrar }: { familiaId: string; onCerra
           <div className="h-32 animate-pulse rounded-xl bg-fondo" />
         ) : (
           <div className="space-y-3 text-sm">
-            {ficha.direccion && <Info label="Dirección" valor={ficha.direccion} />}
-            {ficha.zona && <Info label="Zona" valor={ficha.zona} />}
+            {direccion && (
+              <div>
+                <p className="flex items-center gap-1.5 text-[11px] text-texto-suave">
+                  Dirección
+                  {otraUbicacion && (
+                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                      distinta al domicilio
+                    </span>
+                  )}
+                </p>
+                <p className="text-texto-fuerte">{direccion}</p>
+              </div>
+            )}
+            {zona && <Info label="Zona" valor={zona} />}
             {adulto != null && <Info label="Adulto responsable durante el servicio" valor={adulto ? 'Sí' : 'No'} />}
             {ficha.mascotas && <Info label="Mascotas" valor={ficha.mascotas} />}
             {ficha.reglasEspecificas && <Info label="Reglas de la casa" valor={ficha.reglasEspecificas} />}

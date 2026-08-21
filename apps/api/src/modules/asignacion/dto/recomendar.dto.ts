@@ -12,6 +12,11 @@ export class RecomendarDto {
   @MaxLength(120)
   zona!: string;
 
+  // Toluca: colonia del servicio (da las coordenadas para el match por km).
+  @IsOptional()
+  @IsString()
+  coloniaId?: string;
+
   @IsDateString({}, { message: 'fecha debe ser YYYY-MM-DD' })
   fecha!: string;
 

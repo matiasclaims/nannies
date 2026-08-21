@@ -216,6 +216,8 @@ export class CalendarioService {
       familia: { connect: { id: dto.familiaId } },
       plaza: dto.plaza,
       zona: dto.zona,
+      ...(dto.direccion?.trim() ? { direccion: dto.direccion.trim() } : {}),
+      ...(dto.coloniaId ? { coloniaToluca: { connect: { id: dto.coloniaId } } } : {}),
       tipoServicio: dto.tipoServicio,
       formato: dto.formato,
       numNinos: dto.numNinos,

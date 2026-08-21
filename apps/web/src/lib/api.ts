@@ -53,6 +53,22 @@ export interface DocumentoNannie {
   subidoEn: string;
   url: string | null;
 }
+// M5 · Colonias de trabajo (Toluca)
+export interface ColoniaCat {
+  id: string;
+  municipio: string;
+  colonia: string;
+}
+export interface ColoniaDias {
+  coloniaId: string;
+  municipio: string;
+  colonia: string;
+  dias: number[]; // 0=dom … 6=sáb
+}
+export interface ColoniasNannie {
+  bloqueadas: boolean;
+  colonias: ColoniaDias[];
+}
 export interface NuevaNannie {
   nombre: string;
   correo: string;
@@ -210,6 +226,7 @@ export interface Servicio {
   nannieId: string | null;
   plaza: Plaza;
   zona: string;
+  direccion: string | null;
   tipoServicio: TipoServicio;
   formato: Formato;
   numNinos: number;
@@ -438,6 +455,7 @@ export interface Candidata {
   aproximada: boolean;
   faltaInicioMin: number;
   faltaFinMin: number;
+  distanciaKm: number | null;
 }
 
 export interface MiReporte {
@@ -567,6 +585,8 @@ export interface NuevoServicio {
   familiaId: string;
   plaza: Plaza;
   zona: string;
+  coloniaId?: string;
+  direccion?: string;
   tipoServicio: TipoServicio;
   formato: Formato;
   paqueteId?: string;
@@ -716,6 +736,7 @@ export const api = {
   recomendar: (body: {
     plaza: Plaza;
     zona: string;
+    coloniaId?: string;
     fecha: string;
     horaInicio: string;
     horaFin: string;
@@ -757,6 +778,20 @@ export const api = {
   // Documentos del expediente
   documentosDeNannie: (id: string) => req<DocumentoNannie[]>(`/nannies/${id}/documentos`),
   misDocumentos: () => req<DocumentoNannie[]>('/mis-documentos'),
+  // M5 · Colonias de trabajo
+  catalogoColonias: () => req<ColoniaCat[]>('/colonias-toluca'),
+  misColonias: () => req<ColoniasNannie>('/mis-colonias'),
+  guardarMisColonias: (colonias: { coloniaId: string; dias: number[] }[], confirmar?: boolean) =>
+    req<{ ok: true; bloqueadas: boolean }>('/mis-colonias', {
+      method: 'PUT',
+      body: JSON.stringify({ colonias, ...(confirmar ? { confirmar: true } : {}) }),
+    }),
+  coloniasDeNannie: (id: string) => req<ColoniasNannie>(`/nannies/${id}/colonias`),
+  guardarColoniasDeNannie: (id: string, colonias: { coloniaId: string; dias: number[] }[], bloqueadas?: boolean) =>
+    req<{ ok: true }>(`/nannies/${id}/colonias`, {
+      method: 'PUT',
+      body: JSON.stringify({ colonias, ...(bloqueadas !== undefined ? { bloqueadas } : {}) }),
+    }),
   subirMiDocumento: (clave: string, nombreArchivo: string, contenido: string) =>
     req<{ ok: true }>('/mis-documentos', {
       method: 'POST',

@@ -7,10 +7,24 @@ import { EvaluacionesController } from './evaluaciones.controller';
 import { EvaluacionesService } from './evaluaciones.service';
 import { MisDocumentosController } from './mis-documentos.controller';
 import { DocumentosService } from './documentos.service';
+import { MisColoniasController } from './mis-colonias.controller';
+import { ColoniasService } from './colonias.service';
 
-/** M4 · Expediente, alta, incidencias, evaluación y documentos de nannies. */
+/** M4/M5 · Expediente, alta, incidencias, evaluación, documentos y colonias. */
 @Module({
-  controllers: [NanniesController, IncidenciasController, EvaluacionesController, MisDocumentosController],
-  providers: [NanniesService, IncidenciasService, EvaluacionesService, DocumentosService],
+  controllers: [
+    NanniesController,
+    IncidenciasController,
+    EvaluacionesController,
+    MisDocumentosController,
+    MisColoniasController,
+  ],
+  providers: [
+    NanniesService,
+    IncidenciasService,
+    EvaluacionesService,
+    DocumentosService,
+    ColoniasService,
+  ],
 })
 export class NanniesModule {}

@@ -32,6 +32,17 @@ export class CrearServicioDto {
   @MaxLength(120)
   zona!: string;
 
+  // Dirección de ESTE servicio si es distinta al domicilio de la familia (M5).
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  direccion?: string;
+
+  // Toluca: colonia del servicio (coordenadas para el match por km).
+  @IsOptional()
+  @IsString()
+  coloniaId?: string;
+
   @IsEnum(TipoServicio)
   tipoServicio!: TipoServicio;
 

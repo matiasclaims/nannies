@@ -7,6 +7,7 @@ import {
   type FamiliaLite,
   type NannieLite,
   type Candidata,
+  type ColoniaCat,
   type Plaza,
   type TipoServicio,
 } from '@/lib/api';
@@ -39,6 +40,8 @@ interface Form {
   familiaId: string;
   plaza: Plaza;
   zona: string;
+  coloniaId: string;
+  direccion: string;
   tipoServicio: TipoServicio;
   fecha: string;
   horaInicio: string;
@@ -95,10 +98,13 @@ function calcDuracion(ini: string, fin: string): number | null {
 export default function AsignacionPage() {
   const [familias, setFamilias] = useState<FamiliaLite[]>([]);
   const [nannies, setNannies] = useState<NannieLite[]>([]);
+  const [catalogo, setCatalogo] = useState<ColoniaCat[]>([]);
   const [form, setForm] = useState<Form>({
     familiaId: '',
     plaza: 'TOLUCA',
     zona: '',
+    coloniaId: '',
+    direccion: '',
     tipoServicio: 'DAYCARE',
     fecha: '',
     horaInicio: '09:00',
@@ -127,6 +133,7 @@ export default function AsignacionPage() {
   useEffect(() => {
     void cargarFamilias();
     api.listarNannies().then(setNannies).catch(() => undefined);
+    api.catalogoColonias().then(setCatalogo).catch(() => undefined);
   }, []);
 
   // Querétaro no ofrece Ludoteca: si queda seleccionada al cambiar de plaza, reajusta.
@@ -200,7 +207,8 @@ export default function AsignacionPage() {
     setError('');
     setExito('');
     if (!form.familiaId) return setError('Elige una familia.');
-    if (!form.zona.trim()) return setError('Indica la zona del servicio.');
+    if (esQro && !form.zona.trim()) return setError('Elige la zona del servicio.');
+    if (!esQro && !form.coloniaId) return setError('Elige la colonia del servicio.');
     if (duracion === null || duracion < 3)
       return setError('El horario debe ser en horas completas y de mínimo 3 horas.');
     setBuscando(true);
@@ -208,6 +216,7 @@ export default function AsignacionPage() {
       const { candidatas } = await api.recomendar({
         plaza: form.plaza,
         zona: form.zona,
+        coloniaId: esQro ? undefined : form.coloniaId,
         fecha: form.fecha,
         horaInicio: form.horaInicio,
         horaFin: form.horaFin,
@@ -230,6 +239,8 @@ export default function AsignacionPage() {
         familiaId: form.familiaId,
         plaza: form.plaza,
         zona: form.zona,
+        coloniaId: esQro ? undefined : form.coloniaId || undefined,
+        direccion: form.direccion.trim() || undefined,
         tipoServicio: form.tipoServicio,
         formato: usaPaquete ? 'PAQUETE' : 'INDIVIDUAL',
         paqueteId: usaPaquete && paquete ? paquete.id : undefined,
@@ -334,7 +345,7 @@ export default function AsignacionPage() {
             </select>
           </Campo>
 
-          <Campo label="Zona">
+          <Campo label={esQro ? 'Zona' : 'Colonia'}>
             {esQro ? (
               <select value={form.zona} onChange={(e) => set('zona', e.target.value)} className={inputCls}>
                 {!esZonaQro(form.zona) && <option value="">Elegir zona…</option>}
@@ -345,14 +356,25 @@ export default function AsignacionPage() {
                 ))}
               </select>
             ) : (
-              <input
-                value={form.zona}
-                onChange={(e) => set('zona', e.target.value)}
+              <SelectColonia
+                catalogo={catalogo}
+                coloniaId={form.coloniaId}
                 className={inputCls}
-                placeholder="Ej. Metepec"
+                onPick={(id, label) => setForm((f) => ({ ...f, coloniaId: id, zona: label }))}
               />
             )}
           </Campo>
+
+          <div className="sm:col-span-2">
+            <Campo label="Dirección del servicio (opcional)">
+              <input
+                value={form.direccion}
+                onChange={(e) => set('direccion', e.target.value)}
+                className={inputCls}
+                placeholder="Vacía = domicilio de la familia. Si es otra ubicación: dirección + referencias para llegar."
+              />
+            </Campo>
+          </div>
 
           <Campo label="Fecha">
             <input
@@ -609,8 +631,12 @@ export default function AsignacionPage() {
                         <NombreNannie nombre={c.nombre} color={c.color} />
                       </p>
                       <p className="text-xs text-texto-suave">
-                        Disponible {c.bloque} · {RANGO_LABEL[c.rango]} · {c.serviciosSemana} servicios
-                        esta semana · {c.zonas.join(', ')}
+                        Disponible {c.bloque} · {RANGO_LABEL[c.rango]} · {c.serviciosSemana} servicios esta semana
+                        {c.distanciaKm != null
+                          ? ` · a ${c.distanciaKm} km`
+                          : c.zonas.length
+                            ? ` · ${c.zonas.join(', ')}`
+                            : ''}
                       </p>
                       {c.aproximada && (
                         <p className="text-xs text-amber-700">No cubre exacto: {descHueco(c)}.</p>
@@ -913,6 +939,57 @@ function AltaFamilia({ onCreada }: { onCreada: (f: FamiliaLite) => void }) {
           Cancelar
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Buscador de colonia (Toluca) para el servicio. Elige del catálogo → fija
+ *  la colonia (coordenadas para el match por km) y su nombre como zona. */
+function SelectColonia({
+  catalogo,
+  coloniaId,
+  onPick,
+  className,
+}: {
+  catalogo: ColoniaCat[];
+  coloniaId: string;
+  onPick: (id: string, label: string) => void;
+  className?: string;
+}) {
+  const [q, setQ] = useState('');
+  const [abierto, setAbierto] = useState(false);
+  const sel = catalogo.find((c) => c.id === coloniaId);
+  const res = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t) return [];
+    return catalogo.filter((c) => `${c.colonia} ${c.municipio}`.toLowerCase().includes(t)).slice(0, 12);
+  }, [q, catalogo]);
+
+  return (
+    <div className="relative">
+      <input
+        value={abierto ? q : sel ? `${sel.colonia} · ${sel.municipio}` : q}
+        onChange={(e) => { setQ(e.target.value); setAbierto(true); }}
+        onFocus={() => { setAbierto(true); setQ(''); }}
+        onBlur={() => setTimeout(() => setAbierto(false), 150)}
+        placeholder="Buscar colonia…"
+        className={className}
+      />
+      {abierto && res.length > 0 && (
+        <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-borde bg-panel shadow-card">
+          {res.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onMouseDown={() => { onPick(c.id, c.colonia); setAbierto(false); }}
+              className="block w-full px-3 py-2 text-left text-sm hover:bg-fondo"
+            >
+              <span className="text-texto-fuerte">{c.colonia}</span>
+              <span className="text-xs text-texto-suave"> · {c.municipio}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
