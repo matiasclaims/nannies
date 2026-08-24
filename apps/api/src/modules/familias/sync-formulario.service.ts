@@ -45,7 +45,8 @@ export class SyncFormularioService {
   /**
    * Recibe una respuesta del formulario de familias (vía Apps Script) y crea la
    * familia + sus peques. Plaza = TOLUCA por defecto (coordinación la corrige).
-   * Dedupe por correo: si ya existe una familia con ese correo, no la duplica.
+   * Por correo: si ya existe una familia con ese correo, la ACTUALIZA en lugar
+   * de duplicarla (ver `actualizar`).
    */
   async recibir(dto: SyncFormularioDto) {
     if (!process.env.FORM_SYNC_TOKEN || dto.token !== process.env.FORM_SYNC_TOKEN) {
@@ -100,18 +101,24 @@ export class SyncFormularioService {
     }
     if (peque) peques.push(peque);
 
-    familia.nombreContacto = familia.nombreContacto || familia.email || 'Sin nombre';
+    const nombreDelForm = familia.nombreContacto as string | undefined;
+    const ninos = peques.filter((p) => p.nombre);
 
-    // Dedupe por correo.
+    // Mismo correo → ACTUALIZA la familia existente, no la duplica (Paula, 2026-08:
+    // hay mamás que llenan el formulario varias veces para actualizarlo).
     if (familia.email) {
-      const existe = await this.prisma.familia.findFirst({ where: { email: familia.email }, select: { id: true } });
+      const existe = await this.prisma.familia.findFirst({
+        where: { email: familia.email },
+        select: { id: true },
+      });
       if (existe) {
-        this.log.log(`Familia duplicada (correo ${familia.email}) — omitida.`);
-        return { creada: false, motivo: 'duplicado', familiaId: existe.id };
+        await this.actualizar(existe.id, familia, nombreDelForm, ninos);
+        this.log.log(`Familia actualizada desde formulario: ${existe.id} (${ninos.length} peques).`);
+        return { creada: false, actualizada: true, familiaId: existe.id, peques: ninos.length };
       }
     }
 
-    const ninos = peques.filter((p) => p.nombre);
+    familia.nombreContacto = nombreDelForm || familia.email || 'Sin nombre';
     const creada = await this.prisma.$transaction(async (tx) => {
       const fam = await tx.familia.create({ data: familia });
       if (ninos.length)
@@ -121,6 +128,54 @@ export class SyncFormularioService {
       return fam;
     });
     this.log.log(`Familia creada desde formulario: ${creada.id} (${ninos.length} peques).`);
-    return { creada: true, familiaId: creada.id, peques: ninos.length };
+    return { creada: true, actualizada: false, familiaId: creada.id, peques: ninos.length };
+  }
+
+  /** Actualiza una familia existente con lo último del formulario (mismo correo).
+   *  No toca la plaza (coordinación pudo corregirla); no borra lo que la mamá
+   *  dejó en blanco; empata peques por nombre (actualiza / agrega, nunca borra);
+   *  y deja una nota en la bitácora para que coordinación lo note. */
+  private async actualizar(
+    familiaId: string,
+    familia: Record<string, unknown>,
+    nombreDelForm: string | undefined,
+    ninos: Record<string, unknown>[],
+  ) {
+    // La plaza, el correo y el nombre/áreas se tratan aparte para no pisarlos.
+    const { plaza, email, nombreContacto, areasATrabajar, ...resto } = familia;
+    void plaza;
+    void email;
+    void nombreContacto;
+    const data: Record<string, unknown> = { ...resto };
+    if (nombreDelForm) data.nombreContacto = nombreDelForm; // solo si el form lo trajo
+    if (Array.isArray(areasATrabajar) && areasATrabajar.length) data.areasATrabajar = areasATrabajar;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.familia.update({ where: { id: familiaId }, data });
+
+      const existentes = await tx.nino.findMany({
+        where: { familiaId },
+        select: { id: true, nombre: true },
+      });
+      for (const n of ninos) {
+        const { nombre, ...campos } = n;
+        const match = existentes.find((e) => norm(e.nombre) === norm(nombre));
+        if (match) {
+          await tx.nino.update({ where: { id: match.id }, data: campos as Prisma.NinoUpdateInput });
+        } else {
+          await tx.nino.create({
+            data: { familiaId, nombre, ...campos } as Prisma.NinoUncheckedCreateInput,
+          });
+        }
+      }
+
+      await tx.notaFamilia.create({
+        data: {
+          familiaId,
+          texto: 'La familia actualizó sus datos desde el formulario previo al servicio.',
+          autorNombre: 'Formulario',
+        },
+      });
+    });
   }
 }

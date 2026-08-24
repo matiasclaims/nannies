@@ -481,6 +481,8 @@ model Paquete {
   // La familia no dio fechas: las sesiones se asignan a mano conforme las pide
   // (no se programa de un jalón). Ver M2 §paquetes.
   asignacionManual Boolean       @default(false)
+  // Token para el enlace de solo lectura del avance (la familia lo ve sin login).
+  tokenPublico     String?       @unique
 
   servicios Servicio[]
 

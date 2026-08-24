@@ -9,8 +9,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 export function middleware(req: NextRequest) {
   const tieneSesion = req.cookies.has('access_token');
   const esLogin = req.nextUrl.pathname.startsWith('/login');
+  // Rutas públicas sin sesión (la familia las abre por un enlace con token):
+  // el avance del paquete. La seguridad real es el token del backend.
+  const esPublica = req.nextUrl.pathname.startsWith('/avance');
 
-  if (!tieneSesion && !esLogin) {
+  if (!tieneSesion && !esLogin && !esPublica) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
   if (tieneSesion && esLogin) {

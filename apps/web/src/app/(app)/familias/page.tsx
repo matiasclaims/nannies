@@ -151,10 +151,21 @@ function PaqueteCelda({
   const [programando, setProgramando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
+  const [copiado, setCopiado] = useState('');
 
   const p = familia.paqueteActivo;
   if (p) {
     const pct = Math.round((p.horasConsumidas / p.horasTotales) * 100);
+    const copiarEnlace = async () => {
+      try {
+        const { token } = await api.enlaceAvance(p.id);
+        await navigator.clipboard.writeText(`${window.location.origin}/avance/${token}`);
+        setCopiado('¡Enlace copiado! Compártelo con la familia.');
+      } catch {
+        setCopiado('No se pudo copiar el enlace.');
+      }
+      setTimeout(() => setCopiado(''), 3000);
+    };
     return (
       <div className="w-64 shrink-0">
         <div className="mb-1 flex items-center justify-between text-xs">
@@ -173,14 +184,20 @@ function PaqueteCelda({
         <div className="h-2 overflow-hidden rounded-full bg-fondo">
           <div className="h-full rounded-full bg-marca-verde" style={{ width: `${100 - pct}%` }} />
         </div>
-        <a
-          href={`/proyeccion/${p.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 block text-center text-[11px] font-medium text-marca-azul hover:underline"
-        >
-          Ver proyección (PDF)
-        </a>
+        <div className="mt-2 flex items-center justify-center gap-3 text-[11px]">
+          <a
+            href={`/proyeccion/${p.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-marca-azul hover:underline"
+          >
+            Ver proyección (PDF)
+          </a>
+          <button onClick={copiarEnlace} className="font-medium text-marca-azul hover:underline">
+            Copiar enlace de avance
+          </button>
+        </div>
+        {copiado && <p className="mt-1 text-center text-[11px] text-[#3b6d11]">{copiado}</p>}
         {p.asignacionManual ? (
           <p className="mt-1.5 text-[11px] text-texto-suave">
             Asignación manual: agrega sus sesiones desde Asignación conforme las pidan.

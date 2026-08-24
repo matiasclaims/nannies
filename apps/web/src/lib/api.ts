@@ -277,6 +277,26 @@ export interface Proyeccion {
   }[];
 }
 
+/** Avance PÚBLICO del paquete (la familia lo ve sin login). Sin nannie. */
+export interface AvancePaquete {
+  familia: string;
+  asignacionManual: boolean;
+  horasTotales: number;
+  horasConsumidas: number;
+  horasRestantes: number;
+  estado: string;
+  sesiones: {
+    id: string;
+    fecha: string;
+    horaInicio: string;
+    horaFin: string;
+    duracionHoras: number;
+    tipoServicio: TipoServicio;
+    estado: EstadoServicio;
+    cancelable: boolean;
+  }[];
+}
+
 export interface PaqueteActivo {
   id: string;
   horasTotales: number;
@@ -860,6 +880,14 @@ export const api = {
     }),
   proyeccionPaquete: (paqueteId: string) =>
     req<Proyeccion>(`/familias/paquetes/${paqueteId}/proyeccion`),
+  enlaceAvance: (paqueteId: string) =>
+    req<{ token: string }>(`/familias/paquetes/${paqueteId}/enlace-avance`),
+  avancePaquete: (token: string) => req<AvancePaquete>(`/familias/avance/${token}`),
+  cancelarAvance: (token: string, servicioId: string) =>
+    req<{ ok: boolean }>(`/familias/avance/${token}/cancelar`, {
+      method: 'POST',
+      body: JSON.stringify({ servicioId }),
+    }),
 
   niveles: () => req<Niveles>('/finanzas/niveles'),
   cerrarMes: (anio: number, mes: number) =>
