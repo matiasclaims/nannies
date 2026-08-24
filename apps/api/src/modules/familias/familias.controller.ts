@@ -1,6 +1,9 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { FamiliasService } from './familias.service';
+import { SyncFormularioService } from './sync-formulario.service';
+import { SyncFormularioDto } from './dto/sync-formulario.dto';
 import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decorator';
+import { Publico } from '../../core/auth/decorators/publico.decorator';
 import { UsuarioActual } from '../../core/auth/decorators/usuario-actual.decorator';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { CrearFamiliaDto } from './dto/crear-familia.dto';
@@ -12,7 +15,18 @@ import { CrearNotaDto } from './dto/crear-nota.dto';
 
 @Controller('familias')
 export class FamiliasController {
-  constructor(private readonly familias: FamiliasService) {}
+  constructor(
+    private readonly familias: FamiliasService,
+    private readonly sync: SyncFormularioService,
+  ) {}
+
+  // Webhook del formulario de familias (Apps Script). Público: NO lleva sesión;
+  // se protege con un token secreto validado en el servicio.
+  @Publico()
+  @Post('sync-formulario')
+  sincronizar(@Body() dto: SyncFormularioDto) {
+    return this.sync.recibir(dto);
+  }
 
   @RequiereAccion('familia.gestionar')
   @Get()
