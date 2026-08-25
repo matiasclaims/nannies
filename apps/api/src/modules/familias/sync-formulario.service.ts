@@ -54,7 +54,9 @@ export class SyncFormularioService {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const familia: any = { plaza: 'TOLUCA', email: dto.email?.trim() || undefined, areasATrabajar: [] as string[] };
+    // Correo en minúsculas: evita duplicar a la misma mamá por diferencias de
+    // mayúsculas (ej. Erichagoga@ vs erichagoga@).
+    const familia: any = { plaza: 'TOLUCA', email: dto.email?.trim().toLowerCase() || undefined, areasATrabajar: [] as string[] };
     const peques: Record<string, unknown>[] = [];
     let peque: Record<string, unknown> | null = null;
 
@@ -108,7 +110,7 @@ export class SyncFormularioService {
     // hay mamás que llenan el formulario varias veces para actualizarlo).
     if (familia.email) {
       const existe = await this.prisma.familia.findFirst({
-        where: { email: familia.email },
+        where: { email: { equals: familia.email, mode: 'insensitive' } },
         select: { id: true },
       });
       if (existe) {
