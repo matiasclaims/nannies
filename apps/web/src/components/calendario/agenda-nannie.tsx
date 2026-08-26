@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Pencil, Trash2, Check, X, ClipboardList, HeartPulse } from 'lucide-react';
+import { Pencil, Trash2, Check, X, ClipboardList, HeartPulse, NotebookPen, QrCode, Star } from 'lucide-react';
 import {
   api,
   type Servicio,
@@ -9,7 +9,10 @@ import {
   type RespuestaOferta,
   type FichaFamilia,
   type NinoPerfil,
+  type MiResumenEval,
 } from '@/lib/api';
+import { ANIMOS } from '@/lib/dominio';
+import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
 import { TIPO_LABEL, ESTADO_DISPONIBILIDAD } from '@/lib/dominio';
 import type { DiaSemana } from '@/lib/semana';
 import { cn } from '@/lib/utils';
@@ -23,6 +26,13 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'error'>('cargando');
   const [marcando, setMarcando] = useState(false);
   const [fichaServ, setFichaServ] = useState<Servicio | null>(null);
+  const [reporteServ, setReporteServ] = useState<Servicio | null>(null);
+  const [encuestaServ, setEncuestaServ] = useState<Servicio | null>(null);
+  const [miEval, setMiEval] = useState<MiResumenEval | null>(null);
+
+  useEffect(() => {
+    api.miResumenEval().then(setMiEval).catch(() => undefined);
+  }, []);
 
   const desde = dias[0]?.fecha;
   const hasta = dias[dias.length - 1]?.fecha;
@@ -65,6 +75,16 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
+      {/* Mi calificación de papás (M6): solo el promedio global, sin nombres. */}
+      {miEval && miEval.total > 0 && (
+        <div className="flex items-center gap-2 rounded-2xl bg-panel p-3 shadow-card">
+          <Star className="h-5 w-5 text-amber-400" fill="currentColor" />
+          <p className="text-sm text-texto-fuerte">
+            Tu calificación de papás: <strong>{miEval.promedio}</strong>/10
+            <span className="text-texto-suave"> · {miEval.total} {miEval.total === 1 ? 'opinión' : 'opiniones'}</span>
+          </p>
+        </div>
+      )}
       {/* Ofertas pendientes — cuadritos con ✓/✗ (ágil aunque haya muchas).
           No se muestran datos de la familia: solo tipo, fecha, horario y zona. */}
       {ofertas.length > 0 && (
@@ -184,6 +204,22 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
                               Terminado
                             </span>
                           )}
+                          {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
+                            <button
+                              onClick={() => setReporteServ(s)}
+                              className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
+                            >
+                              <NotebookPen className="h-3.5 w-3.5" /> Reporte
+                            </button>
+                          )}
+                          {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
+                            <button
+                              onClick={() => setEncuestaServ(s)}
+                              className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
+                            >
+                              <QrCode className="h-3.5 w-3.5" /> Encuesta
+                            </button>
+                          )}
                         </div>
                       ))}
                       {bloques.map((b) => (
@@ -199,6 +235,140 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
       </div>
 
       {fichaServ && <FichaFamiliaModal servicio={fichaServ} onCerrar={() => setFichaServ(null)} />}
+      {reporteServ && (
+        <ReporteModal
+          servicio={reporteServ}
+          onCerrar={() => setReporteServ(null)}
+          onGuardado={() => {
+            setReporteServ(null);
+            cargar();
+          }}
+        />
+      )}
+      {encuestaServ && <EncuestaLinkModal servicioId={encuestaServ.id} onCerrar={() => setEncuestaServ(null)} />}
+    </div>
+  );
+}
+
+/** M6 · 6.1 — La nannie escribe/edita el reporte de UN servicio. */
+function ReporteModal({
+  servicio,
+  onCerrar,
+  onGuardado,
+}: {
+  servicio: Servicio;
+  onCerrar: () => void;
+  onGuardado: () => void;
+}) {
+  const [actividades, setActividades] = useState('');
+  const [animoNino, setAnimoNino] = useState<string>('');
+  const [incidentes, setIncidentes] = useState('');
+  const [notas, setNotas] = useState('');
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .reporteDeServicio(servicio.id)
+      .then((r) => {
+        if (r) {
+          setActividades(r.actividades);
+          setAnimoNino(r.animoNino);
+          setIncidentes(r.incidentes ?? '');
+          setNotas(r.notas ?? '');
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => setCargando(false));
+  }, [servicio.id]);
+
+  async function guardar() {
+    if (actividades.trim().length < 3 || !animoNino) {
+      setError('Escribe las actividades y elige el ánimo del peque.');
+      return;
+    }
+    setGuardando(true);
+    setError(null);
+    try {
+      await api.guardarReporte(servicio.id, {
+        actividades: actividades.trim(),
+        animoNino,
+        incidentes: incidentes.trim() || undefined,
+        notas: notas.trim() || undefined,
+      });
+      onGuardado();
+    } catch {
+      setError('No se pudo guardar el reporte.');
+      setGuardando(false);
+    }
+  }
+
+  const campo = 'w-full rounded-lg border border-borde bg-panel px-3 py-2 text-sm';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 sm:items-center" onClick={onCerrar}>
+      <div className="w-full max-w-md rounded-2xl bg-panel p-5 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-texto-fuerte">Reporte del servicio</h2>
+          <button onClick={onCerrar} className="text-texto-suave hover:text-texto-fuerte">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mb-3 text-xs text-texto-suave">
+          {TIPO_LABEL[servicio.tipoServicio]} · {servicio.horaInicio}–{servicio.horaFin}
+        </p>
+        {cargando ? (
+          <p className="py-6 text-center text-sm text-texto-suave">Cargando…</p>
+        ) : (
+          <div className="space-y-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-texto-suave">Actividades realizadas *</span>
+              <textarea
+                value={actividades}
+                onChange={(e) => setActividades(e.target.value)}
+                rows={3}
+                className={campo}
+                placeholder="¿Qué hicieron durante el servicio?"
+              />
+            </label>
+            <div>
+              <span className="mb-1 block text-xs font-medium text-texto-suave">Ánimo del peque *</span>
+              <div className="flex flex-wrap gap-2">
+                {ANIMOS.map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => setAnimoNino(a)}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium',
+                      animoNino === a ? 'border-marca-azul bg-marca-azul/10 text-marca-azul' : 'border-borde text-texto-suave',
+                    )}
+                  >
+                    {a}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-texto-suave">Incidentes u observaciones</span>
+              <textarea value={incidentes} onChange={(e) => setIncidentes(e.target.value)} rows={2} className={campo} placeholder="Opcional" />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-texto-suave">Notas / recomendaciones</span>
+              <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} className={campo} placeholder="Opcional" />
+            </label>
+            {error && <p className="text-xs text-marca-rojo">{error}</p>}
+            <button
+              onClick={guardar}
+              disabled={guardando}
+              className="w-full rounded-lg bg-marca-azul px-4 py-2 text-sm font-semibold text-white hover:brightness-95 disabled:opacity-50"
+            >
+              {guardando ? 'Guardando…' : 'Guardar reporte'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

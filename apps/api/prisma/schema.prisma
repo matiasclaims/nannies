@@ -445,11 +445,50 @@ model Servicio {
 
   ofertas OfertaRespuesta[]
   finanza FinanzaServicio?
+  reporte ReporteServicio?
+  evaluacion EvaluacionServicio?
 
   @@index([nannieId, fecha])
   @@index([familiaId])
   @@index([estado])
   @@map("servicios")
+}
+
+// M6 · 6.1 — Reporte de servicio: la nannie deja UN reporte por servicio
+// (Paula: uno por servicio, no cada hora). Vinculado 1:1 al servicio (M1) y,
+// vía él, a la familia (M5). La nannie escribe; coordinación lo lee.
+model ReporteServicio {
+  id            String   @id @default(cuid())
+  servicioId    String   @unique
+  servicio      Servicio @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  actividades   String // qué se hizo durante el servicio
+  animoNino     String // actitud/ánimo del niño (Muy bien / Bien / Regular / Difícil)
+  incidentes    String? // incidentes u observaciones (opcional)
+  notas         String? // recomendaciones / notas para la familia (opcional)
+  autorNombre   String // quién lo escribió (la nannie asignada)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  @@map("reportes_servicio")
+}
+
+// M6 · 6.2 — Evaluación de PAPÁS por servicio (link/QR sin login). Una por
+// servicio. La nannie Y coordinación pueden compartir el link (la nannie muestra
+// el QR al terminar; coordinación tiene respaldo y ve la tasa de respuesta). La
+// nannie solo ve su PROMEDIO global (nunca respuestas ni familias). Promedio
+// <7.5 → avisa a Paula, que DECIDE el mes de prueba (no automático).
+model EvaluacionServicio {
+  id                String    @id @default(cuid())
+  servicioId        String    @unique
+  servicio          Servicio  @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  token             String    @unique // para el link público /encuesta/[token]
+  calificacion      Int? // 1-10; null hasta que el papá responde
+  volveriaContratar Boolean?
+  comentario        String?
+  respondidoEn      DateTime? // null = enviada pero sin responder
+  creadoEn          DateTime  @default(now())
+
+  @@map("evaluaciones_servicio")
 }
 
 // Registro de oferta→respuesta; alimenta la estadística de rechazo (M6)

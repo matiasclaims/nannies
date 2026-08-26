@@ -16,6 +16,7 @@ import { Avatar } from '@/components/avatar';
 import { NombreNannie } from '@/components/nombre-nannie';
 import { FotoModal } from '@/components/foto-modal';
 import { Seccion } from '@/components/seccion';
+import { EvalPapasNannie } from '@/components/eval-papas-nannie';
 import { cn } from '@/lib/utils';
 
 const input = 'w-full rounded-xl border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-marca-azul';
@@ -121,6 +122,13 @@ export default function NanniePerfilPage() {
       <ColoniasNannie nannieId={perfil.id} />
 
       <EvaluacionNannie nannieId={perfil.id} />
+
+      <EvalPapasNannie
+        nannieId={perfil.id}
+        esDirectora={esDirectora}
+        estadoActual={perfil.estado}
+        onCambio={cargar}
+      />
 
       <IncidenciasNannie nannieId={perfil.id} nombre={perfil.nombre} esDirectora={esDirectora} />
 

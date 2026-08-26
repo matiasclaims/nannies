@@ -335,6 +335,40 @@ export interface NinoPerfil {
   conductasRiesgo?: string | null;
   autorizacionCambioPanal?: boolean | null;
 }
+/** Encuesta de papás (M6 · 6.2) — contexto público que ve el papá. */
+export interface EncuestaPublica {
+  respondido: boolean;
+  fecha: string;
+  tipoServicio: TipoServicio;
+  nannie: string | null;
+}
+/** Resumen propio de la nannie (solo su promedio global). */
+export interface MiResumenEval {
+  total: number;
+  promedio: number | null;
+}
+/** Resumen para coordinación: promedio + aviso <7.5 + respuestas individuales. */
+export interface ResumenEvalNannie {
+  total: number;
+  promedio: number | null;
+  alertaPrueba: boolean;
+  respuestas: {
+    familia: string;
+    fecha: string;
+    calificacion: number | null;
+    volveriaContratar: boolean | null;
+    comentario: string | null;
+  }[];
+}
+/** Reporte de servicio (M6 · 6.1). animoNino: Muy bien / Bien / Regular / Difícil. */
+export interface ReporteServicio {
+  actividades: string;
+  animoNino: string;
+  incidentes: string | null;
+  notas: string | null;
+  autor: string;
+  fecha?: string;
+}
 export interface ServicioHist {
   id: string;
   fecha: string;
@@ -343,6 +377,7 @@ export interface ServicioHist {
   tipoServicio: TipoServicio;
   nannie: string;
   estado: EstadoServicio;
+  reporte: ReporteServicio | null;
 }
 export interface NotaFamilia {
   id: string;
@@ -665,6 +700,23 @@ export const api = {
   eliminarDisponibilidad: (id: string) =>
     req<{ ok: true }>(`/calendario/disponibilidad/${id}`, { method: 'DELETE' }),
 
+  reporteDeServicio: (servicioId: string) =>
+    req<ReporteServicio | null>(`/reportes/servicio/${servicioId}`),
+  // M6 · 6.2 — Encuesta de papás
+  linkEncuesta: (servicioId: string) =>
+    req<{ token: string }>(`/evaluaciones/servicio/${servicioId}/link`),
+  encuestaPublica: (token: string) => req<EncuestaPublica>(`/evaluaciones/encuesta/${token}`),
+  responderEncuesta: (
+    token: string,
+    dto: { calificacion: number; volveriaContratar: boolean; comentario?: string },
+  ) => req<{ ok: boolean }>(`/evaluaciones/encuesta/${token}`, { method: 'POST', body: JSON.stringify(dto) }),
+  miResumenEval: () => req<MiResumenEval>('/evaluaciones/mi-resumen'),
+  resumenEvalNannie: (nannieId: string) =>
+    req<ResumenEvalNannie>(`/evaluaciones/nannie/${nannieId}/resumen`),
+  guardarReporte: (
+    servicioId: string,
+    dto: { actividades: string; animoNino: string; incidentes?: string; notas?: string },
+  ) => req<{ ok: boolean }>(`/reportes/servicio/${servicioId}`, { method: 'PUT', body: JSON.stringify(dto) }),
   completarServicio: (servicioId: string) =>
     req<Servicio>(`/calendario/servicios/${servicioId}/completar`, { method: 'POST' }),
   editarHorario: (servicioId: string, horaFin: string, tarifaNoche?: number) =>

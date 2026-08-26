@@ -10,8 +10,10 @@ export function middleware(req: NextRequest) {
   const tieneSesion = req.cookies.has('access_token');
   const esLogin = req.nextUrl.pathname.startsWith('/login');
   // Rutas públicas sin sesión (la familia las abre por un enlace con token):
-  // el avance del paquete. La seguridad real es el token del backend.
-  const esPublica = req.nextUrl.pathname.startsWith('/avance');
+  // el avance del paquete y la encuesta de papás. La seguridad real es el
+  // token del backend.
+  const esPublica =
+    req.nextUrl.pathname.startsWith('/avance') || req.nextUrl.pathname.startsWith('/encuesta');
 
   if (!tieneSesion && !esLogin && !esPublica) {
     return NextResponse.redirect(new URL('/login', req.url));

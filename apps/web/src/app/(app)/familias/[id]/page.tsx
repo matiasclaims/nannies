@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode } from 'lucide-react';
 import { api, type PerfilFamilia, type NinoPerfil, type NinoInput, type FamiliaInput } from '@/lib/api';
 import { TIPO_LABEL, ESTADO_SERVICIO } from '@/lib/dominio';
 import { AREAS_TRABAJO, CONSENTIMIENTOS } from '@/lib/familia-catalogo';
+import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
 import { cn } from '@/lib/utils';
 
 const inputCls =
@@ -24,6 +25,7 @@ export default function PerfilFamiliaPage() {
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'error'>('cargando');
   const [nuevoNino, setNuevoNino] = useState(false);
   const [editFamilia, setEditFamilia] = useState(false);
+  const [encuestaSid, setEncuestaSid] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -175,14 +177,42 @@ export default function PerfilFamiliaPage() {
         ) : (
           <div className="divide-y divide-borde">
             {data.servicios.map((s) => (
-              <div key={s.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-                <div className="min-w-0">
-                  <p className="truncate text-texto-fuerte">{TIPO_LABEL[s.tipoServicio]} · {fechaCorta(s.fecha)}</p>
-                  <p className="text-xs text-texto-suave">{s.horaInicio}–{s.horaFin} · {s.nannie}</p>
+              <div key={s.id} className="py-2 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-texto-fuerte">{TIPO_LABEL[s.tipoServicio]} · {fechaCorta(s.fecha)}</p>
+                    <p className="text-xs text-texto-suave">{s.horaInicio}–{s.horaFin} · {s.nannie}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
+                      <button
+                        onClick={() => setEncuestaSid(s.id)}
+                        title="Compartir encuesta con la familia"
+                        className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-[11px] font-medium text-marca-azul hover:bg-fondo"
+                      >
+                        <QrCode className="h-3.5 w-3.5" /> Encuesta
+                      </button>
+                    )}
+                    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', ESTADO_SERVICIO[s.estado].clase)}>
+                      {ESTADO_SERVICIO[s.estado].label}
+                    </span>
+                  </div>
                 </div>
-                <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold', ESTADO_SERVICIO[s.estado].clase)}>
-                  {ESTADO_SERVICIO[s.estado].label}
-                </span>
+                {s.reporte && (
+                  <div className="mt-2 rounded-lg bg-fondo px-3 py-2 text-xs">
+                    <p className="mb-1 font-semibold text-texto-fuerte">
+                      Reporte · ánimo del peque: {s.reporte.animoNino}
+                    </p>
+                    <p className="text-texto-suave"><span className="font-medium text-texto-fuerte">Actividades:</span> {s.reporte.actividades}</p>
+                    {s.reporte.incidentes && (
+                      <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Incidentes:</span> {s.reporte.incidentes}</p>
+                    )}
+                    {s.reporte.notas && (
+                      <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Notas:</span> {s.reporte.notas}</p>
+                    )}
+                    <p className="mt-1 text-[11px] text-texto-suave">— {s.reporte.autor}</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -191,6 +221,8 @@ export default function PerfilFamiliaPage() {
 
       {/* Bitácora */}
       <Bitacora familiaId={id} notas={data.notas} onCambio={cargar} />
+
+      {encuestaSid && <EncuestaLinkModal servicioId={encuestaSid} onCerrar={() => setEncuestaSid(null)} />}
     </div>
   );
 }

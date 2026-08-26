@@ -1,5 +1,8 @@
 import type { TipoServicio, EstadoServicio, EstadoDisponibilidad } from '@/lib/api';
 
+/** Ánimo/actitud del niño en el reporte de servicio (M6 · 6.1). Espejo del backend. */
+export const ANIMOS = ['Muy bien', 'Bien', 'Regular', 'Difícil'] as const;
+
 export const TIPO_LABEL: Record<TipoServicio, string> = {
   DAYCARE: 'Daycare',
   NIGHTCARE: 'Nightcare',

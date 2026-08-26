@@ -353,7 +353,7 @@ export class FamiliasService {
       include: {
         ninos: { orderBy: { creadoEn: 'asc' } },
         servicios: {
-          include: { nannie: { select: { nombre: true } } },
+          include: { nannie: { select: { nombre: true } }, reporte: true },
           orderBy: { fecha: 'desc' },
           take: 50,
         },
@@ -399,6 +399,16 @@ export class FamiliasService {
         tipoServicio: s.tipoServicio,
         nannie: s.nannie?.nombre ?? 'Por asignar',
         estado: s.estado,
+        // Reporte de servicio (M6 · 6.1): coordinación lo lee inline.
+        reporte: s.reporte
+          ? {
+              actividades: s.reporte.actividades,
+              animoNino: s.reporte.animoNino,
+              incidentes: s.reporte.incidentes,
+              notas: s.reporte.notas,
+              autor: s.reporte.autorNombre,
+            }
+          : null,
       })),
       notas: familia.notas.map((n) => ({
         id: n.id,

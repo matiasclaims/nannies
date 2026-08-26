@@ -11,6 +11,8 @@ import { AsignacionModule } from './modules/asignacion/asignacion.module';
 import { FamiliasModule } from './modules/familias/familias.module';
 import { FinanzasModule } from './modules/finanzas/finanzas.module';
 import { NanniesModule } from './modules/nannies/nannies.module';
+import { ReportesModule } from './modules/reportes/reportes.module';
+import { EvaluacionFamiliaModule } from './modules/evaluacion-familia/evaluacion-familia.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -34,6 +36,8 @@ import { HealthController } from './health.controller';
     FamiliasModule,
     FinanzasModule,
     NanniesModule,
+    ReportesModule,
+    EvaluacionFamiliaModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
