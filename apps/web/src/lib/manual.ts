@@ -160,12 +160,11 @@ export const MANUAL: CapituloModulo[] = [
         {
           titulo: 'Registrar un paquete de horas (Familias)',
           intro:
-            'Los paquetes se dan de alta en la sección "Familias". Un paquete es un bolsón de horas prepagadas que la familia va consumiendo servicio a servicio.',
+            'Un paquete es un bolsón de horas prepagadas que la familia va consumiendo servicio a servicio. Se da de alta DENTRO del expediente de la familia, en la sección "Paquete de horas" (ver el capítulo M5 para el detalle).',
           pasos: [
-            'Entra a "Familias".',
-            'Ubica a la familia. Si no tiene paquete, verás un selector de tramo (10, 20, 30, 40 o 50 horas).',
-            'Elige el tramo y presiona "Registrar".',
-            'La familia mostrará su "Paquete activo" con una barra de saldo de horas.',
+            'Entra a "Familias" y abre la familia.',
+            'Baja a "Paquete de horas": si no tiene, elige el tramo (10, 20, 30, 40 o 50 horas) y presiona "Registrar paquete".',
+            'En la lista de familias, cada una con paquete muestra un indicador verde "Paquete · X/Y h".',
           ],
           nota: 'Una familia solo puede tener un paquete activo a la vez. Los paquetes no caducan: duran hasta agotar las horas. El cobro del paquete se maneja en Finanzas (M3).',
         },
@@ -461,6 +460,18 @@ export const MANUAL: CapituloModulo[] = [
           nota: 'La zona de la familia es una referencia; la zona de cada servicio puede ser distinta y se captura al asignarlo (a veces piden el servicio en otra dirección).',
         },
         {
+          titulo: 'Paquete de horas de la familia',
+          intro:
+            'El paquete de horas vive DENTRO del expediente de la familia (sección "Paquete de horas"), no en la lista. En la lista, cada familia solo muestra un indicador verde "Paquete · X/Y h" cuando tiene uno activo.',
+          pasos: [
+            'Abre la familia y baja a "Paquete de horas".',
+            'Si no tiene: elige las horas (10, 20, 30, 40 o 50) y presiona "Registrar paquete". Si la familia aún no dio fechas, marca "Asignación manual".',
+            'Si ya tiene: ves su saldo (horas restantes de las contratadas). Con "Programar sesiones" generas de golpe el patrón semanal (días + horario) hasta agotar las horas; aparecen como ofertas en el calendario.',
+            '"Ver proyección (PDF)" abre un documento con marca para compartir con la familia; "Copiar enlace de avance" copia un enlace sin contraseña para que la familia consulte sus horas y fechas.',
+          ],
+          nota: 'Una familia solo puede tener un paquete activo a la vez. Desde el enlace de avance, la familia puede cancelar por su cuenta una fecha con al menos 24 h de anticipación (la hora regresa al saldo); con menos, se coordina contigo. El precio del paquete sale del tabulador; el cobro se refleja en Finanzas.',
+        },
+        {
           titulo: 'Familias inactivas (automático)',
           intro:
             'Cuando una familia pasa 60 días sin pedir un servicio, el sistema la marca "Inactiva" sola. Es solo una separación visual: no bloquea nada.',
@@ -487,6 +498,116 @@ export const MANUAL: CapituloModulo[] = [
             'Verás dirección, zona, si hay un adulto responsable, mascotas, reglas, expectativas y áreas a trabajar; y de cada peque: salud/alergias, conductas de riesgo, rutinas, carácter y demás.',
           ],
           nota: 'Por privacidad de la familia, la ficha no muestra apellidos ni datos de contacto. Solo la ves de familias con un servicio tuyo confirmado.',
+        },
+      ],
+    },
+  },
+  {
+    modulo: 'M6',
+    nombre: 'Reportes y evaluación',
+    contenido: {
+      coordinacion: [
+        {
+          titulo: 'Reportes, de un vistazo',
+          intro:
+            'La pestaña "Reportes" reúne el desempeño de cada nannie en el mes: cuántos servicios y horas llevó, su calificación de papás, su evaluación de agencia y sus incidencias. Todo se puede descargar en PDF.',
+        },
+        {
+          titulo: 'Ver el reporte general del mes',
+          pasos: [
+            'Entra a "Reportes" en el menú.',
+            'Con las flechas ‹ › eliges el mes.',
+            'La tabla muestra una fila por nannie: servicios, horas, calificación de papás (con nº de opiniones), evaluación de agencia e incidencias.',
+          ],
+          nota: 'La calificación de papás por debajo de 7.5 se resalta en rojo; las incidencias con un ícono de alerta. Al pie ves los totales.',
+        },
+        {
+          titulo: 'Reporte detallado de una nannie',
+          pasos: [
+            'En la tabla, haz clic en la fila de la nannie.',
+            'Se abre su reporte del mes: sus reportes de servicio, las evaluaciones de papás, sus incidencias y su evaluación de agencia.',
+            'Con "Imprimir / Guardar PDF" lo descargas para archivar o compartir con ella.',
+          ],
+        },
+        {
+          titulo: 'Descargar en PDF',
+          intro:
+            'Tanto el reporte general como el de cada nannie se abren en una versión con marca Nannies lista para imprimir o guardar como PDF (botón "Descargar PDF" / "Imprimir / Guardar PDF").',
+        },
+        {
+          titulo: 'Los reportes de servicio',
+          intro:
+            'Cada nannie deja un reporte por servicio (actividades, ánimo del peque, incidentes y notas). Los lees en el expediente de la familia, bajo cada servicio de su historial, y resumidos en el reporte de la nannie.',
+        },
+        {
+          titulo: 'Encuesta de evaluación de los papás',
+          intro:
+            'Por cada servicio hay una encuesta corta para el papá (calificación 1–10, si volvería a contratar y un comentario), que se contesta por un link/QR sin contraseña.',
+          pasos: [
+            'Comparte el link/QR desde la ficha de la familia (botón "Encuesta") — o pídele a la nannie que se lo muestre al papá al terminar.',
+            'Las respuestas se ven en la ficha de la nannie › sección "Evaluación de papás", y su promedio en Reportes.',
+          ],
+          nota: 'Si el promedio de una nannie baja de 7.5, el sistema te avisa y te ofrece ponerla en "mes de prueba" — la decisión es tuya, no es automático.',
+        },
+      ],
+      nannie: [
+        {
+          titulo: 'Escribir el reporte de tu servicio',
+          pasos: [
+            'En "Calendario" › "Mi semana", en tu servicio aceptado o terminado presiona "Reporte".',
+            'Escribe las actividades que hicieron, elige el ánimo del peque, y agrega incidentes o notas si los hubo.',
+            'Presiona "Guardar reporte". Lo puedes editar después.',
+          ],
+          nota: 'Es un reporte por servicio. Ayuda a coordinación y a la familia a dar mejor seguimiento.',
+        },
+        {
+          titulo: 'La encuesta para los papás (QR)',
+          pasos: [
+            'En tu servicio (aceptado o terminado) presiona "Encuesta".',
+            'Muéstrale el QR al papá al terminar, o mándale el link. Lo contesta sin cuenta, en un momento.',
+          ],
+          nota: 'Tú no ves quién te calificó ni las respuestas individuales, solo tu promedio.',
+        },
+        {
+          titulo: 'Tu calificación de papás',
+          intro:
+            'En tu Calendario ves tu calificación global de papás (el promedio y cuántas opiniones llevas). Es solo tu promedio: no aparecen nombres ni comentarios.',
+        },
+      ],
+    },
+  },
+  {
+    modulo: 'M7',
+    nombre: 'Panorama (tablero)',
+    contenido: {
+      coordinacion: [
+        {
+          titulo: 'Tu Panorama, de un vistazo',
+          intro:
+            'Es la primera pantalla al entrar: un tablero del mes con lo importante de la operación. Cada dato es interactivo — pasa el cursor por encima para ver qué significa, y haz clic para ir a la sección donde puedes accionar.',
+        },
+        {
+          titulo: 'Qué muestra',
+          pasos: [
+            'Arriba: servicios de hoy, por asignar y sin cubrir.',
+            'Dona "Servicios del mes por nannie": cuántos lleva cada nannie (con su color).',
+            'Anillos: aceptación de ofertas, cobertura (servicios con nannie asignada) y horas pagadas del mes.',
+            'Tarjetas: ingreso no capturado (cancelaciones sin cobro), margen del mes (solo Directora) y paquetes activos.',
+            'Abajo: zonas de más demanda, aceptación por nannie y actividad reciente.',
+          ],
+          nota: 'Un clic te lleva a su sección: la dona y las zonas al Calendario; cobertura y "por asignar" a Asignación; horas, ingreso y margen a Finanzas; una nannie a su ficha; "Paquetes activos" a las familias con paquete.',
+        },
+        {
+          titulo: 'El margen es solo tuyo (Directora)',
+          intro:
+            'La tarjeta "Margen del mes" solo la ve la Directora. La Subdirectora ve todo el tablero excepto el margen del negocio.',
+        },
+      ],
+      nannie: [
+        {
+          titulo: 'Tu Panorama',
+          intro:
+            'Al entrar ves tu actividad del mes: ofertas por responder, servicios próximos y completados, tus horas, lo que llevas ganado, tu gráfica de horas por semana y tu calificación de papás. Es solo tuyo — no ves datos del negocio ni de otras nannies.',
         },
       ],
     },
