@@ -5,5 +5,6 @@ import { FinanzasService } from './finanzas.service';
 @Module({
   controllers: [FinanzasController],
   providers: [FinanzasService],
+  exports: [FinanzasService], // lo consume DashboardModule (M7)
 })
 export class FinanzasModule {}

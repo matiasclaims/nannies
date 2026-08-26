@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Put } from '@nestjs/common';
+import { Body, Controller, Get, Param, Put, Query } from '@nestjs/common';
 import { ReportesService } from './reportes.service';
 import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decorator';
 import { UsuarioActual } from '../../core/auth/decorators/usuario-actual.decorator';
@@ -8,6 +8,21 @@ import { GuardarReporteDto } from './dto/guardar-reporte.dto';
 @Controller('reportes')
 export class ReportesController {
   constructor(private readonly reportes: ReportesService) {}
+
+  // Reporte general (M6): una fila por nannie con su actividad del periodo.
+  // Coordinación (Directora/Subdirectora).
+  @RequiereAccion('reporte.gestionar')
+  @Get('general')
+  general(@Query('desde') desde: string, @Query('hasta') hasta: string) {
+    return this.reportes.general(desde, hasta);
+  }
+
+  // Reporte detallado de una nannie en el periodo. Coordinación.
+  @RequiereAccion('reporte.gestionar')
+  @Get('nannie/:nannieId')
+  detalleNannie(@Param('nannieId') nannieId: string, @Query('desde') desde: string, @Query('hasta') hasta: string) {
+    return this.reportes.detalleNannie(nannieId, desde, hasta);
+  }
 
   // Escribir/actualizar el reporte de un servicio. La nannie (su propio
   // servicio) o coordinación. La pertenencia se valida en el servicio.

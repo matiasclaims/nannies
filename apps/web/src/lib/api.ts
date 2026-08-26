@@ -335,6 +335,50 @@ export interface NinoPerfil {
   conductasRiesgo?: string | null;
   autorizacionCambioPanal?: boolean | null;
 }
+/** Dashboard 360 (M7) — solo lectura, del mes en curso. margen null si no es Directora. */
+export interface Dashboard {
+  mes: string;
+  servicios: { total: number; completados: number; proximos: number; hoy: number; porAsignar: number };
+  aceptacion: { global: number | null; respondidas: number; porNannie: { nannieId: string; nombre: string; tasa: number; ofertas: number }[] };
+  cobertura: { porcentaje: number; sinCobertura: number };
+  zonasDemanda: { zona: string; servicios: number }[];
+  cancelaciones: { total: number; cobradas: number; noCobradas: number };
+  ingresoNoCapturado: number;
+  horasPagadas: number;
+  paquetesActivos: number;
+  serviciosPorNannie: { nannieId: string; nombre: string; color: string | null; total: number }[];
+  actividad: { estado: EstadoServicio; familiaId: string; familia: string; nannie: string; zona: string; fecha: string }[];
+  margen: number | null;
+}
+/** Reporte general (M6) — una fila por nannie con su actividad del periodo. */
+export interface ReporteGeneral {
+  desde: string;
+  hasta: string;
+  totales: { servicios: number; horas: number; incidencias: number };
+  nannies: {
+    nannieId: string;
+    nombre: string;
+    color: string | null;
+    prueba: boolean;
+    servicios: number;
+    horas: number;
+    calificacionPapas: number | null;
+    evaluacionPapasN: number;
+    evaluacionAgencia: number | null;
+    incidencias: number;
+  }[];
+}
+/** Reporte detallado de una nannie en el periodo (M6 · Bloque 2). */
+export interface ReporteNannie {
+  desde: string;
+  hasta: string;
+  nannie: { id: string; nombre: string; color: string | null; prueba: boolean; especialidad: string | null };
+  kpis: { servicios: number; horas: number; calificacionPapas: number | null; evaluacionPapasN: number; evaluacionAgencia: number | null; incidencias: number };
+  reportes: { familia: string; fecha: string; tipoServicio: TipoServicio; actividades: string; animoNino: string; incidentes: string | null; notas: string | null }[];
+  evaluacionesPapas: { familia: string; fecha: string; calificacion: number | null; volveriaContratar: boolean | null; comentario: string | null }[];
+  incidencias: { situacion: string; fecha: string; nota: string | null; condonada: boolean }[];
+  evaluacionesAgencia: { semana: string; calificacion: number; nota: string | null }[];
+}
 /** Encuesta de papás (M6 · 6.2) — contexto público que ve el papá. */
 export interface EncuestaPublica {
   respondido: boolean;
@@ -711,6 +755,11 @@ export const api = {
     dto: { calificacion: number; volveriaContratar: boolean; comentario?: string },
   ) => req<{ ok: boolean }>(`/evaluaciones/encuesta/${token}`, { method: 'POST', body: JSON.stringify(dto) }),
   miResumenEval: () => req<MiResumenEval>('/evaluaciones/mi-resumen'),
+  dashboard: () => req<Dashboard>('/dashboard'),
+  reporteGeneral: (desde: string, hasta: string) =>
+    req<ReporteGeneral>(`/reportes/general?desde=${desde}&hasta=${hasta}`),
+  reporteNannie: (nannieId: string, desde: string, hasta: string) =>
+    req<ReporteNannie>(`/reportes/nannie/${nannieId}?desde=${desde}&hasta=${hasta}`),
   resumenEvalNannie: (nannieId: string) =>
     req<ResumenEvalNannie>(`/evaluaciones/nannie/${nannieId}/resumen`),
   guardarReporte: (

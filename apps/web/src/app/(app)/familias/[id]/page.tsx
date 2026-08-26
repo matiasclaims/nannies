@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode } from 'lucide-react';
-import { api, type PerfilFamilia, type NinoPerfil, type NinoInput, type FamiliaInput } from '@/lib/api';
+import { api, type PerfilFamilia, type NinoPerfil, type NinoInput, type FamiliaInput, type NannieLite } from '@/lib/api';
 import { TIPO_LABEL, ESTADO_SERVICIO } from '@/lib/dominio';
 import { AREAS_TRABAJO, CONSENTIMIENTOS } from '@/lib/familia-catalogo';
 import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
+import { PaqueteFamilia } from '@/components/paquete-familia';
 import { cn } from '@/lib/utils';
 
 const inputCls =
@@ -26,6 +27,11 @@ export default function PerfilFamiliaPage() {
   const [nuevoNino, setNuevoNino] = useState(false);
   const [editFamilia, setEditFamilia] = useState(false);
   const [encuestaSid, setEncuestaSid] = useState<string | null>(null);
+  const [nannies, setNannies] = useState<NannieLite[]>([]);
+
+  useEffect(() => {
+    api.listarNannies().then(setNannies).catch(() => undefined);
+  }, []);
 
   const cargar = useCallback(async () => {
     try {
@@ -112,7 +118,7 @@ export default function PerfilFamiliaPage() {
         )}
 
         {data.autorizacionAudiovisual && (
-          <p className="mt-3"><CampoTexto label="Autorización audiovisual" valor={data.autorizacionAudiovisual} /></p>
+          <div className="mt-3"><CampoTexto label="Autorización audiovisual" valor={data.autorizacionAudiovisual} /></div>
         )}
 
         <div className="mt-3 border-t border-borde pt-3">
@@ -124,11 +130,18 @@ export default function PerfilFamiliaPage() {
           </div>
         </div>
 
-        {data.paqueteActivo && (
-          <p className="mt-3 text-xs text-texto-suave">
-            Paquete activo: <strong className="text-texto-fuerte">{data.paqueteActivo.horasRestantes}/{data.paqueteActivo.horasTotales} h</strong>
-          </p>
-        )}
+      </div>
+
+      {/* Paquete de horas (M2/M5): registrar / gestionar dentro del expediente */}
+      <div className="rounded-2xl bg-panel p-5 shadow-card">
+        <h2 className="mb-3 text-sm font-semibold text-texto-fuerte">Paquete de horas</h2>
+        <PaqueteFamilia
+          familiaId={data.id}
+          zona={data.zona}
+          paquete={data.paqueteActivo}
+          nannies={nannies}
+          onCambio={cargar}
+        />
       </div>
 
       {editFamilia && (

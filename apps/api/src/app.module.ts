@@ -13,6 +13,7 @@ import { FinanzasModule } from './modules/finanzas/finanzas.module';
 import { NanniesModule } from './modules/nannies/nannies.module';
 import { ReportesModule } from './modules/reportes/reportes.module';
 import { EvaluacionFamiliaModule } from './modules/evaluacion-familia/evaluacion-familia.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -38,6 +39,7 @@ import { HealthController } from './health.controller';
     NanniesModule,
     ReportesModule,
     EvaluacionFamiliaModule,
+    DashboardModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

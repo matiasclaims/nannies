@@ -52,7 +52,8 @@ export type Accion =
   | 'oferta.responder'
   | 'servicio.completar'
   | 'reporte.propio.escribir'
-  | 'reporte.propio.ver';
+  | 'reporte.propio.ver'
+  | 'dashboard.ver';
 
 /** Qué roles pueden ejecutar cada acción. */
 export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
@@ -76,6 +77,7 @@ export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
   'nannie.gestionar': ['DIRECTORA', 'SUBDIRECTORA'],
   'reporte.gestionar': ['DIRECTORA', 'SUBDIRECTORA'],
   'incidencia.registrar': ['DIRECTORA', 'SUBDIRECTORA'],
+  'dashboard.ver': ['DIRECTORA', 'SUBDIRECTORA'],
 
   // --- Nannie sobre lo suyo (además requiere check de PERTENENCIA) ---
   'disponibilidad.propia.editar': ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],

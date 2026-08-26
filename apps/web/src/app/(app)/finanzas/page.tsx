@@ -9,7 +9,6 @@ import {
   Package,
   Receipt,
   AlertTriangle,
-  Clock,
   CheckCircle2,
   Circle,
 } from 'lucide-react';
@@ -208,11 +207,9 @@ export default function FinanzasPage() {
 }
 
 function VistaIngresos({ data }: { data: Ingresos }) {
-  const { paquetes, individuales, totales, horasPagadas } = data;
+  const { paquetes, individuales, totales } = data;
   return (
     <div className="space-y-4">
-      <TarjetaHoras horas={horasPagadas} />
-
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Tarjeta titulo="Paquetes" monto={totales.paquetes} icon={<Package className="h-4 w-4" />} />
         <Tarjeta titulo="Individuales" monto={totales.individuales} icon={<Receipt className="h-4 w-4" />} />
@@ -246,32 +243,6 @@ function VistaIngresos({ data }: { data: Ingresos }) {
           ))
         )}
       </Seccion>
-    </div>
-  );
-}
-
-/** Indicador de horas pagadas del mes (Paula): color por rango, sin rojo.
- *  <400 naranja (bajo) · 400-800 azul (en rango) · >800 verde limón (óptimo).
- *  El azul es distinto al marca-azul del total en dinero, a propósito. */
-function TarjetaHoras({ horas }: { horas: number }) {
-  const rango =
-    horas < 400
-      ? { bg: '#F97316', label: 'Por debajo del rango' }
-      : horas <= 800
-        ? { bg: '#3B82F6', label: 'En rango' }
-        : { bg: '#9DCD5A', label: 'Rango óptimo' };
-  return (
-    <div className="rounded-2xl p-4 text-white shadow-card" style={{ backgroundColor: rango.bg }}>
-      <p className="flex items-center gap-1.5 text-xs font-medium text-white/85">
-        <Clock className="h-4 w-4" />
-        Horas pagadas del mes
-      </p>
-      <div className="mt-1 flex items-end justify-between gap-2">
-        <p className="text-3xl font-bold leading-none">
-          {horas.toLocaleString('es-MX')} <span className="text-xl font-semibold">h</span>
-        </p>
-        <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-semibold">{rango.label}</span>
-      </div>
     </div>
   );
 }
