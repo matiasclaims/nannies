@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import Image from 'next/image';
 import { Printer } from 'lucide-react';
 import { api, type ReporteNannie } from '@/lib/api';
 import { TIPO_LABEL } from '@/lib/dominio';
@@ -42,15 +41,12 @@ export default function ReporteNanniePage() {
   const k = d.kpis;
   return (
     <div className="mx-auto max-w-3xl bg-white p-8 text-texto-fuerte print:p-0">
-      <header className="mb-5 flex items-center justify-between border-b border-borde pb-4">
-        <Image src="/nannies-logo.png" alt="Nannies" width={120} height={48} className="h-12 w-auto" />
-        <div className="text-right">
-          <h1 className="text-lg font-bold text-[#17323b]">
-            Reporte · {d.nannie.nombre}
-            {d.nannie.prueba ? ' (mes de prueba)' : ''}
-          </h1>
-          <p className="text-xs capitalize text-texto-suave">{periodo(d.desde)} · Nannies Child Care</p>
-        </div>
+      <header className="mb-5 border-b border-borde pb-4">
+        <h1 className="text-lg font-bold text-[#17323b]">
+          Reporte · {d.nannie.nombre}
+          {d.nannie.prueba ? ' (mes de prueba)' : ''}
+        </h1>
+        <p className="text-xs capitalize text-texto-suave">{periodo(d.desde)}</p>
       </header>
 
       {d.nannie.especialidad && <p className="mb-4 text-xs italic text-texto-suave">{d.nannie.especialidad}</p>}

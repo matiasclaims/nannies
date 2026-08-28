@@ -52,7 +52,7 @@ export class ReportesService {
     const gte = new Date(`${desde}T00:00:00Z`);
     const lt = new Date(new Date(`${hasta}T00:00:00Z`).getTime() + 86_400_000); // hasta inclusive
 
-    const [nannies, servicios, evalPapas, evalAgencia, incidencias] = await Promise.all([
+    const [nannies, servicios, evalPapas, evalAgencia, incidencias, completados] = await Promise.all([
       this.prisma.nannie.findMany({
         where: { estado: { in: ['ACTIVA', 'PRUEBA'] } },
         select: { id: true, nombre: true, color: true, estado: true },
@@ -73,7 +73,28 @@ export class ReportesService {
         where: { fecha: { gte, lt }, estado: { not: 'CONDONADA' } },
         select: { nannieId: true },
       }),
+      // Servicios completados del periodo + estado de su encuesta de papás.
+      this.prisma.servicio.findMany({
+        where: { estado: 'COMPLETADO', nannieId: { not: null }, fecha: { gte, lt } },
+        select: {
+          fecha: true,
+          familia: { select: { nombreContacto: true } },
+          nannie: { select: { nombre: true } },
+          evaluacion: { select: { respondidoEn: true } },
+        },
+        orderBy: { fecha: 'desc' },
+      }),
     ]);
+
+    // Encuestas de papás SIN contestar: servicios completados cuya encuesta no
+    // existe o no se ha respondido (Paula las sigue y pide que se manden).
+    const encuestasPendientes = completados
+      .filter((s) => !s.evaluacion || s.evaluacion.respondidoEn == null)
+      .map((s) => ({
+        familia: s.familia.nombreContacto,
+        nannie: s.nannie?.nombre ?? '—',
+        fecha: s.fecha.toISOString().slice(0, 10),
+      }));
 
     const acc = new Map(
       nannies.map((n) => [
@@ -130,7 +151,9 @@ export class ReportesService {
         servicios: filas.reduce((s, f) => s + f.servicios, 0),
         horas: filas.reduce((s, f) => s + f.horas, 0),
         incidencias: filas.reduce((s, f) => s + f.incidencias, 0),
+        encuestasPendientes: encuestasPendientes.length,
       },
+      encuestasPendientes,
       nannies: filas,
     };
   }

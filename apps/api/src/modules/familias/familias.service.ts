@@ -15,27 +15,6 @@ import { tarifasZonaQro } from '../finanzas/queretaro-tarifas';
 /** Umbral de inactividad de una familia (Paula, M5): 60 días sin servicio. */
 export const UMBRAL_INACTIVIDAD_DIAS = 60;
 
-/** Anticipación mínima para que la familia cancele por su cuenta desde el enlace
- *  (política Paula: con menos de 24h se coordina directamente). */
-export const CANCELACION_AUTOSERVICIO_HORAS = 24;
-
-/** Plazas en el centro de México (UTC-6 fijo; sin horario de verano desde 2022). */
-const OFFSET_MX_MS = 6 * 60 * 60 * 1000;
-
-/** Instante (ms epoch) en que arranca el servicio: la fecha se guarda a
- *  medianoche UTC y la hora es local de México. */
-function inicioServicioMs(fecha: Date, horaInicio: string): number {
-  const [h, m] = horaInicio.split(':').map(Number);
-  return fecha.getTime() + (h * 60 + m) * 60_000 + OFFSET_MX_MS;
-}
-
-/** ¿La familia puede cancelar esta sesión por su cuenta? Solo fechas futuras
- *  aún programadas y con ≥24h de anticipación. */
-function esCancelablePorFamilia(estado: string, fecha: Date, horaInicio: string): boolean {
-  if (estado !== 'OFERTADO' && estado !== 'ACEPTADO') return false;
-  return inicioServicioMs(fecha, horaInicio) - Date.now() >= CANCELACION_AUTOSERVICIO_HORAS * 3_600_000;
-}
-
 /** Token URL-safe para el enlace público del avance del paquete. */
 function nuevoTokenPublico(): string {
   return randomBytes(18).toString('base64url');
@@ -290,57 +269,8 @@ export class FamiliasService {
         duracionHoras: s.duracionHoras,
         tipoServicio: s.tipoServicio,
         estado: s.estado,
-        // La familia solo cancela por su cuenta con ≥24h (política); con menos,
-        // debe coordinarse directamente.
-        cancelable: esCancelablePorFamilia(s.estado, s.fecha, s.horaInicio),
       })),
     };
-  }
-
-  /** La familia cancela una fecha desde el enlace público (sin login), por su
-   *  token. Solo con ≥24h de anticipación; con menos, se coordina directamente.
-   *  No cobra y devuelve la hora al saldo del paquete (misma regla que la
-   *  cancelación de coordinación sin cobro). */
-  async cancelarPublico(token: string, servicioId: string) {
-    const paquete = await this.prisma.paquete.findUnique({
-      where: { tokenPublico: token },
-      select: { id: true },
-    });
-    if (!paquete) throw new NotFoundException('Enlace no válido.');
-
-    const servicio = await this.prisma.servicio.findUnique({ where: { id: servicioId } });
-    if (!servicio || servicio.paqueteId !== paquete.id) {
-      throw new NotFoundException('La fecha no pertenece a este paquete.');
-    }
-    if (servicio.estado !== 'OFERTADO' && servicio.estado !== 'ACEPTADO') {
-      throw new BadRequestException('Esta fecha ya no se puede cancelar.');
-    }
-    const faltanMs = inicioServicioMs(servicio.fecha, servicio.horaInicio) - Date.now();
-    if (faltanMs < CANCELACION_AUTOSERVICIO_HORAS * 3_600_000) {
-      throw new BadRequestException(
-        'Por política, las cancelaciones con menos de 24 horas se coordinan directamente. Contáctanos y con gusto te ayudamos.',
-      );
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.servicio.update({
-        where: { id: servicioId },
-        data: {
-          estado: 'CANCELADO',
-          motivoCancelacion: 'Cancelada por la familia desde el enlace de avance.',
-          canceladaCobrada: false,
-        },
-      });
-      const p = await tx.paquete.findUnique({ where: { id: paquete.id } });
-      if (p) {
-        const consumidas = Math.max(0, p.horasConsumidas - servicio.duracionHoras);
-        await tx.paquete.update({
-          where: { id: p.id },
-          data: { horasConsumidas: consumidas, estado: p.estado === 'CONSUMIDO' ? 'ACTIVO' : p.estado },
-        });
-      }
-    });
-    return { ok: true };
   }
 
   /**

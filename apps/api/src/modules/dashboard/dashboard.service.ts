@@ -15,7 +15,9 @@ export class DashboardService {
   ) {}
 
   async panorama(user: UsuarioAutenticado) {
-    const ahora = new Date();
+    // Fecha "de hoy" en hora de México (UTC-6): así "hoy"/"mañana" y los límites
+    // del mes cuadran con cómo se guarda la fecha del servicio (medianoche UTC).
+    const ahora = new Date(Date.now() - 6 * 60 * 60 * 1000);
     const y = ahora.getUTCFullYear();
     const m = ahora.getUTCMonth();
     const inicioMes = new Date(Date.UTC(y, m, 1));
@@ -28,12 +30,17 @@ export class DashboardService {
     const servicios = await this.prisma.servicio.findMany({
       where: { fecha: { gte: inicioMes, lt: finMesExcl } },
       select: {
+        id: true,
         estado: true,
         zona: true,
+        plaza: true,
+        tipoServicio: true,
         nannieId: true,
         fecha: true,
+        horaInicio: true,
         canceladaCobrada: true,
         nannie: { select: { id: true, nombre: true, color: true } },
+        familia: { select: { id: true, nombreContacto: true } },
       },
     });
     const cuenta = (f: (s: (typeof servicios)[number]) => boolean) => servicios.filter(f).length;
@@ -97,20 +104,77 @@ export class DashboardService {
       fecha: s.fecha.toISOString().slice(0, 10),
     }));
 
-    // --- Servicios del mes que lleva cada nannie (para la dona) ---
-    const porNannieServ = new Map<string, { nannieId: string; nombre: string; color: string | null; total: number }>();
+    // --- Servicios del mes que lleva cada nannie (dona, separada por plaza) ---
+    const porNannieServ = new Map<string, { nannieId: string; nombre: string; color: string | null; plaza: string; total: number }>();
     for (const s of relevantes) {
       if (!s.nannie) continue;
       const g = porNannieServ.get(s.nannie.id) ?? {
         nannieId: s.nannie.id,
         nombre: s.nannie.nombre,
         color: s.nannie.color,
+        plaza: s.plaza,
         total: 0,
       };
       g.total++;
       porNannieServ.set(s.nannie.id, g);
     }
     const serviciosPorNannie = [...porNannieServ.values()].sort((a, b) => b.total - a.total);
+
+    // --- Servicio más demandado del mes (por tipo) ---
+    const porTipo: Record<string, number> = {};
+    for (const s of relevantes) porTipo[s.tipoServicio] = (porTipo[s.tipoServicio] || 0) + 1;
+    const serviciosPorTipo = Object.entries(porTipo)
+      .sort((a, b) => b[1] - a[1])
+      .map(([tipo, total]) => ({ tipo, total }));
+
+    // --- Agenda de MAÑANA (para preparar el día): quién tiene servicio y a qué hora ---
+    const finManana = new Date(hoy.getTime() + 2 * 86_400_000);
+    const inicioManana = new Date(hoy.getTime() + 86_400_000);
+    const svsManana = await this.prisma.servicio.findMany({
+      where: { fecha: { gte: inicioManana, lt: finManana }, estado: { in: ['ACEPTADO', 'OFERTADO'] } },
+      orderBy: { horaInicio: 'asc' },
+      select: {
+        horaInicio: true,
+        zona: true,
+        estado: true,
+        familia: { select: { nombreContacto: true } },
+        nannie: { select: { nombre: true } },
+      },
+    });
+    const manana = svsManana.map((s) => ({
+      horaInicio: s.horaInicio,
+      zona: s.zona,
+      familia: s.familia.nombreContacto,
+      nannie: s.nannie?.nombre ?? 'Por asignar',
+      porAsignar: !s.nannie,
+    }));
+
+    // --- Comparativo anual: horas del MES ACTUAL en los últimos 4 años ---
+    const comparativoAnual: { anio: number; horas: number }[] = [];
+    for (let dy = 3; dy >= 0; dy--) {
+      const ini = new Date(Date.UTC(y - dy, m, 1));
+      const fin = new Date(Date.UTC(y - dy, m + 1, 1));
+      const svs = await this.prisma.servicio.findMany({
+        where: { estado: 'COMPLETADO', fecha: { gte: ini, lt: fin } },
+        select: { duracionHoras: true },
+      });
+      comparativoAnual.push({ anio: y - dy, horas: svs.reduce((s, x) => s + x.duracionHoras, 0) });
+    }
+
+    // --- Lista de servicios POR ASIGNAR (mismo criterio que el indicador): sin
+    //     nannie, ofertados y a futuro. Para el atajo del dashboard: dice CUÁL. ---
+    const porAsignarLista = servicios
+      .filter((s) => !s.nannieId && s.estado === 'OFERTADO' && s.fecha >= hoy)
+      .sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
+      .map((s) => ({
+        servicioId: s.id,
+        fecha: s.fecha.toISOString().slice(0, 10),
+        horaInicio: s.horaInicio,
+        familiaId: s.familia.id,
+        familia: s.familia.nombreContacto,
+        zona: s.zona,
+        tipoServicio: s.tipoServicio,
+      }));
 
     // --- Paquetes de horas activos (familias con saldo vigente) ---
     const paquetesActivos = await this.prisma.paquete.count({ where: { estado: 'ACTIVO' } });
@@ -149,7 +213,11 @@ export class DashboardService {
       ingresoNoCapturado,
       horasPagadas,
       paquetesActivos,
+      porAsignarLista,
       serviciosPorNannie,
+      serviciosPorTipo,
+      comparativoAnual,
+      manana,
       actividad,
       margen,
     };

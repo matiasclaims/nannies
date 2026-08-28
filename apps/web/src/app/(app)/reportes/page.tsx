@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, AlertTriangle, MailWarning } from 'lucide-react';
 import { api, type ReporteGeneral } from '@/lib/api';
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -151,6 +151,39 @@ export default function ReportesPage() {
         <p className="rounded-2xl bg-panel p-6 text-center text-sm text-texto-suave shadow-card">
           No hay nannies activas para reportar.
         </p>
+      )}
+
+      {estado === 'ok' && data && (
+        <div className="rounded-2xl bg-panel p-4 shadow-card">
+          <div className="mb-2 flex items-center gap-2">
+            <span
+              className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                data.totales.encuestasPendientes > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+              }`}
+            >
+              <MailWarning className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold text-texto-fuerte">Encuestas de papás pendientes</h2>
+              <p className="text-xs text-texto-suave">
+                Servicios completados del mes cuya encuesta de papás aún no se contesta.
+              </p>
+            </div>
+            <span className="ml-auto text-2xl font-bold text-texto-fuerte">{data.totales.encuestasPendientes}</span>
+          </div>
+          {data.encuestasPendientes.length > 0 && (
+            <ul className="mt-2 max-h-60 divide-y divide-borde overflow-y-auto text-sm">
+              {data.encuestasPendientes.map((e, i) => (
+                <li key={i} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
+                  <span className="font-medium text-texto-fuerte">{e.familia}</span>
+                  <span className="text-xs text-texto-suave">
+                    {e.nannie} · {e.fecha}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
 
       <p className="text-center text-[11px] text-texto-suave">

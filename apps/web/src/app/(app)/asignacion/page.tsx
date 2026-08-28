@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { UserPlus, Search, CheckCircle2 } from 'lucide-react';
+import { UserPlus, Search, CheckCircle2, ChevronDown } from 'lucide-react';
 import {
   api,
   type FamiliaLite,
@@ -196,7 +196,18 @@ export default function AsignacionPage() {
 
   function elegirFamilia(id: string) {
     const fam = familias.find((f) => f.id === id);
-    setForm((f) => ({ ...f, familiaId: id, plaza: fam?.plaza ?? f.plaza, zona: fam?.zona ?? f.zona }));
+    // Autollenar la colonia de la familia. Si su colonia coincide con el catálogo
+    // de Toluca, fija también el coloniaId (coordenadas para el match por km); si
+    // no, queda como colonia manual (solo el texto en zona).
+    const zonaFam = (fam?.zona ?? '').trim();
+    const match = zonaFam ? catalogo.find((c) => c.colonia.toLowerCase() === zonaFam.toLowerCase()) : undefined;
+    setForm((f) => ({
+      ...f,
+      familiaId: id,
+      plaza: fam?.plaza ?? f.plaza,
+      zona: match ? match.colonia : zonaFam || f.zona,
+      coloniaId: match ? match.id : '',
+    }));
     setCobrarAPaquete(true); // por defecto, cobrar al paquete si la familia tiene uno
     setCandidatas(null);
     setExito('');
@@ -208,7 +219,8 @@ export default function AsignacionPage() {
     setExito('');
     if (!form.familiaId) return setError('Elige una familia.');
     if (esQro && !form.zona.trim()) return setError('Elige la zona del servicio.');
-    if (!esQro && !form.coloniaId) return setError('Elige la colonia del servicio.');
+    if (!esQro && !form.coloniaId && !form.zona.trim())
+      return setError('Elige o escribe la colonia del servicio.');
     if (duracion === null || duracion < 3)
       return setError('El horario debe ser en horas completas y de mínimo 3 horas.');
     setBuscando(true);
@@ -216,7 +228,7 @@ export default function AsignacionPage() {
       const { candidatas } = await api.recomendar({
         plaza: form.plaza,
         zona: form.zona,
-        coloniaId: esQro ? undefined : form.coloniaId,
+        coloniaId: esQro ? undefined : form.coloniaId || undefined,
         fecha: form.fecha,
         horaInicio: form.horaInicio,
         horaFin: form.horaFin,
@@ -359,6 +371,7 @@ export default function AsignacionPage() {
               <SelectColonia
                 catalogo={catalogo}
                 coloniaId={form.coloniaId}
+                zona={form.zona}
                 className={inputCls}
                 onPick={(id, label) => setForm((f) => ({ ...f, coloniaId: id, zona: label }))}
               />
@@ -943,16 +956,20 @@ function AltaFamilia({ onCreada }: { onCreada: (f: FamiliaLite) => void }) {
   );
 }
 
-/** Buscador de colonia (Toluca) para el servicio. Elige del catálogo → fija
- *  la colonia (coordenadas para el match por km) y su nombre como zona. */
+/** Buscador de colonia (Toluca) para el servicio. Elige del catálogo → fija la
+ *  colonia (coordenadas para el match por km) y su nombre como zona. Si la
+ *  colonia no está en el catálogo, se puede escribir manualmente (queda solo
+ *  como texto en zona; el match por km no aplica). */
 function SelectColonia({
   catalogo,
   coloniaId,
+  zona,
   onPick,
   className,
 }: {
   catalogo: ColoniaCat[];
   coloniaId: string;
+  zona: string;
   onPick: (id: string, label: string) => void;
   className?: string;
 }) {
@@ -964,18 +981,24 @@ function SelectColonia({
     if (!t) return [];
     return catalogo.filter((c) => `${c.colonia} ${c.municipio}`.toLowerCase().includes(t)).slice(0, 12);
   }, [q, catalogo]);
+  const qLimpio = q.trim();
+  // Ofrecer "usar manual" cuando escribieron algo que no calza EXACTO con el catálogo.
+  const hayExacta = res.some((c) => c.colonia.toLowerCase() === qLimpio.toLowerCase());
+  // Texto visible cuando está cerrado: la colonia del catálogo, o el texto manual.
+  const cerradoLabel = sel ? `${sel.colonia} · ${sel.municipio}` : zona;
 
   return (
     <div className="relative">
       <input
-        value={abierto ? q : sel ? `${sel.colonia} · ${sel.municipio}` : q}
+        value={abierto ? q : cerradoLabel}
         onChange={(e) => { setQ(e.target.value); setAbierto(true); }}
         onFocus={() => { setAbierto(true); setQ(''); }}
         onBlur={() => setTimeout(() => setAbierto(false), 150)}
-        placeholder="Buscar colonia…"
-        className={className}
+        placeholder="Buscar o escribir colonia…"
+        className={cn(className, 'pr-9')}
       />
-      {abierto && res.length > 0 && (
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-texto-suave" />
+      {abierto && (res.length > 0 || qLimpio.length > 0) && (
         <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-borde bg-panel shadow-card">
           {res.map((c) => (
             <button
@@ -988,6 +1011,16 @@ function SelectColonia({
               <span className="text-xs text-texto-suave"> · {c.municipio}</span>
             </button>
           ))}
+          {qLimpio.length > 0 && !hayExacta && (
+            <button
+              type="button"
+              onMouseDown={() => { onPick('', qLimpio); setAbierto(false); }}
+              className="block w-full border-t border-borde px-3 py-2 text-left text-sm hover:bg-fondo"
+            >
+              <span className="text-texto-fuerte">Usar «{qLimpio}»</span>
+              <span className="text-xs text-texto-suave"> · colonia manual (sin match por km)</span>
+            </button>
+          )}
         </div>
       )}
     </div>

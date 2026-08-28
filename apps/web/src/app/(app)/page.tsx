@@ -2,9 +2,11 @@
 
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
 import Link from 'next/link';
-import { CalendarDays, Wallet, TrendingUp, MapPin, XCircle, Activity, PieChart, Package } from 'lucide-react';
-import { api, type Sesion, type Servicio, type MiReporte, type Dashboard } from '@/lib/api';
-import { ESTADO_SERVICIO } from '@/lib/dominio';
+import { CalendarDays, TrendingUp, MapPin, XCircle, Activity, PieChart, Package, Star, Maximize2, X } from 'lucide-react';
+import { api, type Sesion, type Dashboard, type MiPanorama, type TipoServicio } from '@/lib/api';
+import { ESTADO_SERVICIO, TIPO_LABEL } from '@/lib/dominio';
+import { RANGO_LABEL, NIVEL_LABEL } from '@/lib/nannie-ui';
+import { Avatar } from '@/components/avatar';
 import { cn } from '@/lib/utils';
 
 const money = (n: number) =>
@@ -27,10 +29,14 @@ export default function PanoramaPage() {
 function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
   const hoy = fechaHoy();
   const [d, setD] = useState<Dashboard | null>(null);
+  const [expandir, setExpandir] = useState<{ titulo: string; datos: Dashboard['serviciosPorNannie'] } | null>(null);
 
   useEffect(() => {
     api.dashboard().then(setD).catch(() => undefined);
   }, []);
+
+  const nanniesTol = (d?.serviciosPorNannie ?? []).filter((n) => n.plaza === 'TOLUCA');
+  const nanniesQro = (d?.serviciosPorNannie ?? []).filter((n) => n.plaza === 'QUERETARO');
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -42,19 +48,16 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
         </div>
         <div className="flex gap-2">
           <HeroBadge valor={d?.servicios.hoy} label="hoy" href="/calendario" tip="Servicios programados para hoy. Clic para ver el calendario." />
-          <HeroBadge valor={d?.servicios.porAsignar} label="por asignar" href="/asignacion" tip="Servicios futuros sin nannie. Clic para asignarlos." />
+          <BadgePorAsignar valor={d?.servicios.porAsignar} lista={d?.porAsignarLista} />
           <HeroBadge valor={d?.cobertura.sinCobertura} label="sin cubrir" href="/asignacion" tip="Servicios vigentes sin nannie asignada. Clic para asignar." />
         </div>
       </section>
 
-      {/* Servicios del mes que lleva cada nannie (dona por nannie) */}
-      <Panel titulo="Servicios del mes por nannie" icon={PieChart}>
-        {d && d.serviciosPorNannie.length > 0 ? (
-          <DonutPorNannie datos={d.serviciosPorNannie} />
-        ) : (
-          <Vacio texto={d ? 'Sin servicios asignados este mes.' : 'Cargando…'} />
-        )}
-      </Panel>
+      {/* Servicios del mes por nannie, separado por ciudad (chiquitas, expandibles) */}
+      <section className="grid gap-4 sm:grid-cols-2">
+        <PanelDona titulo="Servicios · Toluca" datos={nanniesTol} cargando={!d} onExpandir={() => setExpandir({ titulo: 'Servicios del mes · Toluca', datos: nanniesTol })} />
+        <PanelDona titulo="Servicios · Querétaro" datos={nanniesQro} cargando={!d} onExpandir={() => setExpandir({ titulo: 'Servicios del mes · Querétaro', datos: nanniesQro })} />
+      </section>
 
       {/* Anillos: aceptación, cobertura, horas */}
       <section className="grid grid-cols-3 gap-4">
@@ -78,6 +81,16 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
           <CardMoney href="/calendario" tip="Total de servicios vigentes del mes. Clic para ver el calendario." titulo="Servicios del mes" valor={String(d?.servicios.total ?? '—')} nota={`${d?.servicios.completados ?? 0} completados`} color="azul" icon={Activity} />
         )}
         <CardMoney href="/familias?paquete=activos" tip="Familias con un paquete de horas vigente. Clic para ver la lista." titulo="Paquetes activos" valor={String(d?.paquetesActivos ?? '—')} nota="familias con saldo" color="morado" icon={Package} />
+      </section>
+
+      {/* Servicio más demandado + comparativo anual */}
+      <section className="grid gap-4 lg:grid-cols-2">
+        <Panel titulo="Servicio más demandado del mes" icon={Activity}>
+          {d && d.serviciosPorTipo.length > 0 ? <BarrasTipo datos={d.serviciosPorTipo} /> : <Vacio texto={d ? 'Sin servicios este mes.' : 'Cargando…'} />}
+        </Panel>
+        <Panel titulo="Comparativo anual (horas de este mes)" icon={TrendingUp}>
+          {d ? <BarrasAnio datos={d.comparativoAnual} /> : <Vacio texto="Cargando…" />}
+        </Panel>
       </section>
 
       {/* Barras: zonas + aceptación por nannie */}
@@ -111,29 +124,51 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
         </Panel>
       </section>
 
-      {/* Actividad reciente (compacta, con punto de color por estado) */}
-      <Panel titulo="Actividad reciente" icon={Activity}>
-        {d && d.actividad.length > 0 ? (
-          <div>
-            {d.actividad.map((a, i) => (
-              <Interactivo
-                key={i}
-                href={`/familias/${a.familiaId}`}
-                tip={`${a.familia} · ${a.nannie} · ${ESTADO_SERVICIO[a.estado].label} (${a.fecha}). Clic para abrir la familia.`}
-                className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-xs hover:bg-fondo"
-              >
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: colorEstado(a.estado) }} />
-                <span className="min-w-0 flex-1 truncate text-texto-fuerte">
-                  {a.familia} · <span className="text-texto-suave">{a.nannie}</span>
-                </span>
-                <span className="shrink-0 text-texto-suave">{ESTADO_SERVICIO[a.estado].label}</span>
-              </Interactivo>
-            ))}
-          </div>
-        ) : (
-          <Vacio texto={d ? 'Sin actividad reciente.' : 'Cargando…'} />
-        )}
-      </Panel>
+      {/* Mañana (para preparar el día) + actividad reciente */}
+      <section className="grid gap-4 lg:grid-cols-2">
+        <Panel titulo="Mañana" icon={CalendarDays}>
+          {d && d.manana.length > 0 ? (
+            <div className="divide-y divide-borde">
+              {d.manana.map((s, i) => (
+                <div key={i} className="flex items-center gap-2 py-1.5 text-xs">
+                  <span className="w-12 shrink-0 font-semibold text-texto-fuerte">{s.horaInicio}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className={s.porAsignar ? 'font-semibold text-marca-rojo' : 'text-texto-fuerte'}>{s.nannie}</span>
+                    <span className="text-texto-suave"> · {s.familia} · {s.zona}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Vacio texto={d ? 'Sin servicios mañana.' : 'Cargando…'} />
+          )}
+        </Panel>
+
+        <Panel titulo="Actividad reciente" icon={Activity}>
+          {d && d.actividad.length > 0 ? (
+            <div>
+              {d.actividad.map((a, i) => (
+                <Interactivo
+                  key={i}
+                  href={`/familias/${a.familiaId}`}
+                  tip={`${a.familia} · ${a.nannie} · ${ESTADO_SERVICIO[a.estado].label} (${a.fecha}). Clic para abrir la familia.`}
+                  className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 text-xs hover:bg-fondo"
+                >
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: colorEstado(a.estado) }} />
+                  <span className="min-w-0 flex-1 truncate text-texto-fuerte">
+                    {a.familia} · <span className="text-texto-suave">{a.nannie}</span>
+                  </span>
+                  <span className="shrink-0 text-texto-suave">{ESTADO_SERVICIO[a.estado].label}</span>
+                </Interactivo>
+              ))}
+            </div>
+          ) : (
+            <Vacio texto={d ? 'Sin actividad reciente.' : 'Cargando…'} />
+          )}
+        </Panel>
+      </section>
+
+      {expandir && <ModalDona titulo={expandir.titulo} datos={expandir.datos} onCerrar={() => setExpandir(null)} />}
     </div>
   );
 }
@@ -162,6 +197,58 @@ function HeroBadge({ valor, label, href, tip }: { valor?: number; label: string;
       <p className="text-lg font-bold leading-none">{valor ?? '—'}</p>
       <p className="text-[10px] text-white/80">{label}</p>
     </Interactivo>
+  );
+}
+
+/** Badge "por asignar": en vez de llevar a un formulario en blanco, despliega
+ *  la lista de servicios sin nannie (dice CUÁL) y cada uno lleva al calendario
+ *  de esa semana para asignarlo. */
+function BadgePorAsignar({ valor, lista }: { valor?: number; lista?: Dashboard['porAsignarLista'] }) {
+  const [abierto, setAbierto] = useState(false);
+  const items = lista ?? [];
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setAbierto((v) => !v)}
+        className="rounded-xl bg-white/15 px-3 py-1.5 text-center transition hover:bg-white/25"
+        aria-expanded={abierto}
+      >
+        <p className="text-lg font-bold leading-none">{valor ?? '—'}</p>
+        <p className="text-[10px] text-white/80">por asignar</p>
+      </button>
+      {abierto && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setAbierto(false)} />
+          <div className="absolute right-0 top-full z-40 mt-2 w-72 max-w-[85vw] rounded-xl bg-panel p-2 text-left shadow-lg ring-1 ring-borde">
+            <p className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-texto-suave">
+              Servicios por asignar
+            </p>
+            {items.length === 0 ? (
+              <p className="px-2 py-3 text-center text-xs text-texto-suave">Nada pendiente por asignar.</p>
+            ) : (
+              <ul className="max-h-72 space-y-0.5 overflow-y-auto">
+                {items.map((s) => (
+                  <li key={s.servicioId}>
+                    <Link
+                      href={`/calendario?fecha=${s.fecha}`}
+                      onClick={() => setAbierto(false)}
+                      className="block rounded-lg px-2 py-1.5 hover:bg-fondo"
+                    >
+                      <p className="text-sm font-medium text-texto-fuerte">{s.familia}</p>
+                      <p className="text-[11px] text-texto-suave">
+                        {fechaCorta(s.fecha)} · {s.horaInicio} · {TIPO_LABEL[s.tipoServicio]}
+                        {s.zona ? ` · ${s.zona}` : ''}
+                      </p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -198,7 +285,7 @@ function RingGauge({ value, label, sub, color }: { value: number | null; label: 
 
 /** Dona (conic-gradient) del reparto de servicios del mes por nannie. Cada
  *  rebanada usa el color de la nannie; la leyenda es clickable a su ficha. */
-function DonutPorNannie({ datos }: { datos: { nannieId: string; nombre: string; color: string | null; total: number }[] }) {
+function DonutPorNannie({ datos, grande }: { datos: Dashboard['serviciosPorNannie']; grande?: boolean }) {
   const PALETA = ['#0CC0DF', '#9DCD5A', '#CB6CE6', '#FF66C4', '#FF5757', '#F97316', '#1971C2', '#7048E8', '#0B7285', '#E8590C'];
   const items = datos.map((n, i) => ({ ...n, c: n.color || PALETA[i % PALETA.length] }));
   const total = items.reduce((s, x) => s + x.total, 0);
@@ -214,13 +301,13 @@ function DonutPorNannie({ datos }: { datos: { nannieId: string; nombre: string; 
     : '';
   return (
     <div className="flex flex-col items-center gap-5 sm:flex-row">
-      <div className="relative h-32 w-32 shrink-0 rounded-full" style={{ background: total ? `conic-gradient(${stops})` : '#E6EDF5' }}>
+      <div className={`relative ${grande ? 'h-44 w-44' : 'h-28 w-28'} shrink-0 rounded-full`} style={{ background: total ? `conic-gradient(${stops})` : '#E6EDF5' }}>
         <div className="absolute inset-[22%] flex flex-col items-center justify-center rounded-full bg-panel">
-          <span className="text-2xl font-bold text-texto-fuerte">{total}</span>
+          <span className={`${grande ? 'text-3xl' : 'text-2xl'} font-bold text-texto-fuerte`}>{total}</span>
           <span className="text-[10px] text-texto-suave">servicios</span>
         </div>
       </div>
-      <div className="grid w-full flex-1 grid-cols-1 gap-0.5 sm:grid-cols-2">
+      <div className={`grid w-full flex-1 grid-cols-1 gap-0.5 ${grande ? '' : 'sm:grid-cols-2'}`}>
         {items.map((x) => (
           <Interactivo
             key={x.nannieId}
@@ -234,6 +321,76 @@ function DonutPorNannie({ datos }: { datos: { nannieId: string; nombre: string; 
           </Interactivo>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Panel de dona por ciudad, chiquito, con botón para ampliar. */
+function PanelDona({ titulo, datos, cargando, onExpandir }: { titulo: string; datos: Dashboard['serviciosPorNannie']; cargando: boolean; onExpandir: () => void }) {
+  return (
+    <div className="rounded-2xl bg-panel p-4 shadow-card">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-texto-fuerte">
+          <PieChart className="h-4 w-4 text-marca-azul" /> {titulo}
+        </p>
+        <button onClick={onExpandir} className="rounded-lg p-1 text-texto-suave hover:bg-fondo" title="Ampliar">
+          <Maximize2 className="h-4 w-4" />
+        </button>
+      </div>
+      {cargando ? <Vacio texto="Cargando…" /> : datos.length > 0 ? <DonutPorNannie datos={datos} /> : <Vacio texto="Sin servicios este mes." />}
+    </div>
+  );
+}
+
+/** Modal con la dona ampliada. */
+function ModalDona({ titulo, datos, onCerrar }: { titulo: string; datos: Dashboard['serviciosPorNannie']; onCerrar: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCerrar}>
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-panel p-6 shadow-card" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-texto-fuerte">{titulo}</h2>
+          <button onClick={onCerrar} className="text-texto-suave hover:text-texto-fuerte">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        {datos.length > 0 ? <DonutPorNannie datos={datos} grande /> : <Vacio texto="Sin servicios este mes." />}
+      </div>
+    </div>
+  );
+}
+
+/** Barras horizontales de servicios por tipo (el más demandado arriba). */
+function BarrasTipo({ datos }: { datos: { tipo: TipoServicio; total: number }[] }) {
+  const max = Math.max(1, ...datos.map((d) => d.total));
+  return (
+    <div className="space-y-2">
+      {datos.map((t) => (
+        <div key={t.tipo} className="text-sm">
+          <div className="mb-0.5 flex justify-between">
+            <span className="truncate text-texto-fuerte">{TIPO_LABEL[t.tipo]}</span>
+            <span className="text-xs text-texto-suave">{t.total}</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-fondo">
+            <div className="h-full rounded-full bg-marca-azul" style={{ width: `${(t.total / max) * 100}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Barras verticales del comparativo anual (horas del mes en los últimos años). */
+function BarrasAnio({ datos }: { datos: { anio: number; horas: number }[] }) {
+  const max = Math.max(1, ...datos.map((d) => d.horas));
+  return (
+    <div className="flex h-40 items-end gap-3 pt-2">
+      {datos.map((a) => (
+        <div key={a.anio} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+          <span className="text-xs font-semibold text-texto-fuerte">{a.horas > 0 ? a.horas : ''}</span>
+          <div className="w-full max-w-[56px] rounded-t bg-marca-morado" style={{ height: `${(a.horas / max) * 100}%`, minHeight: a.horas > 0 ? 6 : 0 }} />
+          <span className="text-[11px] text-texto-suave">{a.anio}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -328,78 +485,156 @@ function BarrasZonas({ datos }: { datos: { zona: string; servicios: number }[] }
 
 /** Panorama personal de la nannie: su actividad, sin datos de negocio. */
 function PanoramaNannie({ nombre }: { nombre: string }) {
-  const [servicios, setServicios] = useState<Servicio[]>([]);
-  const [reporte, setReporte] = useState<MiReporte | null>(null);
+  const [p, setP] = useState<MiPanorama | null>(null);
   const hoy = fechaHoy();
 
   useEffect(() => {
-    const d = new Date();
-    const a = d.getFullYear();
-    const m = d.getMonth();
-    const mm = String(m + 1).padStart(2, '0');
-    const ultimo = new Date(Date.UTC(a, m + 1, 0)).getUTCDate();
-    api
-      .listarServicios({ desde: `${a}-${mm}-01`, hasta: `${a}-${mm}-${String(ultimo).padStart(2, '0')}` })
-      .then(setServicios)
-      .catch(() => undefined);
-    api.miReporte().then(setReporte).catch(() => undefined);
+    api.miPanorama().then(setP).catch(() => undefined);
   }, []);
 
-  const ofertas = servicios.filter((s) => s.estado === 'OFERTADO').length;
-  const proximos = servicios.filter((s) => s.estado === 'ACEPTADO');
-  const completados = servicios.filter((s) => s.estado === 'COMPLETADO');
-  const horas = completados.reduce((s, x) => s + x.duracionHoras, 0);
+  const califs: { label: string; v: number }[] = [];
+  if (p?.calificacionPapas.promedio != null) califs.push({ label: 'Papás', v: p.calificacionPapas.promedio });
+  if (p?.calificacionAgencia.promedio != null) califs.push({ label: 'Agencia', v: p.calificacionAgencia.promedio });
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
+      {/* Tarjeta principal: foto + nombre + especialidad + calificación */}
       <section className="rounded-2xl bg-gradient-to-r from-marca-azul to-[#3ad0e8] p-6 text-white shadow-card">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-xl font-bold md:text-2xl">Hola, {nombre}</h1>
-          <span className="rounded-full bg-white/20 px-3 py-0.5 text-xs capitalize">{hoy}</span>
+        <div className="flex items-center gap-4">
+          <Avatar foto={p?.foto} nombre={p?.nombre || nombre} size={76} />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-bold md:text-2xl">Hola, {p?.nombre || nombre}</h1>
+            <p className="text-xs capitalize text-white/85">{hoy}</p>
+            {p?.especialidad && <p className="mt-1 line-clamp-2 text-xs text-white/80">{p.especialidad}</p>}
+          </div>
         </div>
-        <p className="mt-1 text-sm text-white/90">Tu actividad de este mes</p>
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <BannerStat titulo="Ofertas por responder" valor={String(ofertas)} nota="en tu calendario" />
-          <BannerStat titulo="Servicios próximos" valor={String(proximos.length)} nota="aceptados" />
-          <BannerStat titulo="Servicios del mes" valor={String(completados.length)} nota="completados" />
-          <BannerStat titulo="Horas del mes" valor={String(horas)} nota="trabajadas" />
-        </div>
+        {califs.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-3">
+            {califs.map((c) => (
+              <div key={c.label} className="flex items-center gap-1.5 rounded-xl bg-white/15 px-3 py-1.5">
+                <Star className="h-4 w-4 text-amber-300" fill="currentColor" />
+                <span className="text-base font-bold">{c.v}</span>
+                <span className="text-[11px] text-white/80">{c.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* Mi reporte (autoservicio): ganancias del mes + horas por semana. Sin
-          datos de familias/niños (solo lo suyo). */}
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
-        <div className="flex flex-col justify-center rounded-2xl bg-marca-verde/15 p-5 shadow-card">
-          <p className="flex items-center gap-1.5 text-xs font-medium text-[#5c7a2e]">
-            <Wallet className="h-4 w-4" />
-            Lo que llevas ganado este mes
-          </p>
-          <p className="mt-1 text-3xl font-bold text-[#3b6d11]">
-            {reporte ? money(reporte.ganadoMes) : '—'}
-          </p>
-          <p className="mt-1 text-xs text-texto-suave">
-            {reporte ? `${reporte.serviciosMes} servicios · ${reporte.horasMes} h` : 'Cargando…'}
-          </p>
+      {/* Ofertas pendientes — GRANDE, en rojo cuando hay */}
+      {p && p.ofertas > 0 ? (
+        <Link
+          href="/calendario"
+          className="flex items-center justify-between gap-3 rounded-2xl bg-marca-rojo p-6 text-white shadow-card transition hover:brightness-95"
+        >
+          <div className="flex items-center gap-4">
+            <span className="text-4xl font-bold leading-none">{p.ofertas}</span>
+            <span className="text-base font-semibold">
+              {p.ofertas === 1 ? 'oferta por responder' : 'ofertas por responder'}
+              <span className="block text-xs font-normal text-white/85">Toca para verlas y aceptar o rechazar</span>
+            </span>
+          </div>
+          <CalendarDays className="h-7 w-7 shrink-0" />
+        </Link>
+      ) : (
+        <div className="rounded-2xl bg-panel p-5 text-center text-sm text-texto-suave shadow-card">
+          No tienes ofertas pendientes por ahora. 🎉
         </div>
+      )}
 
+      {/* Proyección: sus próximas fechas para ver/descargar (paquetes largos) */}
+      <a
+        href="/mi-proyeccion"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-between gap-3 rounded-2xl bg-panel p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-lg"
+      >
+        <span className="flex items-center gap-3">
+          <CalendarDays className="h-5 w-5 text-marca-azul" />
+          <span>
+            <span className="block text-sm font-semibold text-texto-fuerte">Mis próximas fechas</span>
+            <span className="block text-xs text-texto-suave">Ver o descargar tu agenda a futuro (PDF)</span>
+          </span>
+        </span>
+        <TrendingUp className="h-5 w-5 shrink-0 text-texto-suave" />
+      </a>
+
+      {/* Horas del mes + nivel (termómetro) */}
+      <div className="rounded-2xl bg-panel p-5 shadow-card">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs text-texto-suave">Horas cubiertas este mes</p>
+            <p className="text-4xl font-bold text-[#3b6d11]">
+              {p?.horasMes ?? '—'} <span className="text-xl">h</span>
+            </p>
+            <p className="text-xs text-texto-suave">{p?.serviciosMes ?? 0} servicios completados</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-texto-suave">Tu nivel</p>
+            <p className="text-lg font-bold text-texto-fuerte">{RANGO_LABEL[p?.rangoPermanente ?? 'BASE'] ?? p?.rangoPermanente}</p>
+            <p className="text-[11px] text-texto-suave">este mes: {NIVEL_LABEL[p?.nivelMes ?? 'BASE'] ?? p?.nivelMes}</p>
+          </div>
+        </div>
+        <Termometro horas={p?.horasMes ?? 0} />
+      </div>
+
+      {/* Gráficas: horas por semana + histórico por mes */}
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl bg-panel p-4 shadow-card">
           <p className="text-sm font-semibold text-texto-fuerte">Horas por semana</p>
-          <p className="mb-3 text-xs text-texto-suave">Tus últimas 8 semanas</p>
-          {reporte ? (
-            <BarrasHoras datos={reporte.horasPorSemana} />
-          ) : (
-            <div className="h-32 animate-pulse rounded-xl bg-fondo" />
-          )}
+          <p className="mb-3 text-xs text-texto-suave">Últimas 8 semanas</p>
+          {p ? <BarrasHoras datos={p.horasPorSemana} /> : <div className="h-32 animate-pulse rounded-xl bg-fondo" />}
+        </div>
+        <div className="rounded-2xl bg-panel p-4 shadow-card">
+          <p className="text-sm font-semibold text-texto-fuerte">Horas por mes</p>
+          <p className="mb-3 text-xs text-texto-suave">Últimos 12 meses</p>
+          {p ? <BarrasMesHoras datos={p.horasPorMes} /> : <div className="h-32 animate-pulse rounded-xl bg-fondo" />}
         </div>
       </div>
 
       <Link
         href="/calendario"
-        className="flex items-center justify-center gap-2 rounded-2xl bg-panel p-4 text-sm font-semibold text-marca-azul shadow-card transition hover:brightness-95"
+        className="flex items-center justify-center gap-2 rounded-2xl bg-marca-azul p-4 text-base font-semibold text-white shadow-card transition hover:brightness-95"
       >
         <CalendarDays className="h-5 w-5" />
         Ir a mi calendario (disponibilidad y ofertas)
       </Link>
+    </div>
+  );
+}
+
+/** Termómetro de horas del mes: rojo → ámbar → verde según se acerca a la meta
+ *  (25 h, el umbral mensual para mantener/subir de nivel). */
+function Termometro({ horas }: { horas: number }) {
+  const meta = 25;
+  const pct = Math.min(100, (horas / meta) * 100);
+  const color = horas >= meta ? '#2f9e44' : horas >= meta / 2 ? '#f59e0b' : '#e03131';
+  return (
+    <div className="mt-3">
+      <div className="h-3 w-full overflow-hidden rounded-full bg-fondo">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+      </div>
+      <p className="mt-1 text-[11px] text-texto-suave">
+        {horas >= meta
+          ? '¡Vas muy bien! Con 25 h o más mantienes tu nivel del mes.'
+          : `Vas por ${horas} h. Al llegar a ${meta} h en el mes mantienes o subes tu nivel.`}
+      </p>
+    </div>
+  );
+}
+
+/** Barras de horas por mes (histórico). */
+function BarrasMesHoras({ datos }: { datos: { label: string; horas: number }[] }) {
+  const max = Math.max(1, ...datos.map((d) => d.horas));
+  return (
+    <div className="flex h-32 items-end gap-1">
+      {datos.map((d, i) => (
+        <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+          <span className="text-[9px] font-medium text-texto-fuerte">{d.horas > 0 ? d.horas : ''}</span>
+          <div className="w-full rounded-t bg-marca-verde" style={{ height: `${(d.horas / max) * 100}%`, minHeight: d.horas > 0 ? 4 : 0 }} />
+          <span className="text-[8px] capitalize text-texto-suave">{d.label}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -433,16 +668,6 @@ function BarrasHoras({ datos }: { datos: { semana: string; horas: number }[] }) 
   );
 }
 
-function BannerStat({ titulo, valor, nota }: { titulo: string; valor: string; nota: string }) {
-  return (
-    <div className="rounded-xl bg-white/10 p-3">
-      <p className="text-[11px] text-white/80">{titulo}</p>
-      <p className="text-lg font-bold">{valor}</p>
-      <p className="text-[11px] text-white/70">{nota}</p>
-    </div>
-  );
-}
-
 function fechaHoy(): string {
   return new Date().toLocaleDateString('es-MX', {
     weekday: 'long',
@@ -450,4 +675,10 @@ function fechaHoy(): string {
     month: 'long',
     year: 'numeric',
   });
+}
+
+/** ISO "YYYY-MM-DD" → "30 ago" (fecha local, sin corrimiento de zona). */
+function fechaCorta(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
 }

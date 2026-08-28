@@ -18,8 +18,6 @@ export default function AvancePage() {
   const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<AvancePaquete | null>(null);
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'error'>('cargando');
-  const [cancelandoId, setCancelandoId] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -27,21 +25,6 @@ export default function AvancePage() {
       .then((d) => { setData(d); setEstado('ok'); })
       .catch(() => setEstado('error'));
   }, [token]);
-
-  async function cancelar(servicioId: string) {
-    if (!window.confirm('¿Cancelar esta fecha? La hora regresará a tu saldo y la podrás volver a agendar.')) return;
-    setAviso(null);
-    setCancelandoId(servicioId);
-    try {
-      await api.cancelarAvance(token, servicioId);
-      const d = await api.avancePaquete(token);
-      setData(d);
-    } catch (e) {
-      setAviso(e instanceof Error ? e.message : 'No se pudo cancelar. Contáctanos y te ayudamos.');
-    } finally {
-      setCancelandoId(null);
-    }
-  }
 
   if (estado === 'error') {
     return (
@@ -90,18 +73,8 @@ export default function AvancePage() {
         )}
       </div>
 
-      {aviso && (
-        <p className="rounded-xl bg-marca-rojo/10 px-3 py-2 text-xs text-marca-rojo">{aviso}</p>
-      )}
-
-      {/* Próximas sesiones (la familia puede cancelar las de ≥24h) */}
-      <Bloque
-        titulo="Próximas fechas"
-        sesiones={proximas}
-        vacio="Aún no tienes fechas programadas."
-        onCancelar={cancelar}
-        cancelandoId={cancelandoId}
-      />
+      {/* Próximas sesiones (solo lectura) */}
+      <Bloque titulo="Próximas fechas" sesiones={proximas} vacio="Aún no tienes fechas programadas." />
       {/* Historial (realizadas / canceladas) */}
       {otras.length > 0 && <Bloque titulo="Historial" sesiones={otras} vacio="" />}
 
@@ -112,19 +85,7 @@ export default function AvancePage() {
   );
 }
 
-function Bloque({
-  titulo,
-  sesiones,
-  vacio,
-  onCancelar,
-  cancelandoId,
-}: {
-  titulo: string;
-  sesiones: AvancePaquete['sesiones'];
-  vacio: string;
-  onCancelar?: (servicioId: string) => void;
-  cancelandoId?: string | null;
-}) {
+function Bloque({ titulo, sesiones, vacio }: { titulo: string; sesiones: AvancePaquete['sesiones']; vacio: string }) {
   return (
     <div className="rounded-2xl bg-panel p-4 shadow-card">
       <h2 className="mb-2 text-sm font-semibold text-texto-fuerte">{titulo}</h2>
@@ -141,16 +102,6 @@ function Bloque({
                   <p className="text-xs text-texto-suave">
                     {s.horaInicio}–{s.horaFin} · {TIPO_LABEL[s.tipoServicio]} · {s.duracionHoras} h
                   </p>
-                  {onCancelar && s.cancelable && (
-                    <button
-                      type="button"
-                      onClick={() => onCancelar(s.id)}
-                      disabled={cancelandoId === s.id}
-                      className="mt-1 text-xs font-medium text-marca-rojo underline underline-offset-2 disabled:opacity-50"
-                    >
-                      {cancelandoId === s.id ? 'Cancelando…' : 'Cancelar esta fecha'}
-                    </button>
-                  )}
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${e.clase}`}>{e.label}</span>
               </div>

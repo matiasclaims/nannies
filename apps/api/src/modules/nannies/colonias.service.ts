@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { GuardarColoniasDto } from './dto/guardar-colonias.dto';
 
@@ -51,23 +51,6 @@ export class ColoniasService {
         });
       }
     });
-  }
-
-  /** La nannie guarda las suyas (solo si NO están bloqueadas). `confirmar` las bloquea. */
-  async guardarPropias(nannieId: string, dto: GuardarColoniasDto) {
-    const nannie = await this.prisma.nannie.findUnique({
-      where: { id: nannieId },
-      select: { coloniasBloqueadas: true },
-    });
-    if (!nannie) throw new NotFoundException('Nannie no encontrada');
-    if (nannie.coloniasBloqueadas) {
-      throw new ForbiddenException('Tus colonias ya están confirmadas. Un cambio lo autoriza coordinación.');
-    }
-    await this.reemplazar(nannieId, dto);
-    if (dto.confirmar) {
-      await this.prisma.nannie.update({ where: { id: nannieId }, data: { coloniasBloqueadas: true } });
-    }
-    return { ok: true, bloqueadas: Boolean(dto.confirmar) };
   }
 
   /** Coordinación guarda/edita las de una nannie y puede fijar/levantar el candado. */

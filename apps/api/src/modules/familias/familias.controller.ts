@@ -12,7 +12,6 @@ import { ImportarFamiliasDto } from './dto/importar-familias.dto';
 import { CrearPaqueteDto } from './dto/crear-paquete.dto';
 import { CrearNinoDto, EditarNinoDto } from './dto/nino.dto';
 import { CrearNotaDto } from './dto/crear-nota.dto';
-import { CancelarAvanceDto } from './dto/cancelar-avance.dto';
 
 @Controller('familias')
 export class FamiliasController {
@@ -74,14 +73,6 @@ export class FamiliasController {
   @Get('avance/:token')
   avancePublico(@Param('token') token: string) {
     return this.familias.avancePublico(token);
-  }
-
-  // La familia cancela una fecha desde el enlace (sin login). Público: se
-  // protege por el token del paquete; solo permite ≥24h de anticipación.
-  @Publico()
-  @Post('avance/:token/cancelar')
-  cancelarAvance(@Param('token') token: string, @Body() dto: CancelarAvanceDto) {
-    return this.familias.cancelarPublico(token, dto.servicioId);
   }
 
   @RequiereAccion('familia.gestionar')

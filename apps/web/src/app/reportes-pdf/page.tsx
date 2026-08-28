@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { Printer } from 'lucide-react';
 import { api, type ReporteGeneral } from '@/lib/api';
 
@@ -40,12 +39,9 @@ export default function ReportesPdfPage() {
 
   return (
     <div className="mx-auto max-w-3xl bg-white p-8 text-texto-fuerte print:p-0">
-      <header className="mb-6 flex items-center justify-between border-b border-borde pb-4">
-        <Image src="/nannies-logo.png" alt="Nannies" width={120} height={48} className="h-12 w-auto" />
-        <div className="text-right">
-          <h1 className="text-lg font-bold text-[#17323b]">Reporte de nannies</h1>
-          <p className="text-xs capitalize text-texto-suave">{periodo(data.desde)} · Nannies Child Care</p>
-        </div>
+      <header className="mb-6 border-b border-borde pb-4">
+        <h1 className="text-lg font-bold text-[#17323b]">Reporte de nannies</h1>
+        <p className="text-xs capitalize text-texto-suave">{periodo(data.desde)}</p>
       </header>
 
       <table className="w-full border-collapse text-sm">
@@ -88,7 +84,12 @@ export default function ReportesPdfPage() {
         </tfoot>
       </table>
 
-      <p className="mt-6 text-[11px] text-texto-suave">
+      <p className="mt-6 text-sm">
+        <strong>Encuestas de papás pendientes:</strong> {data.totales.encuestasPendientes} servicios completados del
+        periodo sin encuesta contestada.
+      </p>
+
+      <p className="mt-3 text-[11px] text-texto-suave">
         Papás = promedio de la encuesta de papás (nº de opiniones entre paréntesis). Agencia = evaluación semanal de
         coordinación. Incid. = incidencias registradas en el periodo (sin condonadas).
       </p>

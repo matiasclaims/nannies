@@ -293,7 +293,6 @@ export interface AvancePaquete {
     duracionHoras: number;
     tipoServicio: TipoServicio;
     estado: EstadoServicio;
-    cancelable: boolean;
   }[];
 }
 
@@ -346,15 +345,49 @@ export interface Dashboard {
   ingresoNoCapturado: number;
   horasPagadas: number;
   paquetesActivos: number;
-  serviciosPorNannie: { nannieId: string; nombre: string; color: string | null; total: number }[];
+  porAsignarLista: { servicioId: string; fecha: string; horaInicio: string; familiaId: string; familia: string; zona: string; tipoServicio: TipoServicio }[];
+  serviciosPorNannie: { nannieId: string; nombre: string; color: string | null; plaza: Plaza; total: number }[];
+  serviciosPorTipo: { tipo: TipoServicio; total: number }[];
+  comparativoAnual: { anio: number; horas: number }[];
+  manana: { horaInicio: string; zona: string; familia: string; nannie: string; porAsignar: boolean }[];
   actividad: { estado: EstadoServicio; familiaId: string; familia: string; nannie: string; zona: string; fecha: string }[];
   margen: number | null;
+}
+/** Panorama personal de la nannie (M7 · vista nannie). */
+export interface MiPanorama {
+  nombre: string;
+  foto: string | null;
+  especialidad: string | null;
+  rangoPermanente: string;
+  nivelMes: string;
+  horasMes: number;
+  serviciosMes: number;
+  ofertas: number;
+  calificacionPapas: { promedio: number | null; total: number };
+  calificacionAgencia: { promedio: number | null; total: number };
+  horasPorSemana: { semana: string; horas: number }[];
+  horasPorMes: { mes: string; label: string; horas: number }[];
+}
+/** Proyección de fechas de la nannie (agenda a futuro, imprimible). */
+export interface MiProyeccion {
+  nombre: string;
+  sesiones: {
+    fecha: string;
+    horaInicio: string;
+    horaFin: string;
+    tipoServicio: TipoServicio;
+    familia: string;
+    zona: string;
+    direccion: string | null;
+    pendiente: boolean;
+  }[];
 }
 /** Reporte general (M6) — una fila por nannie con su actividad del periodo. */
 export interface ReporteGeneral {
   desde: string;
   hasta: string;
-  totales: { servicios: number; horas: number; incidencias: number };
+  totales: { servicios: number; horas: number; incidencias: number; encuestasPendientes: number };
+  encuestasPendientes: { familia: string; nannie: string; fecha: string }[];
   nannies: {
     nannieId: string;
     nombre: string;
@@ -875,6 +908,8 @@ export const api = {
   nomina: (desde: string, hasta: string) =>
     req<Nomina>(`/finanzas/nomina${qs({ desde, hasta })}`),
   miReporte: () => req<MiReporte>('/finanzas/mi-reporte'),
+  miPanorama: () => req<MiPanorama>('/mi-panorama'),
+  miProyeccion: () => req<MiProyeccion>('/mi-proyeccion'),
 
   // M4 · Expediente de nannies
   listarExpedientes: () => req<NannieExpediente[]>('/nannies'),
@@ -902,11 +937,6 @@ export const api = {
   // M5 · Colonias de trabajo
   catalogoColonias: () => req<ColoniaCat[]>('/colonias-toluca'),
   misColonias: () => req<ColoniasNannie>('/mis-colonias'),
-  guardarMisColonias: (colonias: { coloniaId: string; dias: number[] }[], confirmar?: boolean) =>
-    req<{ ok: true; bloqueadas: boolean }>('/mis-colonias', {
-      method: 'PUT',
-      body: JSON.stringify({ colonias, ...(confirmar ? { confirmar: true } : {}) }),
-    }),
   coloniasDeNannie: (id: string) => req<ColoniasNannie>(`/nannies/${id}/colonias`),
   guardarColoniasDeNannie: (id: string, colonias: { coloniaId: string; dias: number[] }[], bloqueadas?: boolean) =>
     req<{ ok: true }>(`/nannies/${id}/colonias`, {
@@ -984,11 +1014,6 @@ export const api = {
   enlaceAvance: (paqueteId: string) =>
     req<{ token: string }>(`/familias/paquetes/${paqueteId}/enlace-avance`),
   avancePaquete: (token: string) => req<AvancePaquete>(`/familias/avance/${token}`),
-  cancelarAvance: (token: string, servicioId: string) =>
-    req<{ ok: boolean }>(`/familias/avance/${token}/cancelar`, {
-      method: 'POST',
-      body: JSON.stringify({ servicioId }),
-    }),
 
   niveles: () => req<Niveles>('/finanzas/niveles'),
   cerrarMes: (anio: number, mes: number) =>

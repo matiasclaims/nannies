@@ -14,7 +14,18 @@ import { AgendaNannie } from '@/components/calendario/agenda-nannie';
  */
 export default function CalendarioPage() {
   const [sesion, setSesion] = useState<Sesion | null>(null);
-  const [lunes, setLunes] = useState<Date>(() => inicioSemana(new Date()));
+  // Semana inicial: la del parámetro ?fecha=YYYY-MM-DD (atajo "por asignar" del
+  // dashboard) o la de hoy.
+  const [lunes, setLunes] = useState<Date>(() => {
+    if (typeof window !== 'undefined') {
+      const f = new URLSearchParams(window.location.search).get('fecha');
+      if (f) {
+        const [y, m, d] = f.split('-').map(Number);
+        if (y && m && d) return inicioSemana(new Date(y, m - 1, d));
+      }
+    }
+    return inicioSemana(new Date());
+  });
 
   useEffect(() => {
     api.me().then(setSesion).catch(() => undefined);
