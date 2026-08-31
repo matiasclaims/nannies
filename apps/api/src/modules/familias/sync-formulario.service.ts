@@ -28,13 +28,27 @@ function siNo(a: unknown): boolean | undefined {
   if (n.startsWith('no')) return false;
   return undefined;
 }
-/** Edad en texto ("3 años 5 meses") → años (0-18) o undefined. */
-function anios(a: unknown): number | undefined {
+/** Edad en texto → { anios, meses }. Soporta "3 años", "7 meses",
+ *  "3 años 5 meses", "18 meses" (se normaliza a 1 año 6 meses). Un número solo,
+ *  sin unidad, se interpreta como AÑOS (como el formulario lo pedía antes). */
+function parseEdad(a: unknown): { anios: number | undefined; meses: number | undefined } {
   const s = norm(a);
-  const m = /(\d+)\s*a[nñ]o/.exec(s) ?? /(\d+)/.exec(s);
-  if (!m) return undefined;
-  const n = Number(m[1]);
-  return Number.isInteger(n) && n >= 0 && n <= 18 ? n : undefined;
+  const anioM = /(\d+)\s*a[nñ]o/.exec(s);
+  const mesM = /(\d+)\s*mes/.exec(s);
+  let anios = anioM ? Number(anioM[1]) : undefined;
+  let meses = mesM ? Number(mesM[1]) : undefined;
+  if (anios === undefined && meses === undefined) {
+    const num = /(\d+)/.exec(s);
+    if (num) anios = Number(num[1]);
+  }
+  // Meses ≥ 12 → normaliza a años + meses (ej. "18 meses" = 1 año 6 meses).
+  if (meses !== undefined && meses >= 12) {
+    anios = (anios ?? 0) + Math.floor(meses / 12);
+    meses = meses % 12;
+  }
+  const aOk = anios !== undefined && Number.isInteger(anios) && anios >= 0 && anios <= 18 ? anios : undefined;
+  const mOk = meses !== undefined && Number.isInteger(meses) && meses >= 1 && meses <= 11 ? meses : undefined;
+  return { anios: aOk, meses: mOk };
 }
 
 @Injectable()
@@ -89,7 +103,11 @@ export class SyncFormularioService {
         else if (t.includes('material audiovisual')) familia.autorizacionAudiovisual = texto(a);
       } else {
         // --- Bloque del peque en curso ---
-        if (t.includes('edad')) peque.edad = anios(a);
+        if (t.includes('edad')) {
+          const e = parseEdad(a);
+          peque.edad = e.anios;
+          peque.edadMeses = e.meses;
+        }
         else if (t.includes('reaccionar tu peque con personas nuevas') || t.includes('personas nuevas'))
           peque.reaccionAnteLoNuevo = texto(a);
         else if (t.includes('caracter de tu peque') || t.includes('describan el caracter')) peque.caracter = texto(a);

@@ -13,7 +13,7 @@ import {
 } from '@/lib/api';
 import { ANIMOS } from '@/lib/dominio';
 import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
-import { TIPO_LABEL, ESTADO_DISPONIBILIDAD } from '@/lib/dominio';
+import { TIPO_LABEL, ESTADO_DISPONIBILIDAD, edadLabel } from '@/lib/dominio';
 import type { DiaSemana } from '@/lib/semana';
 import { cn } from '@/lib/utils';
 import { FormMarcarDisponibilidad } from './form-marcar-disponibilidad';
@@ -461,7 +461,7 @@ function NinoOperativo({ nino, idx }: { nino: NinoPerfil; idx: number }) {
   return (
     <div className="rounded-xl border border-borde p-3">
       <p className="mb-1 text-xs font-semibold text-texto-fuerte">
-        Peque {idx + 1}{nino.edad != null ? ` · ${nino.edad} años` : ''}
+        Peque {idx + 1}{edadLabel(nino.edad, nino.edadMeses) ? ` · ${edadLabel(nino.edad, nino.edadMeses)}` : ''}
       </p>
       {nino.salud && (
         <p className="mb-1 flex items-start gap-1.5 rounded-lg bg-[#5B292D]/10 px-2 py-1 text-xs text-[#5B292D]">

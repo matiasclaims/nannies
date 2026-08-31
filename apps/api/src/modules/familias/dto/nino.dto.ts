@@ -18,6 +18,12 @@ export class CrearNinoDto {
   edad?: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(11)
+  edadMeses?: number;
+
+  @IsOptional()
   @IsString()
   @MaxLength(40)
   genero?: string;
@@ -84,6 +90,12 @@ export class EditarNinoDto {
   @Min(0)
   @Max(18)
   edad?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(11)
+  edadMeses?: number;
 
   @IsOptional()
   @IsString()

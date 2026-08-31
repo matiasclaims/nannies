@@ -163,9 +163,27 @@ export function parseImportacion(
       }
       const edad = val(`${pre}edad`);
       if (edad) {
-        const n = Number(edad);
-        if (!Number.isInteger(n) || n < 0 || n > 18) errores.push(`Peque ${p}: edad no válida ("${edad}").`);
-        else nino.edad = n;
+        // Soporta "3 años", "7 meses", "3 años 5 meses", "18 meses" o un número
+        // solo (= años). Meses ≥ 12 se normalizan a años + meses.
+        const s = edad.toLowerCase();
+        const anioM = /(\d+)\s*a[nñ]o/.exec(s);
+        const mesM = /(\d+)\s*mes/.exec(s);
+        let anios = anioM ? Number(anioM[1]) : undefined;
+        let meses = mesM ? Number(mesM[1]) : undefined;
+        if (anios === undefined && meses === undefined) {
+          const num = /(\d+)/.exec(s);
+          if (num) anios = Number(num[1]);
+        }
+        if (meses !== undefined && meses >= 12) {
+          anios = (anios ?? 0) + Math.floor(meses / 12);
+          meses = meses % 12;
+        }
+        if (anios === undefined && meses === undefined) {
+          errores.push(`Peque ${p}: edad no válida ("${edad}").`);
+        } else {
+          if (anios !== undefined && anios >= 0 && anios <= 18) nino.edad = anios;
+          if (meses !== undefined && meses >= 1 && meses <= 11) nino.edadMeses = meses;
+        }
       }
       const panal = aBooleano(val(`${pre}panal`) || val(`${pre}pañal`));
       if (panal !== undefined) nino.autorizacionCambioPanal = panal;

@@ -352,7 +352,8 @@ model Nino {
   // --- Identificable: coordinación (Directora + Subdirectora); la nannie NO ---
   nombre      String
   apellidos   String?
-  edad        Int?
+  edad        Int? // años (0-18)
+  edadMeses   Int? // meses (0-11) para bebés/edad con meses; complementa a `edad`
   genero      String?
   // --- Operativo: visible a la nannie asignada (form §2-4) ---
   rutinas             String?

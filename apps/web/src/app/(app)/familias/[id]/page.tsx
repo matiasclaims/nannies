@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode } from 'lucide-react';
 import { api, type PerfilFamilia, type NinoPerfil, type NinoInput, type FamiliaInput, type NannieLite } from '@/lib/api';
-import { TIPO_LABEL, ESTADO_SERVICIO } from '@/lib/dominio';
+import { TIPO_LABEL, ESTADO_SERVICIO, edadLabel } from '@/lib/dominio';
 import { AREAS_TRABAJO, CONSENTIMIENTOS } from '@/lib/familia-catalogo';
 import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
 import { PaqueteFamilia } from '@/components/paquete-familia';
@@ -266,7 +266,9 @@ function NinoCard({ nino, onCambio }: { nino: NinoPerfil; onCambio: () => Promis
           {identificable ? (
             <>
               {nino.nombre} {nino.apellidos ?? ''}
-              {nino.edad != null && <span className="text-texto-suave"> · {nino.edad} años</span>}
+              {edadLabel(nino.edad, nino.edadMeses) && (
+                <span className="text-texto-suave"> · {edadLabel(nino.edad, nino.edadMeses)}</span>
+              )}
               {nino.genero && <span className="text-texto-suave"> · {nino.genero}</span>}
             </>
           ) : (
@@ -330,6 +332,7 @@ function NinoForm({
     nombre: inicial?.nombre ?? '',
     apellidos: inicial?.apellidos ?? '',
     edad: inicial?.edad ?? undefined,
+    edadMeses: inicial?.edadMeses ?? undefined,
     genero: inicial?.genero ?? '',
     salud: inicial?.salud ?? '',
     rutinas: inicial?.rutinas ?? '',
@@ -350,6 +353,7 @@ function NinoForm({
       nombre: f.nombre,
       apellidos: f.apellidos || undefined,
       edad: f.edad ? Number(f.edad) : undefined,
+      edadMeses: f.edadMeses ? Number(f.edadMeses) : undefined,
       genero: f.genero || undefined,
       salud: f.salud || undefined,
       rutinas: f.rutinas || undefined,
@@ -369,8 +373,9 @@ function NinoForm({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <input placeholder="Nombre(s)" value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} className={cn(inputCls, 'sm:col-span-2')} />
         <input placeholder="Apellidos" value={f.apellidos} onChange={(e) => setF({ ...f, apellidos: e.target.value })} className={cn(inputCls, 'sm:col-span-2')} />
-        <input type="number" min={0} max={18} placeholder="Edad" value={f.edad ?? ''} onChange={(e) => setF({ ...f, edad: e.target.value ? Number(e.target.value) : undefined })} className={inputCls} />
-        <input placeholder="Género" value={f.genero} onChange={(e) => setF({ ...f, genero: e.target.value })} className={cn(inputCls, 'sm:col-span-3')} />
+        <input type="number" min={0} max={18} placeholder="Años" value={f.edad ?? ''} onChange={(e) => setF({ ...f, edad: e.target.value ? Number(e.target.value) : undefined })} className={inputCls} />
+        <input type="number" min={0} max={11} placeholder="Meses" value={f.edadMeses ?? ''} onChange={(e) => setF({ ...f, edadMeses: e.target.value ? Number(e.target.value) : undefined })} className={inputCls} />
+        <input placeholder="Género" value={f.genero} onChange={(e) => setF({ ...f, genero: e.target.value })} className={cn(inputCls, 'sm:col-span-2')} />
       </div>
       <textarea placeholder="Salud / alergias / condiciones médicas" value={f.salud} onChange={(e) => setF({ ...f, salud: e.target.value })} rows={2} className={inputCls} />
       <textarea placeholder="Rutinas (siesta, comidas, clases…)" value={f.rutinas} onChange={(e) => setF({ ...f, rutinas: e.target.value })} rows={2} className={inputCls} />

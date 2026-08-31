@@ -33,3 +33,16 @@ export const ESTADO_DISPONIBILIDAD: Record<
   BLOQUEADO: { label: 'Bloqueado', clase: 'bg-slate-200 text-slate-600' },
   TEMPORAL: { label: 'Bloqueo temporal', clase: 'bg-slate-200 text-slate-600' },
 };
+
+/** Edad de un peque en texto: "3 años", "7 meses", "3 años 5 meses" o
+ *  "menor de 1 año" (0 años sin meses). Devuelve null si no hay dato. */
+export function edadLabel(edad?: number | null, edadMeses?: number | null): string | null {
+  const a = edad ?? 0;
+  const m = edadMeses ?? 0;
+  const partes: string[] = [];
+  if (a > 0) partes.push(`${a} ${a === 1 ? 'año' : 'años'}`);
+  if (m > 0) partes.push(`${m} ${m === 1 ? 'mes' : 'meses'}`);
+  if (partes.length > 0) return partes.join(' ');
+  if (edad === 0) return 'menor de 1 año';
+  return null;
+}

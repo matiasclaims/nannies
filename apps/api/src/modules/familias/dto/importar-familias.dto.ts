@@ -23,6 +23,9 @@ export class NinoImportDto {
   @IsOptional() @IsInt() @Min(0) @Max(18)
   edad?: number;
 
+  @IsOptional() @IsInt() @Min(0) @Max(11)
+  edadMeses?: number;
+
   @IsOptional() @IsString() @MaxLength(2000)
   salud?: string;
 

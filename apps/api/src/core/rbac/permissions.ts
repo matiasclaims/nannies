@@ -100,6 +100,7 @@ export const FIELD_ACCESS: Record<string, Record<string, readonly Rol[]>> = {
     nombre: ['DIRECTORA', 'SUBDIRECTORA'],
     apellidos: ['DIRECTORA', 'SUBDIRECTORA'],
     edad: ['DIRECTORA', 'SUBDIRECTORA'],
+    edadMeses: ['DIRECTORA', 'SUBDIRECTORA'],
     genero: ['DIRECTORA', 'SUBDIRECTORA'],
     // Operativo: coordinación + la nannie asignada (vista operativa).
     rutinas: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],

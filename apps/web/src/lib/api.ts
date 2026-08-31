@@ -323,6 +323,7 @@ export interface NinoPerfil {
   nombre?: string;
   apellidos?: string | null;
   edad?: number | null;
+  edadMeses?: number | null;
   genero?: string | null;
   rutinas?: string | null;
   necesidades?: string | null;
@@ -514,6 +515,7 @@ export interface NinoInput {
   nombre?: string;
   apellidos?: string;
   edad?: number;
+  edadMeses?: number;
   genero?: string;
   rutinas?: string;
   necesidades?: string;
