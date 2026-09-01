@@ -562,7 +562,7 @@ function PanoramaNannie({ nombre }: { nombre: string }) {
         </Link>
       ) : (
         <div className="rounded-2xl bg-panel p-5 text-center text-sm text-texto-suave shadow-card">
-          No tienes ofertas pendientes por ahora. 🎉
+          No tienes ofertas pendientes por ahora.
         </div>
       )}
 
