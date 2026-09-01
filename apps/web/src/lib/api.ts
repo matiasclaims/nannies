@@ -314,6 +314,7 @@ export interface FamiliaLite {
   inactiva?: boolean;
   diasSinServicio?: number;
   nServicios?: number;
+  ninosNombres?: string[];
   ultimaAtencion?: string | null;
   paqueteActivo?: PaqueteActivo | null;
 }

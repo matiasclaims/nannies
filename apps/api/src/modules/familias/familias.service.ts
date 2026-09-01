@@ -43,6 +43,7 @@ export class FamiliasService {
         fechaAlta: true,
         _count: { select: { servicios: true } },
         servicios: { select: { fecha: true }, orderBy: { fecha: 'desc' }, take: 1 },
+        ninos: { select: { nombre: true } },
         paquetes: {
           where: { estado: 'ACTIVO' },
           select: {
@@ -54,16 +55,21 @@ export class FamiliasService {
           take: 1,
         },
       },
-      orderBy: { nombreContacto: 'asc' },
     });
 
+    // Orden cronológico por última atención (Paula, 2026-09): las últimas en
+    // contratar un servicio hasta arriba; las que nunca han tenido, por fechaAlta.
+    const refDe = (x: (typeof familias)[number]) => (x.servicios[0]?.fecha ?? x.fechaAlta).getTime();
+    familias.sort((a, b) => refDe(b) - refDe(a));
+
     const ahora = new Date();
-    return familias.map(({ paquetes, servicios, _count, fechaAlta, ...f }) => {
+    return familias.map(({ paquetes, servicios, ninos, _count, fechaAlta, ...f }) => {
       const referencia = servicios[0]?.fecha ?? fechaAlta;
       const diasSinServicio = diasEntre(referencia, ahora);
       return {
         ...f,
         nServicios: _count.servicios,
+        ninosNombres: ninos.map((n) => n.nombre).filter(Boolean),
         ultimaAtencion: servicios[0]?.fecha.toISOString().slice(0, 10) ?? null,
         // Inactividad DERIVADA (M5 · Paula): ≥60 días sin servicio → "Inactiva",
         // solo separación visual. Se reactiva sola cuando se le agenda (la

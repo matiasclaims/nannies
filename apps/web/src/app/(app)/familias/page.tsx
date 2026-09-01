@@ -2,8 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { UserPlus, Upload } from 'lucide-react';
+import { UserPlus, Upload, Search } from 'lucide-react';
 import { api, type FamiliaLite, type Plaza } from '@/lib/api';
+
+/** Normaliza para buscar: sin acentos, minúsculas. */
+const norm = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 const inputCls =
   'w-full rounded-xl border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-marca-azul focus:ring-2 focus:ring-marca-azul/20';
@@ -12,6 +16,7 @@ export default function FamiliasPage() {
   const [familias, setFamilias] = useState<FamiliaLite[]>([]);
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'error'>('cargando');
   const [alta, setAlta] = useState(false);
+  const [q, setQ] = useState('');
   const [ocultarInactivas, setOcultarInactivas] = useState(false);
   // Filtro "solo con paquete activo" (viene del dashboard: /familias?paquete=activos).
   const [soloPaquete, setSoloPaquete] = useState(false);
@@ -65,6 +70,16 @@ export default function FamiliasPage() {
 
       {alta && <AltaFamilia onCreada={() => { setAlta(false); void cargar(); }} />}
 
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-texto-suave" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar por nombre del papá/mamá, apellido o nombre del niño…"
+          className={`${inputCls} pl-9`}
+        />
+      </div>
+
       {soloPaquete && (
         <div className="flex items-center justify-between gap-2 rounded-xl bg-marca-verde/10 px-3 py-2 text-xs text-[#3b6d11]">
           <span>Mostrando solo familias con <strong>paquete activo</strong>.</span>
@@ -93,6 +108,14 @@ export default function FamiliasPage() {
         <ul className="space-y-2">
           {familias
             .filter((f) => (!ocultarInactivas || !f.inactiva) && (!soloPaquete || f.paqueteActivo))
+            .filter((f) => {
+              const t = norm(q.trim());
+              if (!t) return true;
+              const heno = norm(
+                [f.nombreContacto, f.apellido ?? '', ...(f.ninosNombres ?? [])].join(' '),
+              );
+              return heno.includes(t);
+            })
             .map((f) => (
             <li
               key={f.id}

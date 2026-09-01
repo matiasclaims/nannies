@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ElementType, type ReactNode } from 'react';
 import Link from 'next/link';
-import { CalendarDays, TrendingUp, MapPin, XCircle, Activity, PieChart, Package, Star, Maximize2, X } from 'lucide-react';
+import { CalendarDays, TrendingUp, MapPin, XCircle, Activity, PieChart, Package, Star, Maximize2, X, Plus, UserPlus, Users, FileText, type LucideIcon } from 'lucide-react';
 import { api, type Sesion, type Dashboard, type MiPanorama, type TipoServicio } from '@/lib/api';
 import { ESTADO_SERVICIO, TIPO_LABEL } from '@/lib/dominio';
 import { RANGO_LABEL, NIVEL_LABEL } from '@/lib/nannie-ui';
@@ -53,6 +53,15 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
         </div>
       </section>
 
+      {/* Acciones rápidas (atajos de coordinación) */}
+      <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <AccionRapida href="/asignacion" icon={Plus} label="Nuevo servicio" />
+        <AccionRapida href="/familias" icon={UserPlus} label="Nueva familia" />
+        <AccionRapida href="/nannies" icon={Users} label="Agregar nannie" />
+        <AccionRapida href="/calendario" icon={CalendarDays} label="Calendario de hoy" />
+        <AccionRapida href="/reportes" icon={FileText} label="Reportes" />
+      </section>
+
       {/* Servicios del mes por nannie, separado por ciudad (chiquitas, expandibles) */}
       <section className="grid gap-4 sm:grid-cols-2">
         <PanelDona titulo="Servicios · Toluca" datos={nanniesTol} cargando={!d} onExpandir={() => setExpandir({ titulo: 'Servicios del mes · Toluca', datos: nanniesTol })} />
@@ -81,47 +90,6 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
           <CardMoney href="/calendario" tip="Total de servicios vigentes del mes. Clic para ver el calendario." titulo="Servicios del mes" valor={String(d?.servicios.total ?? '—')} nota={`${d?.servicios.completados ?? 0} completados`} color="azul" icon={Activity} />
         )}
         <CardMoney href="/familias?paquete=activos" tip="Familias con un paquete de horas vigente. Clic para ver la lista." titulo="Paquetes activos" valor={String(d?.paquetesActivos ?? '—')} nota="familias con saldo" color="morado" icon={Package} />
-      </section>
-
-      {/* Servicio más demandado + comparativo anual */}
-      <section className="grid gap-4 lg:grid-cols-2">
-        <Panel titulo="Servicio más demandado del mes" icon={Activity}>
-          {d && d.serviciosPorTipo.length > 0 ? <BarrasTipo datos={d.serviciosPorTipo} /> : <Vacio texto={d ? 'Sin servicios este mes.' : 'Cargando…'} />}
-        </Panel>
-        <Panel titulo="Comparativo anual (horas de este mes)" icon={TrendingUp}>
-          {d ? <BarrasAnio datos={d.comparativoAnual} /> : <Vacio texto="Cargando…" />}
-        </Panel>
-      </section>
-
-      {/* Barras: zonas + aceptación por nannie */}
-      <section className="grid gap-4 lg:grid-cols-2">
-        <Panel titulo="Zonas de más demanda" icon={MapPin}>
-          {d && d.zonasDemanda.length > 0 ? <BarrasZonas datos={d.zonasDemanda} /> : <Vacio texto={d ? 'Sin servicios este mes.' : 'Cargando…'} />}
-        </Panel>
-        <Panel titulo="Aceptación por nannie" icon={TrendingUp}>
-          {d && d.aceptacion.porNannie.length > 0 ? (
-            <div className="space-y-1">
-              {d.aceptacion.porNannie.map((n) => (
-                <Interactivo
-                  key={n.nannieId}
-                  href={`/nannies/${n.nannieId}`}
-                  tip={`${n.nombre} aceptó ${n.tasa}% de ${n.ofertas} ${n.ofertas === 1 ? 'oferta' : 'ofertas'} este mes. Clic para su ficha.`}
-                  className="block rounded-lg p-1.5 text-sm hover:bg-fondo"
-                >
-                  <div className="mb-0.5 flex justify-between">
-                    <span className="truncate text-texto-fuerte">{n.nombre}</span>
-                    <span className="text-xs text-texto-suave">{n.tasa}% · {n.ofertas}</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-fondo">
-                    <div className="h-full rounded-full" style={{ width: `${n.tasa}%`, backgroundColor: n.tasa < 60 ? '#FF5757' : '#9DCD5A' }} />
-                  </div>
-                </Interactivo>
-              ))}
-            </div>
-          ) : (
-            <Vacio texto={d ? 'Sin ofertas respondidas este mes.' : 'Cargando…'} />
-          )}
-        </Panel>
       </section>
 
       {/* Mañana (para preparar el día) + actividad reciente */}
@@ -164,6 +132,47 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
             </div>
           ) : (
             <Vacio texto={d ? 'Sin actividad reciente.' : 'Cargando…'} />
+          )}
+        </Panel>
+      </section>
+
+      {/* Servicio más demandado + comparativo anual */}
+      <section className="grid gap-4 lg:grid-cols-2">
+        <Panel titulo="Servicio más demandado del mes" icon={Activity}>
+          {d && d.serviciosPorTipo.length > 0 ? <BarrasTipo datos={d.serviciosPorTipo} /> : <Vacio texto={d ? 'Sin servicios este mes.' : 'Cargando…'} />}
+        </Panel>
+        <Panel titulo="Comparativo anual (horas de este mes)" icon={TrendingUp}>
+          {d ? <BarrasAnio datos={d.comparativoAnual} /> : <Vacio texto="Cargando…" />}
+        </Panel>
+      </section>
+
+      {/* Barras: zonas + aceptación por nannie */}
+      <section className="grid gap-4 lg:grid-cols-2">
+        <Panel titulo="Zonas de más demanda" icon={MapPin}>
+          {d && d.zonasDemanda.length > 0 ? <BarrasZonas datos={d.zonasDemanda} /> : <Vacio texto={d ? 'Sin servicios este mes.' : 'Cargando…'} />}
+        </Panel>
+        <Panel titulo="Aceptación por nannie" icon={TrendingUp}>
+          {d && d.aceptacion.porNannie.length > 0 ? (
+            <div className="space-y-1">
+              {d.aceptacion.porNannie.map((n) => (
+                <Interactivo
+                  key={n.nannieId}
+                  href={`/nannies/${n.nannieId}`}
+                  tip={`${n.nombre} aceptó ${n.tasa}% de ${n.ofertas} ${n.ofertas === 1 ? 'oferta' : 'ofertas'} este mes. Clic para su ficha.`}
+                  className="block rounded-lg p-1.5 text-sm hover:bg-fondo"
+                >
+                  <div className="mb-0.5 flex justify-between">
+                    <span className="truncate text-texto-fuerte">{n.nombre}</span>
+                    <span className="text-xs text-texto-suave">{n.tasa}% · {n.ofertas}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-fondo">
+                    <div className="h-full rounded-full" style={{ width: `${n.tasa}%`, backgroundColor: n.tasa < 60 ? '#FF5757' : '#9DCD5A' }} />
+                  </div>
+                </Interactivo>
+              ))}
+            </div>
+          ) : (
+            <Vacio texto={d ? 'Sin ofertas respondidas este mes.' : 'Cargando…'} />
           )}
         </Panel>
       </section>
@@ -258,6 +267,21 @@ function Tarjeta({ href, tip, children }: { href: string; tip: string; children:
     <Interactivo href={href} tip={tip} className="flex flex-col items-center justify-center rounded-2xl bg-panel p-4 text-center shadow-card hover:-translate-y-0.5 hover:shadow-lg">
       {children}
     </Interactivo>
+  );
+}
+
+/** Atajo del dashboard: botón con ícono que lleva a una sección. */
+function AccionRapida({ href, icon: Icon, label }: { href: string; icon: LucideIcon; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-2 rounded-2xl bg-panel px-3 py-3 text-sm font-medium text-texto-fuerte shadow-card transition hover:-translate-y-0.5 hover:shadow-lg"
+    >
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-marca-azul/10 text-marca-azul">
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="truncate">{label}</span>
+    </Link>
   );
 }
 
