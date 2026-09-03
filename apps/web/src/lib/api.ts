@@ -235,6 +235,7 @@ export interface Servicio {
   horaFin: string;
   duracionHoras: number;
   estado: EstadoServicio;
+  requierePlaneacion: boolean;
 }
 
 export interface NuevaDisponibilidad {
@@ -731,6 +732,7 @@ export interface NuevoServicio {
   nivelDia?: 'BASICO' | 'INTERMEDIO' | 'PREMIUM';
   nivelNoche?: 'BASICO' | 'INTERMEDIO' | 'PREMIUM';
   numNinos: number;
+  requierePlaneacion?: boolean;
   fecha: string;
   horaInicio: string;
   horaFin: string;

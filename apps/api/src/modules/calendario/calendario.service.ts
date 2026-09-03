@@ -221,6 +221,7 @@ export class CalendarioService {
       tipoServicio: dto.tipoServicio,
       formato: dto.formato,
       numNinos: dto.numNinos,
+      requierePlaneacion: dto.requierePlaneacion ?? false,
       fecha: fecha(dto.fecha)!,
       horaInicio: dto.horaInicio,
       horaFin: dto.horaFin,

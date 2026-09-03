@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsIn,
@@ -88,6 +89,11 @@ export class CrearServicioDto {
   @Min(1)
   @Max(8)
   numNinos!: number;
+
+  // Coordinación marca si la nannie debe preparar planeación para este servicio.
+  @IsOptional()
+  @IsBoolean()
+  requierePlaneacion?: boolean;
 
   @IsDateString({}, { message: 'fecha debe ser YYYY-MM-DD' })
   fecha!: string;

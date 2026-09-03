@@ -183,6 +183,15 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
                             <span className="font-medium">{TIPO_LABEL[s.tipoServicio]}</span>{' '}
                             {s.horaInicio}–{s.horaFin} · {s.zona}
                           </p>
+                          {s.requierePlaneacion ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                              <ClipboardList className="h-3 w-3" /> Requiere planeación
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                              Sin planeación
+                            </span>
+                          )}
                           {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
                             <button
                               onClick={() => setFichaServ(s)}

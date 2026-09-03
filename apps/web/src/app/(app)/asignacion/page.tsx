@@ -47,6 +47,7 @@ interface Form {
   horaInicio: string;
   horaFin: string;
   numNinos: number;
+  requierePlaneacion: boolean;
 }
 
 /** Describe el hueco de una coincidencia aproximada en lenguaje llano. */
@@ -110,6 +111,7 @@ export default function AsignacionPage() {
     horaInicio: '09:00',
     horaFin: '13:00',
     numNinos: 1,
+    requierePlaneacion: true,
   });
   const [candidatas, setCandidatas] = useState<Candidata[] | null>(null);
   const [buscando, setBuscando] = useState(false);
@@ -262,6 +264,7 @@ export default function AsignacionPage() {
         nivelDia: !usaPaquete && esQro && !esFiesta && horasDia > 0 ? nivelDiaQro : undefined,
         nivelNoche: !usaPaquete && esQro && !esFiesta && horasNoche > 0 ? nivelNocheQro : undefined,
         numNinos: form.numNinos,
+        requierePlaneacion: form.requierePlaneacion,
         fecha: form.fecha,
         horaInicio: form.horaInicio,
         horaFin: form.horaFin,
@@ -409,6 +412,23 @@ export default function AsignacionPage() {
               className={inputCls}
             />
           </Campo>
+
+          <div className="sm:col-span-2">
+            <label className="flex items-start gap-2.5 rounded-xl border border-borde bg-white p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={form.requierePlaneacion}
+                onChange={(e) => set('requierePlaneacion', e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-marca-azul"
+              />
+              <span>
+                <span className="font-medium text-texto-fuerte">Requiere planeación</span>
+                <span className="block text-xs text-texto-suave">
+                  La nannie debe preparar actividades planeadas. Desmárcalo si esta familia no las usa.
+                </span>
+              </span>
+            </label>
+          </div>
 
           <Campo label="Desde">
             <HoraSelect value={form.horaInicio} onChange={(v) => set('horaInicio', v)} className={inputCls} />

@@ -433,6 +433,7 @@ model Servicio {
   // Reglamento PF §15-16: solo horas completas, mínimo 3.
   duracionHoras Int // se valida en el backend: entero, >= 3
   estado       EstadoServicio @default(OFERTADO)
+  requierePlaneacion Boolean @default(false) // coordinación marca si la nannie debe preparar planeación
   // Cancelación (M4/§15-16): motivo y si se cobró la hora igual (aviso <24h).
   // Si se cobró, cuenta en ingresos aunque esté CANCELADO; en paquete la hora
   // solo se devuelve al saldo cuando NO se cobra.
