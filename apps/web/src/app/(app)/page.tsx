@@ -92,6 +92,35 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
         <CardMoney href="/familias?paquete=activos" tip="Familias con un paquete de horas vigente. Clic para ver la lista." titulo="Paquetes activos" valor={String(d?.paquetesActivos ?? '—')} nota="familias con saldo" color="morado" icon={Package} />
       </section>
 
+      {/* Alerta: paquetes por agotarse (≤5 h o ≥80% consumido) → ofrecer renovación */}
+      <Panel titulo={`Paquetes por agotarse${d && d.paquetesPorAgotarse.length ? ` (${d.paquetesPorAgotarse.length})` : ''}`} icon={Package}>
+        {d && d.paquetesPorAgotarse.length > 0 ? (
+          <div className="divide-y divide-borde">
+            {d.paquetesPorAgotarse.map((p) => (
+              <Interactivo
+                key={p.paqueteId}
+                href={`/familias/${p.familiaId}`}
+                tip={`${p.familia}: quedan ${p.restantes} h de ${p.horasTotales} (${p.consumidoPct}% consumido). Clic para abrir la familia.`}
+                className="flex items-center gap-2 rounded-lg px-1.5 py-2 text-xs hover:bg-fondo"
+              >
+                <span className="min-w-0 flex-1 truncate font-medium text-texto-fuerte">{p.familia}</span>
+                <span className="shrink-0 font-semibold text-marca-rojo">
+                  {p.restantes} h <span className="font-normal text-texto-suave">de {p.horasTotales}</span>
+                </span>
+                <span className="w-24 shrink-0">
+                  <span className="block h-1.5 rounded-full bg-borde">
+                    <span className="block h-1.5 rounded-full bg-marca-rojo" style={{ width: `${Math.min(100, p.consumidoPct)}%` }} />
+                  </span>
+                </span>
+                <span className="w-10 shrink-0 text-right text-texto-suave">{p.consumidoPct}%</span>
+              </Interactivo>
+            ))}
+          </div>
+        ) : (
+          <Vacio texto={d ? 'Ningún paquete por agotarse.' : 'Cargando…'} />
+        )}
+      </Panel>
+
       {/* Mañana (para preparar el día) + actividad reciente */}
       <section className="grid gap-4 lg:grid-cols-2">
         <Panel titulo="Mañana" icon={CalendarDays}>
@@ -582,6 +611,21 @@ function PanoramaNannie({ nombre }: { nombre: string }) {
         </span>
         <TrendingUp className="h-5 w-5 shrink-0 text-texto-suave" />
       </a>
+
+      {/* Mis paquetes: avance de los paquetes donde participa (solo los suyos) */}
+      <Link
+        href="/mis-paquetes"
+        className="flex items-center justify-between gap-3 rounded-2xl bg-panel p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-lg"
+      >
+        <span className="flex items-center gap-3">
+          <Package className="h-5 w-5 text-marca-azul" />
+          <span>
+            <span className="block text-sm font-semibold text-texto-fuerte">Mis paquetes</span>
+            <span className="block text-xs text-texto-suave">Avance y sesiones de tus paquetes</span>
+          </span>
+        </span>
+        <TrendingUp className="h-5 w-5 shrink-0 text-texto-suave" />
+      </Link>
 
       {/* Horas del mes + nivel (termómetro) */}
       <div className="rounded-2xl bg-panel p-5 shadow-card">

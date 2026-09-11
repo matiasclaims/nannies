@@ -185,6 +185,7 @@ model Nannie {
   incidencias     Incidencia[]
   notas           NotaNannie[]
   evaluaciones    EvaluacionNannie[]
+  evaluacionesCoord EvaluacionCoordServicio[]
   documentos      DocumentoNannie[]
   coloniasTrabajo NannieColonia[]
 
@@ -232,6 +233,37 @@ model EvaluacionNannie {
   @@unique([nannieId, semana])
   @@index([nannieId])
   @@map("evaluaciones_nannie")
+}
+
+// Evaluación de coordinación POR SERVICIO (Paula 2026-09-03: reemplaza a la
+// semanal de aquí en adelante; EvaluacionNannie se conserva como histórico).
+// Un servicio individual COMPLETADO → 1 evaluación. Un paquete CONSUMIDO → 1
+// evaluación por CADA nannie que lo cubrió (normalmente una). Mismos 5 pilares
+// y pesos (catálogo en evaluaciones.catalogo.ts); calificación = suma ponderada.
+// Puede quedar pendiente sin bloquear; los cancelados no se evalúan.
+model EvaluacionCoordServicio {
+  id                   String    @id @default(cuid())
+  nannieId             String
+  nannie               Nannie    @relation(fields: [nannieId], references: [id])
+  // Exactamente uno: servicioId (individual) o paqueteId (paquete completo).
+  servicioId           String?   @unique
+  servicio             Servicio? @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  paqueteId            String?
+  paquete              Paquete?  @relation(fields: [paqueteId], references: [id], onDelete: Cascade)
+  atencionInfantil     Int
+  cumplimientoServicio Int
+  comunicacion         Int
+  profesionalismo      Int
+  puntualidad          Int
+  calificacion         Decimal   @db.Decimal(4, 2) // ponderada 1-10
+  evaluadaPor          String
+  nota                 String?
+  creadoEn             DateTime  @default(now())
+  actualizadoEn        DateTime  @updatedAt
+
+  @@unique([paqueteId, nannieId]) // 1 evaluación por (paquete, nannie)
+  @@index([nannieId])
+  @@map("evaluaciones_coord_servicio")
 }
 
 // Incidencia registrada contra una nannie (M4). Detección MANUAL (coordinación),
@@ -449,6 +481,7 @@ model Servicio {
   finanza FinanzaServicio?
   reporte ReporteServicio?
   evaluacion EvaluacionServicio?
+  evaluacionCoord EvaluacionCoordServicio?
 
   @@index([nannieId, fecha])
   @@index([familiaId])
@@ -526,6 +559,7 @@ model Paquete {
   tokenPublico     String?       @unique
 
   servicios Servicio[]
+  evaluacionesCoord EvaluacionCoordServicio[]
 
   @@index([familiaId])
   @@map("paquetes")

@@ -39,7 +39,9 @@ export class MiPanoramaService {
         where: { respondidoEn: { not: null }, servicio: { nannieId } },
         select: { calificacion: true },
       }),
-      this.prisma.evaluacionNannie.findMany({ where: { nannieId }, select: { calificacion: true } }),
+      // Calificación de agencia = promedio de las evaluaciones POR SERVICIO
+      // (Paula 2026-09-03; las semanales viejas quedan como histórico aparte).
+      this.prisma.evaluacionCoordServicio.findMany({ where: { nannieId }, select: { calificacion: true } }),
     ]);
 
     const completadosMes = serviciosMesActual.filter((s) => s.estado === 'COMPLETADO');
@@ -128,5 +130,55 @@ export class MiPanoramaService {
         pendiente: s.estado === 'OFERTADO',
       })),
     };
+  }
+
+  /** Paquetes en los que la nannie tiene al menos una sesión asignada. Ve el
+   *  avance (horas cubiertas/restantes) y el calendario de sesiones del paquete,
+   *  con sus propias sesiones marcadas. NUNCA ve paquetes donde no participa ni
+   *  el nombre de otras nannies. */
+  async misPaquetes(nannieId: string | null | undefined) {
+    if (!nannieId) throw new ForbiddenException('Solo las nannies tienen paquetes asignados.');
+
+    const paquetes = await this.prisma.paquete.findMany({
+      where: {
+        estado: { not: 'CANCELADO' },
+        servicios: { some: { nannieId, estado: { notIn: ['CANCELADO', 'RECHAZADO'] } } },
+      },
+      include: {
+        familia: { select: { nombreContacto: true } },
+        servicios: {
+          where: { estado: { notIn: ['CANCELADO', 'RECHAZADO'] } },
+          orderBy: [{ fecha: 'asc' }, { horaInicio: 'asc' }],
+          select: {
+            fecha: true,
+            horaInicio: true,
+            horaFin: true,
+            duracionHoras: true,
+            tipoServicio: true,
+            estado: true,
+            nannieId: true,
+          },
+        },
+      },
+      orderBy: [{ estado: 'asc' }, { fechaContratacion: 'desc' }], // ACTIVO antes que CONSUMIDO
+    });
+
+    return paquetes.map((p) => ({
+      paqueteId: p.id,
+      familia: p.familia.nombreContacto,
+      estado: p.estado,
+      horasTotales: p.horasTotales,
+      horasConsumidas: p.horasConsumidas,
+      horasRestantes: p.horasTotales - p.horasConsumidas,
+      sesiones: p.servicios.map((s) => ({
+        fecha: s.fecha.toISOString().slice(0, 10),
+        horaInicio: s.horaInicio,
+        horaFin: s.horaFin,
+        duracionHoras: s.duracionHoras,
+        tipoServicio: s.tipoServicio,
+        estado: s.estado,
+        mia: s.nannieId === nannieId,
+      })),
+    }));
   }
 }

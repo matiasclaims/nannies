@@ -5,6 +5,8 @@ import { IncidenciasController } from './incidencias.controller';
 import { IncidenciasService } from './incidencias.service';
 import { EvaluacionesController } from './evaluaciones.controller';
 import { EvaluacionesService } from './evaluaciones.service';
+import { EvaluacionCoordController } from './evaluacion-coord.controller';
+import { EvaluacionCoordService } from './evaluacion-coord.service';
 import { MisDocumentosController } from './mis-documentos.controller';
 import { DocumentosService } from './documentos.service';
 import { MisColoniasController } from './mis-colonias.controller';
@@ -18,6 +20,7 @@ import { MiPanoramaService } from './mi-panorama.service';
     NanniesController,
     IncidenciasController,
     EvaluacionesController,
+    EvaluacionCoordController,
     MisDocumentosController,
     MisColoniasController,
     MiPanoramaController,
@@ -26,6 +29,7 @@ import { MiPanoramaService } from './mi-panorama.service';
     NanniesService,
     IncidenciasService,
     EvaluacionesService,
+    EvaluacionCoordService,
     DocumentosService,
     ColoniasService,
     MiPanoramaService,

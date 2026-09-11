@@ -17,4 +17,9 @@ export class MiPanoramaController {
   miProyeccion(@UsuarioActual() user: UsuarioAutenticado) {
     return this.miPanorama.proyeccion(user.nannieId);
   }
+
+  @Get('mis-paquetes')
+  misPaquetes(@UsuarioActual() user: UsuarioAutenticado) {
+    return this.miPanorama.misPaquetes(user.nannieId);
+  }
 }

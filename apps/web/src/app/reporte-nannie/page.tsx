@@ -116,7 +116,7 @@ export default function ReporteNanniePage() {
         ) : (
           d.evaluacionesAgencia.map((e, i) => (
             <div key={i} className="border-b border-borde py-2 text-sm last:border-0">
-              <p><strong>{e.calificacion}/10</strong> · semana del {e.semana}{e.nota ? ` — ${e.nota}` : ''}</p>
+              <p><strong>{e.calificacion}/10</strong> · {e.familia} · {e.fecha}{e.nota ? ` — ${e.nota}` : ''}</p>
             </div>
           ))
         )}

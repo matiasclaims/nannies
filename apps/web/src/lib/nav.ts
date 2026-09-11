@@ -6,6 +6,7 @@ import {
   Heart,
   Wallet,
   ClipboardList,
+  ClipboardCheck,
   FolderUp,
   MapPin,
   type LucideIcon,
@@ -40,6 +41,7 @@ export const NAV: NavItem[] = [
   { href: '/familias', label: 'Familias', icon: Heart, roles: COORD },
   { href: '/finanzas', label: 'Finanzas', icon: Wallet, roles: COORD },
   { href: '/reportes', label: 'Reportes', icon: ClipboardList, roles: COORD },
+  { href: '/evaluaciones', label: 'Evaluaciones', icon: ClipboardCheck, roles: COORD },
 ];
 
 /** Ítems visibles para un rol (los que no declaran `roles` los ven todos). */

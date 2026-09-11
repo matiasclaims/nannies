@@ -348,6 +348,7 @@ export interface Dashboard {
   ingresoNoCapturado: number;
   horasPagadas: number;
   paquetesActivos: number;
+  paquetesPorAgotarse: { paqueteId: string; familiaId: string; familia: string; horasTotales: number; restantes: number; consumidoPct: number; desde: string }[];
   porAsignarLista: { servicioId: string; fecha: string; horaInicio: string; familiaId: string; familia: string; zona: string; tipoServicio: TipoServicio }[];
   serviciosPorNannie: { nannieId: string; nombre: string; color: string | null; plaza: Plaza; total: number }[];
   serviciosPorTipo: { tipo: TipoServicio; total: number }[];
@@ -385,6 +386,24 @@ export interface MiProyeccion {
     pendiente: boolean;
   }[];
 }
+/** Paquete que ve la nannie (solo donde tiene sesiones asignadas · vista nannie). */
+export interface MiPaquete {
+  paqueteId: string;
+  familia: string;
+  estado: 'ACTIVO' | 'CONSUMIDO' | 'CANCELADO';
+  horasTotales: number;
+  horasConsumidas: number;
+  horasRestantes: number;
+  sesiones: {
+    fecha: string;
+    horaInicio: string;
+    horaFin: string;
+    duracionHoras: number;
+    tipoServicio: TipoServicio;
+    estado: EstadoServicio;
+    mia: boolean;
+  }[];
+}
 /** Reporte general (M6) — una fila por nannie con su actividad del periodo. */
 export interface ReporteGeneral {
   desde: string;
@@ -413,7 +432,31 @@ export interface ReporteNannie {
   reportes: { familia: string; fecha: string; tipoServicio: TipoServicio; actividades: string; animoNino: string; incidentes: string | null; notas: string | null }[];
   evaluacionesPapas: { familia: string; fecha: string; calificacion: number | null; volveriaContratar: boolean | null; comentario: string | null }[];
   incidencias: { situacion: string; fecha: string; nota: string | null; condonada: boolean }[];
-  evaluacionesAgencia: { semana: string; calificacion: number; nota: string | null }[];
+  evaluacionesAgencia: { fecha: string; familia: string; calificacion: number; nota: string | null }[];
+}
+/** Evaluación de coordinación POR SERVICIO (Paula 2026-09-03). */
+export interface PendienteEvalCoord {
+  tipo: 'INDIVIDUAL' | 'PAQUETE';
+  id: string; // servicioId o paqueteId
+  nannieId: string;
+  nannie: string;
+  familia: string;
+  fecha: string;
+  detalle: string;
+}
+export interface DetalleEvalCoord extends PendienteEvalCoord {
+  incidencias: { id: string; situacion: string; fecha: string; pilar: ClavePilar | null }[];
+  evaluacion: (NotasEval & { calificacion: number; evaluadaPor: string; nota: string | null }) | null;
+}
+export interface HistorialEvalCoord {
+  id: string;
+  tipo: 'INDIVIDUAL' | 'PAQUETE';
+  fecha: string;
+  familia: string;
+  detalle: string;
+  calificacion: number;
+  evaluadaPor: string;
+  nota: string | null;
 }
 /** Encuesta de papás (M6 · 6.2) — contexto público que ve el papá. */
 export interface EncuestaPublica {
@@ -915,6 +958,7 @@ export const api = {
   miReporte: () => req<MiReporte>('/finanzas/mi-reporte'),
   miPanorama: () => req<MiPanorama>('/mi-panorama'),
   miProyeccion: () => req<MiProyeccion>('/mi-proyeccion'),
+  misPaquetes: () => req<MiPaquete[]>('/mis-paquetes'),
 
   // M4 · Expediente de nannies
   listarExpedientes: () => req<NannieExpediente[]>('/nannies'),
@@ -996,6 +1040,25 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  // M4 (Paula 2026-09-03) · Evaluación de coordinación POR SERVICIO
+  evalCoordPendientes: () =>
+    req<{ total: number; pendientes: PendienteEvalCoord[] }>('/evaluaciones-coord/pendientes'),
+  evalCoordServicio: (servicioId: string) =>
+    req<DetalleEvalCoord>(`/evaluaciones-coord/servicio/${servicioId}`),
+  guardarEvalCoordServicio: (servicioId: string, body: NotasEval & { nota?: string }) =>
+    req<{ ok: true; calificacion: number }>(`/evaluaciones-coord/servicio/${servicioId}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  evalCoordPaquete: (paqueteId: string, nannieId: string) =>
+    req<DetalleEvalCoord>(`/evaluaciones-coord/paquete/${paqueteId}/nannie/${nannieId}`),
+  guardarEvalCoordPaquete: (paqueteId: string, nannieId: string, body: NotasEval & { nota?: string }) =>
+    req<{ ok: true; calificacion: number }>(`/evaluaciones-coord/paquete/${paqueteId}/nannie/${nannieId}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  evalCoordHistorial: (nannieId: string) =>
+    req<HistorialEvalCoord[]>(`/evaluaciones-coord/nannie/${nannieId}/historial`),
   margen: (desde: string, hasta: string) =>
     req<Margen>(`/finanzas/margen${qs({ desde, hasta })}`),
   crearBono: (nannieId: string, monto: number, motivo: string) =>

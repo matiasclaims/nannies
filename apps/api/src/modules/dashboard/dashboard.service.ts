@@ -177,7 +177,36 @@ export class DashboardService {
       }));
 
     // --- Paquetes de horas activos (familias con saldo vigente) ---
-    const paquetesActivos = await this.prisma.paquete.count({ where: { estado: 'ACTIVO' } });
+    const paquetesActivosRows = await this.prisma.paquete.findMany({
+      where: { estado: 'ACTIVO' },
+      select: {
+        id: true,
+        horasTotales: true,
+        horasConsumidas: true,
+        fechaContratacion: true,
+        familia: { select: { id: true, nombreContacto: true } },
+      },
+    });
+    const paquetesActivos = paquetesActivosRows.length;
+
+    // --- Paquetes por agotarse: quedan ≤5 h O ya se consumió ≥80% (avisar para
+    //     ofrecer renovación). Solo horas (los paquetes no tienen vigencia por fecha). ---
+    const paquetesPorAgotarse = paquetesActivosRows
+      .map((p) => {
+        const restantes = p.horasTotales - p.horasConsumidas;
+        const pct = p.horasTotales > 0 ? p.horasConsumidas / p.horasTotales : 0;
+        return {
+          paqueteId: p.id,
+          familiaId: p.familia.id,
+          familia: p.familia.nombreContacto,
+          horasTotales: p.horasTotales,
+          restantes,
+          consumidoPct: Math.round(pct * 100),
+          desde: p.fechaContratacion.toISOString().slice(0, 10),
+        };
+      })
+      .filter((p) => p.restantes <= 5 || p.consumidoPct >= 80)
+      .sort((a, b) => a.restantes - b.restantes);
 
     // --- Horas pagadas del mes (indicador de Paula, movido de Finanzas) ---
     const ingresos = await this.finanzas.ingresos(desde, hasta);
@@ -213,6 +242,7 @@ export class DashboardService {
       ingresoNoCapturado,
       horasPagadas,
       paquetesActivos,
+      paquetesPorAgotarse,
       porAsignarLista,
       serviciosPorNannie,
       serviciosPorTipo,

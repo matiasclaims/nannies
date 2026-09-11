@@ -9,7 +9,7 @@ import { ZONAS_QRO } from '@/lib/queretaro';
 import { CATALOGO_DOCUMENTOS, CATALOGO_CURSOS, type ItemChecklist } from '@/lib/nannie-catalogos';
 import { COLORES_NANNIE, ESTADO_NANNIE, RANGO_LABEL, NIVEL_LABEL, UMBRALES_RANGO } from '@/lib/nannie-ui';
 import { IncidenciasNannie } from '@/components/incidencias-nannie';
-import { EvaluacionNannie } from '@/components/evaluacion-nannie';
+import { EvaluacionCoordNannie } from '@/components/evaluacion-coord-nannie';
 import { BitacoraNannie } from '@/components/bitacora-nannie';
 import { ColoniasNannie } from '@/components/colonias-nannie';
 import { Avatar } from '@/components/avatar';
@@ -121,7 +121,7 @@ export default function NanniePerfilPage() {
 
       <ColoniasNannie nannieId={perfil.id} />
 
-      <EvaluacionNannie nannieId={perfil.id} />
+      <EvaluacionCoordNannie nannieId={perfil.id} />
 
       <EvalPapasNannie
         nannieId={perfil.id}

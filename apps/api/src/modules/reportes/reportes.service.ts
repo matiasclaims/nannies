@@ -65,8 +65,16 @@ export class ReportesService {
         where: { respondidoEn: { not: null }, servicio: { fecha: { gte, lt } } },
         select: { calificacion: true, servicio: { select: { nannieId: true } } },
       }),
-      this.prisma.evaluacionNannie.findMany({
-        where: { semana: { gte, lt } },
+      // Evaluación de agencia = promedio de evaluaciones POR SERVICIO cuyo
+      // servicio/paquete cae en el periodo (Paula 2026-09-03; las semanales
+      // viejas quedan como histórico y ya no promedian).
+      this.prisma.evaluacionCoordServicio.findMany({
+        where: {
+          OR: [
+            { servicio: { fecha: { gte, lt } } },
+            { paquete: { servicios: { some: { fecha: { gte, lt } } } } },
+          ],
+        },
         select: { nannieId: true, calificacion: true },
       }),
       this.prisma.incidencia.findMany({
@@ -183,7 +191,20 @@ export class ReportesService {
         orderBy: { respondidoEn: 'desc' },
       }),
       this.prisma.incidencia.findMany({ where: { nannieId, fecha: { gte, lt } }, orderBy: { fecha: 'desc' } }),
-      this.prisma.evaluacionNannie.findMany({ where: { nannieId, semana: { gte, lt } }, orderBy: { semana: 'desc' } }),
+      this.prisma.evaluacionCoordServicio.findMany({
+        where: {
+          nannieId,
+          OR: [
+            { servicio: { fecha: { gte, lt } } },
+            { paquete: { servicios: { some: { fecha: { gte, lt } } } } },
+          ],
+        },
+        orderBy: { creadoEn: 'desc' },
+        include: {
+          servicio: { select: { fecha: true, familia: { select: { nombreContacto: true } } } },
+          paquete: { select: { fechaContratacion: true, familia: { select: { nombreContacto: true } } } },
+        },
+      }),
     ]);
 
     const completados = servicios.filter((s) => s.estado === 'COMPLETADO');
@@ -228,7 +249,8 @@ export class ReportesService {
         condonada: i.estado === 'CONDONADA',
       })),
       evaluacionesAgencia: evalAgencia.map((e) => ({
-        semana: e.semana.toISOString().slice(0, 10),
+        fecha: (e.servicio?.fecha ?? e.paquete?.fechaContratacion ?? e.creadoEn).toISOString().slice(0, 10),
+        familia: e.servicio?.familia.nombreContacto ?? e.paquete?.familia.nombreContacto ?? '',
         calificacion: Number(e.calificacion),
         nota: e.nota,
       })),
