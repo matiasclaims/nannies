@@ -879,18 +879,35 @@ function BandaCobro({
           ))}
           <option value="libre">Otra tarifa…</option>
         </select>
-        {libre && (
-          <input
-            type="number"
-            min={piso || 1}
-            value={tarifa}
-            onChange={(e) => setTarifa(Number(e.target.value))}
-            className={cn(inputCls, 'w-32')}
-            placeholder="Tarifa $/h"
-          />
-        )}
+        {libre && <InputTarifaLibre tarifa={tarifa} setTarifa={setTarifa} min={piso || 1} />}
       </div>
     </div>
+  );
+}
+
+/** Input de "otra tarifa" $/h: admite hasta 4 decimales. Guarda un texto local
+ *  mientras se escribe (para no perder el punto ni los ceros) y sincroniza el
+ *  número cuando es válido. */
+function InputTarifaLibre({ tarifa, setTarifa, min }: { tarifa: number; setTarifa: (n: number) => void; min: number }) {
+  const [txt, setTxt] = useState(String(tarifa));
+  return (
+    <input
+      type="number"
+      inputMode="decimal"
+      min={min}
+      step="0.0001"
+      value={txt}
+      onChange={(e) => {
+        // Máximo 4 decimales.
+        const v = e.target.value;
+        if (v !== '' && !/^\d*\.?\d{0,4}$/.test(v)) return;
+        setTxt(v);
+        const n = Number(v);
+        if (v !== '' && Number.isFinite(n)) setTarifa(n);
+      }}
+      className={cn(inputCls, 'w-32')}
+      placeholder="Tarifa $/h"
+    />
   );
 }
 

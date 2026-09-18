@@ -594,8 +594,9 @@ model FinanzaServicio {
   cobroFamilia  Decimal      @db.Decimal(10, 2) // paquete (prorrateo) o individual (menú)
   // Tarifas por hora por banda (M3, tarifas combinadas día/noche). Se guardan
   // para poder recalcular el cobro al extender el servicio. Null en paquete/ludoteca.
-  tarifaDia     Decimal?     @db.Decimal(10, 2)
-  tarifaNoche   Decimal?     @db.Decimal(10, 2)
+  // Hasta 4 decimales (la "otra tarifa" admite precisión fina; Mario 2026-09-18).
+  tarifaDia     Decimal?     @db.Decimal(12, 4)
+  tarifaNoche   Decimal?     @db.Decimal(12, 4)
   pagoNannie    Decimal?     @db.Decimal(10, 2) // se fija al COMPLETAR
   nivelAplicado NivelTarifa? // nivel-tarifa con el que se pagó (auditable)
   comision      Decimal?     @db.Decimal(10, 2) // manual, opcional (en blanco por defecto)
