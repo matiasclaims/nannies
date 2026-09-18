@@ -250,7 +250,10 @@ export class FinanzasService {
     const lte = new Date(`${hasta}T23:59:59.999Z`);
 
     const servicios = await this.prisma.servicio.findMany({
-      where: { estado: 'COMPLETADO', fecha: { gte, lte } },
+      // El desborde POR_DEFINIR (adeudo sin resolver) queda fuera del margen hasta
+      // definirse: su ingreso está pendiente (Mario 2026-09-18). La nannie sí cobra
+      // sus horas por nómina; al resolverse, el servicio entra al margen normal.
+      where: { estado: 'COMPLETADO', fecha: { gte, lte }, estadoCobro: { not: 'POR_DEFINIR' } },
       include: {
         nannie: { select: { nombre: true, nivelTarifaMesActual: true } },
         finanza: true,
@@ -489,6 +492,9 @@ export class FinanzasService {
           servicio: {
             formato: 'INDIVIDUAL',
             fecha: { gte, lte },
+            // Desborde de paquete POR_DEFINIR = adeudo sin resolver: NO cuenta como
+            // ingreso hasta que Paula/Jacky lo definan (Mario 2026-09-18).
+            estadoCobro: { not: 'POR_DEFINIR' },
             // Confirmados + cancelaciones que SÍ se cobraron (aviso <24h).
             OR: [
               { estado: { in: [...CONFIRMADOS] } },

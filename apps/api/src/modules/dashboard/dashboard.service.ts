@@ -76,7 +76,9 @@ export class DashboardService {
 
     // --- Ingreso no capturado: cancelaciones NO cobradas → cobro perdido ---
     const cancNoCobradas = await this.prisma.servicio.findMany({
-      where: { estado: 'CANCELADO', canceladaCobrada: false, fecha: { gte: inicioMes, lt: finMesExcl } },
+      // Solo INDIVIDUALES: cancelar una sesión de PAQUETE sin cobrar devuelve la
+      // hora al saldo (no se pierde ingreso; el paquete ya se cobró al contratarse).
+      where: { estado: 'CANCELADO', canceladaCobrada: false, formato: 'INDIVIDUAL', fecha: { gte: inicioMes, lt: finMesExcl } },
       select: { finanza: { select: { cobroFamilia: true } } },
     });
     const ingresoNoCapturado = redondea2(
@@ -208,6 +210,36 @@ export class DashboardService {
       .filter((p) => p.restantes <= 5 || p.consumidoPct >= 80)
       .sort((a, b) => a.restantes - b.restantes);
 
+    // --- Adeudos por definir: horas de DESBORDE de paquete sin facturar (la
+    //     familia usó más horas de las que le quedaban). Abiertos hasta que
+    //     Paula/Jacky decidan (individual o paquete nuevo). No se filtran por mes:
+    //     el adeudo sigue vivo hasta resolverse (Mario 2026-09-18). ---
+    const adeudosRows = await this.prisma.servicio.findMany({
+      where: { esDesborde: true, estadoCobro: 'POR_DEFINIR' },
+      orderBy: { fecha: 'asc' },
+      select: {
+        id: true,
+        fecha: true,
+        horaInicio: true,
+        horaFin: true,
+        duracionHoras: true,
+        zona: true,
+        familia: { select: { id: true, nombreContacto: true } },
+        nannie: { select: { nombre: true } },
+      },
+    });
+    const adeudosPorDefinir = adeudosRows.map((s) => ({
+      servicioId: s.id,
+      familiaId: s.familia.id,
+      familia: s.familia.nombreContacto,
+      fecha: s.fecha.toISOString().slice(0, 10),
+      horaInicio: s.horaInicio,
+      horaFin: s.horaFin,
+      horas: s.duracionHoras,
+      nannie: s.nannie?.nombre ?? 'Por asignar',
+      zona: s.zona,
+    }));
+
     // --- Horas pagadas del mes (indicador de Paula, movido de Finanzas) ---
     const ingresos = await this.finanzas.ingresos(desde, hasta);
     const horasPagadas = ingresos.horasPagadas;
@@ -243,6 +275,7 @@ export class DashboardService {
       horasPagadas,
       paquetesActivos,
       paquetesPorAgotarse,
+      adeudosPorDefinir,
       porAsignarLista,
       serviciosPorNannie,
       serviciosPorTipo,

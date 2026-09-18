@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, Matches, Min } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsOptional, Matches, Min } from 'class-validator';
 
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -14,4 +14,20 @@ export class EditarHorarioDto {
   @IsNumber()
   @Min(1)
   tarifaNoche?: number;
+
+  // DESBORDE de paquete al extender: si la extensión pide más horas de las que le
+  // quedan al saldo, qué hacer con las sobrantes (mismo criterio que al crear).
+  @IsOptional()
+  @IsIn(['INDIVIDUAL', 'PAQUETE_NUEVO', 'POR_DEFINIR'])
+  desbordeModo?: 'INDIVIDUAL' | 'PAQUETE_NUEVO' | 'POR_DEFINIR';
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  desbordeCobro?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsIn([10, 20, 30, 40, 50])
+  desbordePaqueteHoras?: number;
 }

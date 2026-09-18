@@ -7,6 +7,7 @@ import { CrearDisponibilidadDto } from './dto/crear-disponibilidad.dto';
 import { EditarDisponibilidadDto } from './dto/editar-disponibilidad.dto';
 import { CrearServicioDto } from './dto/crear-servicio.dto';
 import { EditarHorarioDto } from './dto/editar-horario.dto';
+import { ResolverDesbordeDto } from './dto/resolver-desborde.dto';
 import { OfertarDto } from './dto/ofertar.dto';
 import { ResponderOfertaDto } from './dto/responder-oferta.dto';
 import { ReasignarServicioDto } from './dto/reasignar-servicio.dto';
@@ -89,6 +90,13 @@ export class CalendarioController {
   @Patch('servicios/:id/reasignar')
   reasignar(@Param('id') id: string, @Body() dto: ReasignarServicioDto) {
     return this.calendario.reasignarServicio(id, dto.nannieId);
+  }
+
+  // Resolver un adeudo por definir (desborde de paquete). Coordinación.
+  @RequiereAccion('servicio.asignar')
+  @Patch('servicios/:id/resolver-desborde')
+  resolverDesborde(@Param('id') id: string, @Body() dto: ResolverDesbordeDto) {
+    return this.calendario.resolverDesborde(id, dto);
   }
 
   // Cancelar un servicio (la familia canceló). Coordinación.

@@ -119,6 +119,16 @@ enum EstadoPaquete {
   CANCELADO
 }
 
+// Estado de cobro a la familia de un servicio. Casi siempre DEFINIDO. POR_DEFINIR
+// marca las horas de DESBORDE de un paquete (la familia usó más horas de las que
+// le quedaban) cuya facturación aún no se decide: es un ADEUDO que Paula/Jacky
+// resuelven después (cobrar individual o pasar a un paquete nuevo). No cuenta
+// como ingreso hasta resolverse; la nannie sí cobra sus horas.
+enum EstadoCobro {
+  DEFINIDO
+  POR_DEFINIR
+}
+
 // ------------------------------------------------------------
 //  Identidad y acceso (transversal — roles desde el día 1)
 // ------------------------------------------------------------
@@ -465,6 +475,10 @@ model Servicio {
   // Reglamento PF §15-16: solo horas completas, mínimo 3.
   duracionHoras Int // se valida en el backend: entero, >= 3
   estado       EstadoServicio @default(OFERTADO)
+  // Cobro a la familia. POR_DEFINIR = horas de desborde de un paquete pendientes
+  // de facturar (adeudo). esDesborde marca que el servicio nació de un desborde.
+  estadoCobro  EstadoCobro    @default(DEFINIDO)
+  esDesborde   Boolean        @default(false)
   requierePlaneacion Boolean @default(false) // coordinación marca si la nannie debe preparar planeación
   // Cancelación (M4/§15-16): motivo y si se cobró la hora igual (aviso <24h).
   // Si se cobró, cuenta en ingresos aunque esté CANCELADO; en paquete la hora

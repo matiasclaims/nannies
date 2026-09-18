@@ -29,6 +29,89 @@ import { cn } from '@/lib/utils';
 const inputCls =
   'w-full rounded-xl border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-marca-azul focus:ring-2 focus:ring-marca-azul/20';
 
+const normTxt = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/** Buscador de familia: escribes y filtra por nombre, apellido o nombre del niño.
+ *  Excluye familias SUSPENDIDA (históricas). Reemplaza el <select> gigante. */
+function BuscadorFamilia({
+  familias,
+  valor,
+  onElegir,
+}: {
+  familias: FamiliaLite[];
+  valor: string;
+  onElegir: (id: string) => void;
+}) {
+  const [q, setQ] = useState('');
+  const [abierto, setAbierto] = useState(false);
+  const sel = familias.find((f) => f.id === valor) ?? null;
+  const textoSel = sel ? `${sel.nombreContacto}${sel.apellido ? ` ${sel.apellido}` : ''}` : '';
+
+  const resultados = useMemo(() => {
+    const activas = familias.filter((f) => !f.id.startsWith('hist')); // fuera las históricas del import
+    const nq = normTxt(q.trim());
+    const base = nq
+      ? activas.filter((f) =>
+          normTxt(`${f.nombreContacto} ${f.apellido ?? ''} ${(f.ninosNombres ?? []).join(' ')}`).includes(nq),
+        )
+      : activas;
+    return base.slice(0, 40);
+  }, [familias, q]);
+
+  return (
+    <div className="relative flex-1">
+      <input
+        type="text"
+        value={abierto ? q : textoSel}
+        placeholder="Buscar familia por nombre, apellido o niño…"
+        onFocus={() => {
+          setAbierto(true);
+          setQ('');
+        }}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setAbierto(true);
+        }}
+        onBlur={() => setTimeout(() => setAbierto(false), 120)}
+        className={inputCls}
+      />
+      {abierto && (
+        <ul className="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-borde bg-white shadow-lg">
+          {resultados.length === 0 ? (
+            <li className="px-3 py-2 text-sm text-texto-suave">Sin resultados</li>
+          ) : (
+            resultados.map((f) => (
+              <li key={f.id}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onElegir(f.id);
+                    setQ('');
+                    setAbierto(false);
+                  }}
+                  className={cn(
+                    'flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-fondo',
+                    f.id === valor && 'bg-marca-azul/5',
+                  )}
+                >
+                  <span className="font-medium text-texto-fuerte">
+                    {f.nombreContacto}
+                    {f.apellido ? ` ${f.apellido}` : ''}
+                  </span>
+                  {f.ninosNombres && f.ninosNombres.length > 0 && (
+                    <span className="text-xs text-texto-suave">{f.ninosNombres.join(', ')}</span>
+                  )}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 const RANGO_LABEL: Record<string, string> = {
   BASE: 'Base',
   ROOKIE: 'Rookie',
@@ -223,7 +306,9 @@ export default function AsignacionPage() {
     if (esQro && !form.zona.trim()) return setError('Elige la zona del servicio.');
     if (!esQro && !form.coloniaId && !form.zona.trim())
       return setError('Elige o escribe la colonia del servicio.');
-    if (duracion === null || duracion < 3)
+    if (duracion === null) return setError('El horario debe ser en horas completas.');
+    // Mínimo 3 h solo para servicios sueltos; un paquete admite sesiones <3 h.
+    if (duracion < 3 && !usaPaquete)
       return setError('El horario debe ser en horas completas y de mínimo 3 horas.');
     setBuscando(true);
     try {
@@ -312,18 +397,7 @@ export default function AsignacionPage() {
         <div className="grid gap-3 sm:grid-cols-2">
           <Campo label="Familia">
             <div className="relative flex gap-2">
-              <select
-                value={form.familiaId}
-                onChange={(e) => elegirFamilia(e.target.value)}
-                className={inputCls}
-              >
-                <option value="">Elegir familia…</option>
-                {familias.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.nombreContacto}
-                  </option>
-                ))}
-              </select>
+              <BuscadorFamilia familias={familias} valor={form.familiaId} onElegir={elegirFamilia} />
               <AltaFamilia
                 onCreada={(f) => {
                   setFamilias((prev) => [...prev, f]);

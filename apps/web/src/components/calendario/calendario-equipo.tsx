@@ -1,12 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Package } from 'lucide-react';
 import {
   api,
   type Servicio,
   type Disponibilidad,
   type NannieLite,
   type Sesion,
+  type DesbordeDecision,
 } from '@/lib/api';
 import { TIPO_LABEL, ESTADO_DISPONIBILIDAD } from '@/lib/dominio';
 import type { DiaSemana } from '@/lib/semana';
@@ -33,6 +35,7 @@ interface Bloque {
   fin: string;
   clase: string;
   etiqueta: string;
+  paquete?: boolean; // el servicio nació/es de un paquete de horas
 }
 
 // Colores estilo Google Calendar (ver dominio.ts).
@@ -122,6 +125,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
         fin: s.horaFin,
         clase: claseServicio(s.estado),
         etiqueta: `${primerNombre(s.nannieId!)} · ${TIPO_LABEL[s.tipoServicio]}`,
+        paquete: s.formato === 'PAQUETE',
       }));
     return [...disp, ...servs];
   };
@@ -146,6 +150,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
         fin: s.horaFin,
         clase: claseServicio(s.estado),
         etiqueta: `${TIPO_LABEL[s.tipoServicio]} ${s.horaInicio}–${s.horaFin}`,
+        paquete: s.formato === 'PAQUETE',
       }));
     return [...disp, ...servs];
   };
@@ -327,6 +332,11 @@ function AccionesServicio({
   // --- Horario (merodeo) ---
   const [horaFin, setHoraFin] = useState(servicio.horaFin);
   const [tarifaNoche, setTarifaNoche] = useState(140);
+  // Desborde de paquete al extender: si las horas exceden el saldo, se pregunta.
+  const [desborde, setDesborde] = useState(false);
+  const [desModo, setDesModo] = useState<'INDIVIDUAL' | 'PAQUETE_NUEVO' | 'POR_DEFINIR'>('POR_DEFINIR');
+  const [desCobro, setDesCobro] = useState('');
+  const [desPaqueteHoras, setDesPaqueteHoras] = useState(20);
   const nuevaDur = horasEntre(servicio.horaInicio, horaFin);
   const { horasNoche } = nuevaDur ? dividirDiaNoche(servicio.horaInicio, nuevaDur) : { horasNoche: 0 };
   const cruzaNoche = horasNoche > 0;
@@ -366,9 +376,35 @@ function AccionesServicio({
     }
   }
 
-  const guardarHorario = () => {
+  const guardarHorario = async () => {
     if (invalida) return setError('El horario debe dar horas completas y mínimo 3 h.');
-    return correr(() => api.editarHorario(servicio.id, horaFin, cruzaNoche ? tarifaNoche : undefined));
+    // Si ya se mostró el prompt de desborde, se reintenta con la decisión elegida.
+    if (desborde) {
+      if (desModo === 'INDIVIDUAL' && (!desCobro || Number(desCobro) <= 0)) {
+        return setError('Indica el cobro de las horas de desborde.');
+      }
+      const decision: DesbordeDecision =
+        desModo === 'INDIVIDUAL'
+          ? { desbordeModo: 'INDIVIDUAL', desbordeCobro: Number(desCobro) }
+          : desModo === 'PAQUETE_NUEVO'
+            ? { desbordeModo: 'PAQUETE_NUEVO', desbordePaqueteHoras: desPaqueteHoras }
+            : { desbordeModo: 'POR_DEFINIR' };
+      return correr(() => api.editarHorario(servicio.id, horaFin, cruzaNoche ? tarifaNoche : undefined, decision));
+    }
+    // Primer intento sin decisión: si hay desborde, el backend lo pide y mostramos
+    // el prompt (en vez de un error) para elegir cómo se cobran esas horas.
+    setBusy(true);
+    setError('');
+    try {
+      await api.editarHorario(servicio.id, horaFin, cruzaNoche ? tarifaNoche : undefined);
+      await onGuardado();
+      onClose();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'No se pudo completar la acción.';
+      setBusy(false);
+      if (/desborde/i.test(msg)) setDesborde(true);
+      else setError(msg);
+    }
   };
   const reasignar = () => nannieSel && correr(() => api.reasignarServicio(servicio.id, nannieSel));
   const cancelar = () => correr(() => api.cancelarServicio(servicio.id, cobrar, motivo.trim() || undefined));
@@ -418,17 +454,50 @@ function AccionesServicio({
         {modo === 'horario' && (
           <div className="mt-3">
             <label className="block text-xs font-medium text-texto-suave">Nueva hora fin</label>
-            <HoraSelect value={horaFin} onChange={setHoraFin} className={inputCls} />
+            <HoraSelect value={horaFin} onChange={(v) => { setHoraFin(v); setDesborde(false); }} className={inputCls} />
             {nuevaDur != null && !invalida && (
               <p className="mt-2 text-xs text-texto-suave">
                 Nueva duración: <strong className="text-texto-fuerte">{nuevaDur} h</strong>
                 {cruzaNoche && <span className="text-marca-morado"> · entra a horario de noche ({horasNoche} h)</span>}
               </p>
             )}
-            {cruzaNoche && (
+            {cruzaNoche && !desborde && (
               <div className="mt-2">
                 <label className="block text-xs font-medium text-texto-suave">Tarifa de noche ($/h, mín ${TARIFA_NOCHE_MIN})</label>
                 <input type="number" min={TARIFA_NOCHE_MIN} value={tarifaNoche} onChange={(e) => setTarifaNoche(Number(e.target.value))} className={inputCls} />
+              </div>
+            )}
+            {desborde && (
+              <div className="mt-3 rounded-xl border border-marca-rojo/40 bg-marca-rojo/5 p-2.5">
+                <p className="text-xs text-texto-fuerte">
+                  Estas horas exceden el saldo del paquete. ¿Cómo se cobran las horas de desborde?
+                </p>
+                <div className="mt-2 space-y-1.5 text-xs">
+                  {([
+                    ['POR_DEFINIR', 'Dejar por definir (adeudo)'],
+                    ['INDIVIDUAL', 'Cobrar como horas individuales'],
+                    ['PAQUETE_NUEVO', 'Pasar a un paquete nuevo'],
+                  ] as const).map(([val, label]) => (
+                    <label key={val} className="flex items-center gap-2">
+                      <input type="radio" checked={desModo === val} onChange={() => setDesModo(val)} />
+                      <span className="text-texto-fuerte">{label}</span>
+                    </label>
+                  ))}
+                </div>
+                {desModo === 'INDIVIDUAL' && (
+                  <div className="mt-2">
+                    <label className="block text-texto-suave">Cobro de las horas de desborde ($)</label>
+                    <input type="number" min={1} value={desCobro} onChange={(e) => setDesCobro(e.target.value)} className={inputCls} />
+                  </div>
+                )}
+                {desModo === 'PAQUETE_NUEVO' && (
+                  <div className="mt-2">
+                    <label className="block text-texto-suave">Tamaño del paquete nuevo</label>
+                    <select value={desPaqueteHoras} onChange={(e) => setDesPaqueteHoras(Number(e.target.value))} className={inputCls}>
+                      {[10, 20, 30, 40, 50].map((h) => <option key={h} value={h}>Paquete de {h} h</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -501,7 +570,7 @@ function AccionesServicio({
           </button>
           {modo === 'horario' && (
             <button type="button" onClick={guardarHorario} disabled={busy || invalida || (cruzaNoche && tarifaNoche < TARIFA_NOCHE_MIN)} className="rounded-lg bg-marca-azul px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
-              {busy ? 'Guardando…' : 'Guardar'}
+              {busy ? 'Guardando…' : desborde ? 'Confirmar' : 'Guardar'}
             </button>
           )}
           {modo === 'reasignar' && (
@@ -605,7 +674,7 @@ function Rejilla({
                   return (
                     <div
                       key={b.id}
-                      title={b.etiqueta}
+                      title={b.paquete ? `${b.etiqueta} · Paquete de horas` : b.etiqueta}
                       onClick={clickable ? () => onBloqueClick!(b.id) : undefined}
                       style={{
                         position: 'absolute',
@@ -620,6 +689,7 @@ function Rejilla({
                         clickable && 'cursor-pointer hover:brightness-95',
                       )}
                     >
+                      {b.paquete && <Package className="mr-0.5 inline h-2.5 w-2.5 shrink-0 align-[-1px]" aria-label="Paquete" />}
                       {b.etiqueta}
                     </div>
                   );

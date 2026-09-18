@@ -195,6 +195,25 @@ export class FamiliasService {
     };
   }
 
+  /**
+   * Elimina un paquete. Solo se permite si NO tiene servicios ligados (ni horas
+   * asignadas): un paquete con servicio otorgado no puede borrarse (Mario 2026-09-18).
+   */
+  async eliminarPaquete(paqueteId: string) {
+    const paquete = await this.prisma.paquete.findUnique({
+      where: { id: paqueteId },
+      include: { _count: { select: { servicios: true } } },
+    });
+    if (!paquete) throw new NotFoundException('Paquete no encontrado');
+    if (paquete._count.servicios > 0 || paquete.horasConsumidas > 0) {
+      throw new BadRequestException(
+        'No se puede eliminar: el paquete ya tiene horas asignadas o servicios otorgados.',
+      );
+    }
+    await this.prisma.paquete.delete({ where: { id: paqueteId } });
+    return { ok: true as const };
+  }
+
   /** Proyección de horas de un paquete: sus sesiones programadas, para el PDF
    *  que se comparte con la familia (punto 12 de la reunión M2). */
   async proyeccion(paqueteId: string) {

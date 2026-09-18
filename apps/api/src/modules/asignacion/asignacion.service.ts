@@ -177,15 +177,19 @@ export class AsignacionService {
    * a la nannie elegida. La nannie luego acepta/rechaza (flujo de M1).
    */
   async asignar(dto: AsignarDto) {
+    // Candado anti-duplicidad ANTES de crear: si la nannie ya tiene un servicio
+    // OFERTADO/ACEPTADO que se traslapa ese día, no se crea nada (Mario 2026-09-17).
+    await this.calendario.verificarSinChoque(dto.nannieId, dto.fecha, dto.horaInicio, dto.horaFin);
     const servicio = await this.calendario.crearServicio(dto);
     return this.calendario.ofertarServicio({ servicioId: servicio.id, nannieId: dto.nannieId });
   }
 
   /**
-   * Programación masiva de un paquete: genera todas las sesiones de un patrón
-   * semanal (días + horario) desde una fecha, hasta agotar las horas del paquete.
-   * Cada sesión es un servicio PAQUETE (consume horas, prorratea cobro) ofertado
-   * a la nannie elegida o dejado "por asignar". No aplica a paquetes manuales.
+   * Programación masiva de un paquete: crea una sesión por cada fecha elegida,
+   * todas con la misma nannie y el mismo horario (solo las fechas marcadas, si
+   * caben en el saldo). Cada sesión es un servicio PAQUETE (consume horas,
+   * prorratea cobro) ofertado a la nannie elegida o dejado "por asignar". No
+   * aplica a paquetes manuales.
    */
   async programarPaquete(dto: ProgramarPaqueteDto) {
     const paquete = await this.prisma.paquete.findUnique({
@@ -201,24 +205,54 @@ export class AsignacionService {
       );
     }
     const dur = (aMin(dto.horaFin) - aMin(dto.horaInicio)) / 60;
-    if (!Number.isInteger(dur) || dur < 3) {
-      throw new BadRequestException('La sesión debe ser en horas completas y de mínimo 3 h.');
+    // Sin mínimo de 3 h: son sesiones de PAQUETE (horas ya pagadas), igual que en
+    // Asignación se permite drenar el saldo sobrante <3 h (Paula/Mario 2026-09-15).
+    if (!Number.isInteger(dur) || dur < 1) {
+      throw new BadRequestException('La sesión debe ser en horas completas (mínimo 1 h).');
+    }
+
+    // Fechas elegidas (sin repetidos, ordenadas). Solo se crean estas.
+    let fechas = [...new Set(dto.fechas)].sort().map((d) => fechaUTC(d));
+
+    // Candado anti-duplicidad: si se eligió nannie, se OMITEN las fechas donde ya
+    // tiene un servicio OFERTADO/ACEPTADO que se traslapa con este horario. Las
+    // demás sí se crean (Mario 2026-09-17).
+    const omitidas: string[] = [];
+    if (dto.nannieId) {
+      const ocupados = await this.prisma.servicio.findMany({
+        where: {
+          nannieId: dto.nannieId,
+          fecha: { in: fechas },
+          estado: { in: ['OFERTADO', 'ACEPTADO'] },
+        },
+        select: { fecha: true, horaInicio: true, horaFin: true },
+      });
+      const choca = (f: Date) =>
+        ocupados.some(
+          (o) =>
+            o.fecha.getTime() === f.getTime() &&
+            o.horaInicio < dto.horaFin &&
+            dto.horaInicio < o.horaFin,
+        );
+      const libres: Date[] = [];
+      for (const f of fechas) {
+        if (choca(f)) omitidas.push(f.toISOString().slice(0, 10));
+        else libres.push(f);
+      }
+      fechas = libres;
+    }
+    if (fechas.length === 0) {
+      throw new BadRequestException(
+        'Todas las fechas elegidas chocan con servicios ya asignados a esta nannie.',
+      );
     }
 
     const restantes = paquete.horasTotales - paquete.horasConsumidas;
-    const maxSesiones = Math.floor(restantes / dur);
-    if (maxSesiones < 1) {
-      throw new BadRequestException('El paquete no tiene horas suficientes para una sesión.');
-    }
-
-    // Genera fechas del patrón hasta llenar las sesiones que caben en el saldo.
-    const fechas: Date[] = [];
-    const cursor = fechaUTC(dto.fechaInicio);
-    let guarda = 0;
-    while (fechas.length < maxSesiones && guarda < 400) {
-      if (dto.diasSemana.includes(cursor.getUTCDay())) fechas.push(new Date(cursor));
-      cursor.setUTCDate(cursor.getUTCDate() + 1);
-      guarda++;
+    const horasPedidas = fechas.length * dur;
+    if (horasPedidas > restantes) {
+      throw new BadRequestException(
+        `Las fechas seleccionadas suman ${horasPedidas} h y el paquete solo tiene ${restantes} h disponibles.`,
+      );
     }
 
     const cobroPorSesion = Math.round((Number(paquete.precioTotal) / paquete.horasTotales) * dur * 100) / 100;
@@ -258,6 +292,7 @@ export class AsignacionService {
       return {
         creados: fechas.length,
         fechas: fechas.map((f) => f.toISOString().slice(0, 10)),
+        omitidas,
         horasConsumidas: fechas.length * dur,
         restantes: restantes - fechas.length * dur,
       };

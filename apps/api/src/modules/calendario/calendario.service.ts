@@ -4,15 +4,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, TipoServicio, EstadoServicio } from '@prisma/client';
+import { Prisma, TipoServicio, EstadoServicio, Plaza } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
+import { tramoPorHoras } from '../familias/paquetes.tarifa';
 import { CrearDisponibilidadDto } from './dto/crear-disponibilidad.dto';
 import { EditarDisponibilidadDto } from './dto/editar-disponibilidad.dto';
 import { CrearServicioDto } from './dto/crear-servicio.dto';
 import { OfertarDto } from './dto/ofertar.dto';
 import { ResponderOfertaDto } from './dto/responder-oferta.dto';
 import { EditarHorarioDto } from './dto/editar-horario.dto';
+import { ResolverDesbordeDto } from './dto/resolver-desborde.dto';
 import { dividirDiaNoche, TARIFA_NOCHE_MIN } from '../finanzas/dividir-dia-noche';
 import { tarifasZonaQro } from '../finanzas/queretaro-tarifas';
 
@@ -152,6 +154,11 @@ export class CalendarioService {
     if (dto.formato === 'PAQUETE' && !dto.paqueteId) {
       throw new BadRequestException('Un servicio de paquete requiere paqueteId');
     }
+    // Mínimo de 3 h solo para servicios sueltos/individuales (piso de cobro). Un
+    // servicio de PAQUETE puede ser de 1-2 h (horas ya pagadas). Opción B, Mario 2026-09-15.
+    if (dto.formato !== 'PAQUETE' && dto.duracionHoras < 3) {
+      throw new BadRequestException('El mínimo de horas por servicio es 3');
+    }
     // M3 · cobro individual al CREAR. Querétaro: esquema por zona (sin Ludoteca);
     // fiesta por hora, individuales con bandas por NIVEL (día: Básico/Interm/Premium;
     // noche: solo Interm/Premium). Toluca: Ludoteca por `cobroTotal`; los demás por
@@ -251,13 +258,15 @@ export class CalendarioService {
         throw new BadRequestException('El paquete no pertenece a esta familia.');
       }
       const restantes = paquete.horasTotales - paquete.horasConsumidas;
-      if (dto.duracionHoras > restantes) {
-        throw new BadRequestException(
-          `El paquete tiene ${restantes} h disponibles y el servicio pide ${dto.duracionHoras} h. ` +
-            'Renueva el paquete o cóbralo como horas sueltas (se habilita en Finanzas · M3).',
-        );
-      }
-      const consumidas = paquete.horasConsumidas + dto.duracionHoras;
+      // DESBORDE: si el servicio pide más horas de las que quedan, el paquete
+      // cubre las que puede y el resto se maneja aparte (ya no se bloquea).
+      // Sin mínimo de 3 h para la parte de PAQUETE (Paula/Mario 2026-09-15): son
+      // horas ya pagadas. El mínimo de 3 h solo aplica a sueltas/individuales.
+      const horasPaquete = Math.min(dto.duracionHoras, restantes);
+      const horasDesborde = dto.duracionHoras - horasPaquete;
+      const horaFinPaquete = horasDesborde > 0 ? sumarHoras(dto.horaInicio, horasPaquete) : dto.horaFin;
+
+      const consumidas = paquete.horasConsumidas + horasPaquete;
       await tx.paquete.update({
         where: { id: paquete.id },
         data: {
@@ -265,13 +274,38 @@ export class CalendarioService {
           estado: consumidas >= paquete.horasTotales ? 'CONSUMIDO' : 'ACTIVO',
         },
       });
-      const servicio = await tx.servicio.create({ data });
+      const servicio = await tx.servicio.create({
+        data: { ...data, horaFin: horaFinPaquete, duracionHoras: horasPaquete },
+      });
       const cobroProrrateado = redondea2(
-        (Number(paquete.precioTotal) / paquete.horasTotales) * dto.duracionHoras,
+        (Number(paquete.precioTotal) / paquete.horasTotales) * horasPaquete,
       );
       await tx.finanzaServicio.create({
         data: { servicioId: servicio.id, cobroFamilia: cobroProrrateado },
       });
+
+      if (horasDesborde > 0) {
+        await this.crearServicioDesborde(
+          tx,
+          {
+            familiaId: dto.familiaId,
+            nannieId: null, // el servicio base aún no tiene nannie (la fija ofertar)
+            plaza: dto.plaza,
+            zona: dto.zona,
+            direccion: dto.direccion?.trim() || null,
+            coloniaId: dto.coloniaId ?? null,
+            tipoServicio: dto.tipoServicio,
+            numNinos: dto.numNinos,
+            fecha: fecha(dto.fecha)!,
+            estado: 'OFERTADO',
+            requierePlaneacion: dto.requierePlaneacion ?? false,
+          },
+          horaFinPaquete,
+          dto.horaFin,
+          horasDesborde,
+          dto,
+        );
+      }
       return servicio;
     });
   }
@@ -305,16 +339,21 @@ export class CalendarioService {
     if (nuevaDur === servicio.duracionHoras) return servicio; // sin cambio
 
     return this.prisma.$transaction(async (tx) => {
-      // Paquete: ajusta las horas consumidas por el delta (con saldo).
+      // Por defecto la duración/fin nuevos son los pedidos. En PAQUETE con
+      // DESBORDE, la parte del paquete se limita al saldo y el resto se crea
+      // aparte (ya no se bloquea la extensión).
+      let durBase = nuevaDur;
+      let finBase = dto.horaFin;
+      let horasDesborde = 0;
+
       if (servicio.formato === 'PAQUETE' && servicio.paquete) {
         const delta = nuevaDur - servicio.duracionHoras;
         const restantes = servicio.paquete.horasTotales - servicio.paquete.horasConsumidas;
-        if (delta > restantes) {
-          throw new BadRequestException(
-            `El paquete solo tiene ${restantes} h disponibles para extender el servicio.`,
-          );
-        }
-        const consumidas = servicio.paquete.horasConsumidas + delta;
+        const deltaPaquete = Math.min(delta, restantes); // lo que el saldo puede absorber
+        horasDesborde = delta - deltaPaquete;
+        durBase = servicio.duracionHoras + deltaPaquete;
+        finBase = horasDesborde > 0 ? sumarHoras(servicio.horaInicio, durBase) : dto.horaFin;
+        const consumidas = servicio.paquete.horasConsumidas + deltaPaquete;
         await tx.paquete.update({
           where: { id: servicio.paquete.id },
           data: {
@@ -324,15 +363,15 @@ export class CalendarioService {
         });
       }
 
-      // Recalcula el cobro según el formato.
+      // Recalcula el cobro de la parte base según el formato.
       let nuevoCobro: number;
       let nuevaTarifaNoche = servicio.finanza?.tarifaNoche ? Number(servicio.finanza.tarifaNoche) : null;
       if (servicio.formato === 'PAQUETE' && servicio.paquete) {
         nuevoCobro = redondea2(
-          (Number(servicio.paquete.precioTotal) / servicio.paquete.horasTotales) * nuevaDur,
+          (Number(servicio.paquete.precioTotal) / servicio.paquete.horasTotales) * durBase,
         );
       } else if (servicio.finanza?.tarifaDia != null || servicio.finanza?.tarifaNoche != null) {
-        const { horasDia, horasNoche } = dividirDiaNoche(servicio.horaInicio, nuevaDur);
+        const { horasDia, horasNoche } = dividirDiaNoche(servicio.horaInicio, durBase);
         const td = servicio.finanza.tarifaDia ? Number(servicio.finanza.tarifaDia) : 0;
         let tn = nuevaTarifaNoche ?? 0;
         if (horasNoche > 0 && tn <= 0) {
@@ -359,7 +398,7 @@ export class CalendarioService {
 
       const actualizado = await tx.servicio.update({
         where: { id: servicioId },
-        data: { horaFin: dto.horaFin, duracionHoras: nuevaDur },
+        data: { horaFin: finBase, duracionHoras: durBase },
       });
       if (servicio.finanza) {
         await tx.finanzaServicio.update({
@@ -367,8 +406,192 @@ export class CalendarioService {
           data: { cobroFamilia: nuevoCobro, tarifaNoche: nuevaTarifaNoche },
         });
       }
+
+      // Desborde de la extensión: las horas que no cupieron en el saldo del
+      // paquete se crean como servicio contiguo (misma nannie), según la decisión.
+      if (horasDesborde > 0) {
+        await this.crearServicioDesborde(
+          tx,
+          {
+            familiaId: servicio.familiaId,
+            nannieId: servicio.nannieId,
+            plaza: servicio.plaza,
+            zona: servicio.zona,
+            direccion: servicio.direccion,
+            coloniaId: servicio.coloniaId,
+            tipoServicio: servicio.tipoServicio,
+            numNinos: servicio.numNinos,
+            fecha: servicio.fecha,
+            estado: servicio.estado,
+            requierePlaneacion: servicio.requierePlaneacion,
+          },
+          finBase,
+          dto.horaFin,
+          horasDesborde,
+          dto,
+        );
+      }
       return actualizado;
     });
+  }
+
+  /**
+   * Crea el servicio de DESBORDE: las horas que un servicio de paquete pidió de
+   * más y que el saldo no cubrió. Es un servicio contiguo (misma nannie/fecha,
+   * arranca donde acaba la parte cubierta). Según la decisión de coordinación:
+   *  - INDIVIDUAL: se cobra al tabulador de sueltas (monto que captura coordinación).
+   *  - PAQUETE_NUEVO: crea un paquete nuevo y consume el desborde de él (prorrateo).
+   *  - POR_DEFINIR: queda como ADEUDO (estadoCobro POR_DEFINIR, sin cobro) para
+   *    resolverse después. En los tres casos la nannie SÍ cobra sus horas (nómina
+   *    paga por duración del servicio COMPLETADO). Sin mínimo de 3 h (son sobrantes).
+   */
+  private async crearServicioDesborde(
+    tx: Prisma.TransactionClient,
+    origen: {
+      familiaId: string;
+      nannieId: string | null;
+      plaza: Plaza;
+      zona: string;
+      direccion: string | null;
+      coloniaId: string | null;
+      tipoServicio: TipoServicio;
+      numNinos: number;
+      fecha: Date;
+      estado: EstadoServicio;
+      requierePlaneacion: boolean;
+    },
+    horaInicio: string,
+    horaFin: string,
+    horas: number,
+    decision: {
+      desbordeModo?: 'INDIVIDUAL' | 'PAQUETE_NUEVO' | 'POR_DEFINIR';
+      desbordeCobro?: number;
+      desbordePaqueteHoras?: number;
+    },
+  ): Promise<void> {
+    if (!decision.desbordeModo) {
+      throw new BadRequestException(
+        `El servicio pide ${horas} h más de las que le quedan al paquete. Indica qué hacer con ese ` +
+          'desborde: cobrarlo individual, pasarlo a un paquete nuevo, o dejarlo por definir (adeudo).',
+      );
+    }
+
+    const base: Prisma.ServicioCreateInput = {
+      familia: { connect: { id: origen.familiaId } },
+      ...(origen.nannieId ? { nannie: { connect: { id: origen.nannieId } } } : {}),
+      plaza: origen.plaza,
+      zona: origen.zona,
+      ...(origen.direccion ? { direccion: origen.direccion } : {}),
+      ...(origen.coloniaId ? { coloniaToluca: { connect: { id: origen.coloniaId } } } : {}),
+      tipoServicio: origen.tipoServicio,
+      numNinos: origen.numNinos,
+      requierePlaneacion: origen.requierePlaneacion,
+      fecha: origen.fecha,
+      horaInicio,
+      horaFin,
+      duracionHoras: horas,
+      estado: origen.estado,
+      esDesborde: true,
+      formato: 'INDIVIDUAL',
+    };
+
+    if (decision.desbordeModo === 'POR_DEFINIR') {
+      const s = await tx.servicio.create({ data: { ...base, estadoCobro: 'POR_DEFINIR' } });
+      await tx.finanzaServicio.create({ data: { servicioId: s.id, cobroFamilia: 0 } });
+      return;
+    }
+
+    if (decision.desbordeModo === 'INDIVIDUAL') {
+      if (!decision.desbordeCobro) {
+        throw new BadRequestException('Falta el cobro de las horas de desborde individuales.');
+      }
+      const s = await tx.servicio.create({ data: { ...base, estadoCobro: 'DEFINIDO' } });
+      await tx.finanzaServicio.create({
+        data: { servicioId: s.id, cobroFamilia: redondea2(decision.desbordeCobro) },
+      });
+      return;
+    }
+
+    // PAQUETE_NUEVO: crea un paquete nuevo del tabulador y consume el desborde.
+    const tramo = tramoPorHoras(decision.desbordePaqueteHoras ?? 0);
+    if (!tramo) {
+      throw new BadRequestException('Elige un tamaño de paquete válido (10, 20, 30, 40 o 50 h) para el desborde.');
+    }
+    if (horas > tramo.horas) {
+      throw new BadRequestException(`El desborde de ${horas} h no cabe en un paquete de ${tramo.horas} h.`);
+    }
+    const nuevo = await tx.paquete.create({
+      data: {
+        familia: { connect: { id: origen.familiaId } },
+        horasTotales: tramo.horas,
+        horasConsumidas: horas,
+        precioTotal: tramo.precioTotal,
+        estado: horas >= tramo.horas ? 'CONSUMIDO' : 'ACTIVO',
+        fechaContratacion: origen.fecha,
+      },
+    });
+    const cobro = redondea2((tramo.precioTotal / tramo.horas) * horas);
+    const s = await tx.servicio.create({
+      data: { ...base, formato: 'PAQUETE', estadoCobro: 'DEFINIDO', paquete: { connect: { id: nuevo.id } } },
+    });
+    await tx.finanzaServicio.create({ data: { servicioId: s.id, cobroFamilia: cobro } });
+  }
+
+  /**
+   * Resuelve un ADEUDO por definir (servicio de desborde POR_DEFINIR). Coordinación
+   * decide cómo se factura: INDIVIDUAL (fija el cobro) o PAQUETE_NUEVO (crea un
+   * paquete nuevo y consume de él las horas). Al resolverse, el servicio pasa a
+   * estadoCobro DEFINIDO y su ingreso ya cuenta en Finanzas (Mario 2026-09-18).
+   */
+  async resolverDesborde(servicioId: string, dto: ResolverDesbordeDto) {
+    const servicio = await this.prisma.servicio.findUnique({ where: { id: servicioId } });
+    if (!servicio) throw new NotFoundException('Servicio no encontrado');
+    if (!servicio.esDesborde || servicio.estadoCobro !== 'POR_DEFINIR') {
+      throw new BadRequestException('Este servicio no es un adeudo por definir.');
+    }
+
+    if (dto.modo === 'INDIVIDUAL') {
+      if (!dto.cobro) throw new BadRequestException('Falta el cobro de las horas.');
+      await this.prisma.$transaction(async (tx) => {
+        await tx.finanzaServicio.update({
+          where: { servicioId },
+          data: { cobroFamilia: redondea2(dto.cobro!) },
+        });
+        await tx.servicio.update({ where: { id: servicioId }, data: { estadoCobro: 'DEFINIDO' } });
+      });
+      return { ok: true as const, modo: 'INDIVIDUAL' as const };
+    }
+
+    // PAQUETE_NUEVO: crea el paquete nuevo y liga el desborde para consumirlo.
+    const tramo = tramoPorHoras(dto.paqueteHoras ?? 0);
+    if (!tramo) {
+      throw new BadRequestException('Elige un tamaño de paquete válido (10, 20, 30, 40 o 50 h).');
+    }
+    if (servicio.duracionHoras > tramo.horas) {
+      throw new BadRequestException(
+        `El desborde de ${servicio.duracionHoras} h no cabe en un paquete de ${tramo.horas} h.`,
+      );
+    }
+    const nuevoId = await this.prisma.$transaction(async (tx) => {
+      const nuevo = await tx.paquete.create({
+        data: {
+          familia: { connect: { id: servicio.familiaId } },
+          horasTotales: tramo.horas,
+          horasConsumidas: servicio.duracionHoras,
+          precioTotal: tramo.precioTotal,
+          estado: servicio.duracionHoras >= tramo.horas ? 'CONSUMIDO' : 'ACTIVO',
+          fechaContratacion: servicio.fecha,
+        },
+      });
+      const cobro = redondea2((tramo.precioTotal / tramo.horas) * servicio.duracionHoras);
+      await tx.finanzaServicio.update({ where: { servicioId }, data: { cobroFamilia: cobro } });
+      await tx.servicio.update({
+        where: { id: servicioId },
+        data: { estadoCobro: 'DEFINIDO', formato: 'PAQUETE', paquete: { connect: { id: nuevo.id } } },
+      });
+      return nuevo.id;
+    });
+    return { ok: true as const, modo: 'PAQUETE_NUEVO' as const, paqueteId: nuevoId };
   }
 
   /** Marca un servicio ACEPTADO como COMPLETADO. Solo la nannie asignada
@@ -429,6 +652,9 @@ export class CalendarioService {
     }
     const nannie = await this.prisma.nannie.findUnique({ where: { id: nannieId }, select: { id: true } });
     if (!nannie) throw new BadRequestException('Nannie no encontrada.');
+    // Candado anti-duplicidad: la nueva nannie no debe tener otro servicio que se
+    // traslape ese día (excluyendo este mismo).
+    await this.verificarSinChoque(nannieId, servicio.fecha, servicio.horaInicio, servicio.horaFin, servicio.id);
     await this.prisma.servicio.update({
       where: { id: servicioId },
       data: { nannieId, estado: 'ACEPTADO' },
@@ -519,6 +745,37 @@ export class CalendarioService {
     });
   }
 
+  /**
+   * Lanza si `nannieId` ya tiene OTRO servicio OFERTADO/ACEPTADO ese día cuyo
+   * horario se traslapa (candado anti-duplicidad; Mario 2026-09-17). El estado
+   * OFERTADO ya cuenta como ocupada, aunque la nannie no haya aceptado todavía.
+   */
+  async verificarSinChoque(
+    nannieId: string,
+    dia: Date | string,
+    horaInicio: string,
+    horaFin: string,
+    excluirServicioId?: string,
+  ): Promise<void> {
+    const f = typeof dia === 'string' ? fecha(dia)! : dia;
+    const otros = await this.prisma.servicio.findMany({
+      where: {
+        nannieId,
+        fecha: f,
+        estado: { in: ['OFERTADO', 'ACEPTADO'] },
+        ...(excluirServicioId ? { id: { not: excluirServicioId } } : {}),
+      },
+      select: { horaInicio: true, horaFin: true },
+    });
+    const choca = otros.find((s) => s.horaInicio < horaFin && horaInicio < s.horaFin);
+    if (choca) {
+      throw new BadRequestException(
+        `Esta nannie ya tiene un servicio de ${choca.horaInicio} a ${choca.horaFin} ese día. ` +
+          `Para evitar duplicidad, no se le puede asignar otro que se traslape.`,
+      );
+    }
+  }
+
   /** Ofertar un servicio a una nannie: fija nannie + estado OFERTADO. */
   async ofertarServicio(dto: OfertarDto) {
     const servicio = await this.prisma.servicio.findUnique({ where: { id: dto.servicioId } });
@@ -528,6 +785,15 @@ export class CalendarioService {
     }
     const nannie = await this.prisma.nannie.findUnique({ where: { id: dto.nannieId } });
     if (!nannie) throw new BadRequestException('Nannie no encontrada');
+    // No permitir doble-asignación: la nannie no debe tener otro servicio que se
+    // traslape ese día (excluyendo este mismo, por si se re-oferta).
+    await this.verificarSinChoque(
+      dto.nannieId,
+      servicio.fecha,
+      servicio.horaInicio,
+      servicio.horaFin,
+      servicio.id,
+    );
 
     return this.prisma.servicio.update({
       where: { id: dto.servicioId },

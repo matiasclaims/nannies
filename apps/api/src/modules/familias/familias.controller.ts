@@ -81,6 +81,12 @@ export class FamiliasController {
     return this.familias.crearPaquete(id, dto);
   }
 
+  @RequiereAccion('familia.gestionar')
+  @Delete('paquetes/:paqueteId')
+  eliminarPaquete(@Param('paqueteId') paqueteId: string) {
+    return this.familias.eliminarPaquete(paqueteId);
+  }
+
   // --- M5 · Niños (perfil de familia) ---
   @RequiereAccion('familia.gestionar')
   @Post(':id/ninos')

@@ -349,6 +349,7 @@ export interface Dashboard {
   horasPagadas: number;
   paquetesActivos: number;
   paquetesPorAgotarse: { paqueteId: string; familiaId: string; familia: string; horasTotales: number; restantes: number; consumidoPct: number; desde: string }[];
+  adeudosPorDefinir: { servicioId: string; familiaId: string; familia: string; fecha: string; horaInicio: string; horaFin: string; horas: number; nannie: string; zona: string }[];
   porAsignarLista: { servicioId: string; fecha: string; horaInicio: string; familiaId: string; familia: string; zona: string; tipoServicio: TipoServicio }[];
   serviciosPorNannie: { nannieId: string; nombre: string; color: string | null; plaza: Plaza; total: number }[];
   serviciosPorTipo: { tipo: TipoServicio; total: number }[];
@@ -780,7 +781,18 @@ export interface NuevoServicio {
   horaInicio: string;
   horaFin: string;
   duracionHoras: number;
+  // Desborde de paquete: qué hacer con las horas que exceden el saldo.
+  desbordeModo?: 'INDIVIDUAL' | 'PAQUETE_NUEVO' | 'POR_DEFINIR';
+  desbordeCobro?: number;
+  desbordePaqueteHoras?: number;
 }
+
+/** Decisión de desborde para el flujo de extender (merodeo). */
+export type DesbordeDecision = {
+  desbordeModo: 'INDIVIDUAL' | 'PAQUETE_NUEVO' | 'POR_DEFINIR';
+  desbordeCobro?: number;
+  desbordePaqueteHoras?: number;
+};
 
 function qs(params: Record<string, string | undefined>): string {
   const p = new URLSearchParams();
@@ -849,11 +861,19 @@ export const api = {
   ) => req<{ ok: boolean }>(`/reportes/servicio/${servicioId}`, { method: 'PUT', body: JSON.stringify(dto) }),
   completarServicio: (servicioId: string) =>
     req<Servicio>(`/calendario/servicios/${servicioId}/completar`, { method: 'POST' }),
-  editarHorario: (servicioId: string, horaFin: string, tarifaNoche?: number) =>
+  editarHorario: (servicioId: string, horaFin: string, tarifaNoche?: number, desborde?: DesbordeDecision) =>
     req<Servicio>(`/calendario/servicios/${servicioId}/horario`, {
       method: 'PATCH',
-      body: JSON.stringify({ horaFin, ...(tarifaNoche != null ? { tarifaNoche } : {}) }),
+      body: JSON.stringify({ horaFin, ...(tarifaNoche != null ? { tarifaNoche } : {}), ...(desborde ?? {}) }),
     }),
+  resolverDesborde: (
+    servicioId: string,
+    body: { modo: 'INDIVIDUAL' | 'PAQUETE_NUEVO'; cobro?: number; paqueteHoras?: number },
+  ) =>
+    req<{ ok: true; modo: string; paqueteId?: string }>(
+      `/calendario/servicios/${servicioId}/resolver-desborde`,
+      { method: 'PATCH', body: JSON.stringify(body) },
+    ),
   reasignarServicio: (servicioId: string, nannieId: string) =>
     req<{ ok: true }>(`/calendario/servicios/${servicioId}/reasignar`, {
       method: 'PATCH',
@@ -904,6 +924,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ horas, asignacionManual }),
     }),
+  eliminarPaquete: (paqueteId: string) =>
+    req<{ ok: true }>(`/familias/paquetes/${paqueteId}`, { method: 'DELETE' }),
   // M5 · Perfil de familia
   perfilFamilia: (id: string) => req<PerfilFamilia>(`/familias/${id}`),
   // M5 · Ficha operativa (vista de la nannie asignada)
@@ -920,16 +942,15 @@ export const api = {
     req<{ ok: true }>(`/familias/notas/${notaId}`, { method: 'DELETE' }),
   programarPaquete: (body: {
     paqueteId: string;
-    diasSemana: number[];
+    fechas: string[];
     horaInicio: string;
     horaFin: string;
-    fechaInicio: string;
     tipoServicio: TipoServicio;
     numNinos: number;
     zona: string;
     nannieId?: string;
   }) =>
-    req<{ creados: number; fechas: string[]; horasConsumidas: number; restantes: number }>(
+    req<{ creados: number; fechas: string[]; omitidas: string[]; horasConsumidas: number; restantes: number }>(
       '/asignacion/programar-paquete',
       { method: 'POST', body: JSON.stringify(body) },
     ),

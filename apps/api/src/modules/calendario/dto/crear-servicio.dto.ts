@@ -105,6 +105,27 @@ export class CrearServicioDto {
   horaFin!: string;
 
   @IsInt({ message: 'duracionHoras debe ser entero (solo horas completas)' })
-  @Min(3, { message: 'El mínimo de horas por servicio es 3' })
+  // Mínimo 1 aquí; la regla de "mínimo 3" se aplica en el servicio, con la
+  // excepción de drenar el saldo sobrante (<3 h) de un paquete.
+  @Min(1, { message: 'La duración debe ser de al menos 1 hora' })
   duracionHoras!: number;
+
+  // DESBORDE de paquete: si un servicio de PAQUETE pide más horas de las que le
+  // quedan al saldo, qué hacer con las horas sobrantes. Requerido solo cuando hay
+  // desborde. INDIVIDUAL → cobra al tabulador de sueltas (usa desbordeCobro);
+  // PAQUETE_NUEVO → crea un paquete nuevo (usa desbordePaqueteHoras) y lo consume;
+  // POR_DEFINIR → queda como adeudo para que Paula/Jacky lo resuelvan después.
+  @IsOptional()
+  @IsIn(['INDIVIDUAL', 'PAQUETE_NUEVO', 'POR_DEFINIR'])
+  desbordeModo?: 'INDIVIDUAL' | 'PAQUETE_NUEVO' | 'POR_DEFINIR';
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  desbordeCobro?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsIn([10, 20, 30, 40, 50])
+  desbordePaqueteHoras?: number;
 }

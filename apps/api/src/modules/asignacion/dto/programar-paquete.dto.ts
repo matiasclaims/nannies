@@ -15,29 +15,25 @@ import { TipoServicio } from '@prisma/client';
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /**
- * Programación masiva de un paquete: genera todas las sesiones de un patrón
- * semanal (días + horario) desde una fecha, hasta agotar las horas del paquete.
+ * Programación masiva de un paquete: crea de un jalón una sesión por cada fecha
+ * seleccionada, todas con la misma nannie y el mismo horario. Solo se crean las
+ * fechas elegidas (mientras quepan en el saldo del paquete).
  */
 export class ProgramarPaqueteDto {
   @IsString()
   paqueteId!: string;
 
-  // Días de la semana (0=domingo … 6=sábado) en que se repite la sesión.
+  // Fechas específicas (YYYY-MM-DD) en que se crea una sesión del paquete.
   @IsArray()
   @ArrayNotEmpty()
-  @IsInt({ each: true })
-  @Min(0, { each: true })
-  @Max(6, { each: true })
-  diasSemana!: number[];
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { each: true, message: 'cada fecha debe ser YYYY-MM-DD' })
+  fechas!: string[];
 
   @Matches(HORA, { message: 'horaInicio debe ser HH:mm' })
   horaInicio!: string;
 
   @Matches(HORA, { message: 'horaFin debe ser HH:mm' })
   horaFin!: string;
-
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'fechaInicio debe ser YYYY-MM-DD' })
-  fechaInicio!: string;
 
   @IsEnum(TipoServicio)
   tipoServicio!: TipoServicio;

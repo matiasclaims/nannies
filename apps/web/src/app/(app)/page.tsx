@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, type ElementType, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ElementType, type ReactNode } from 'react';
 import Link from 'next/link';
-import { CalendarDays, TrendingUp, MapPin, XCircle, Activity, PieChart, Package, Star, Maximize2, X, Plus, UserPlus, Users, FileText, type LucideIcon } from 'lucide-react';
+import { CalendarDays, TrendingUp, MapPin, XCircle, Activity, PieChart, Package, Star, Maximize2, X, Plus, UserPlus, Users, FileText, AlertCircle, type LucideIcon } from 'lucide-react';
 import { api, type Sesion, type Dashboard, type MiPanorama, type TipoServicio } from '@/lib/api';
 import { ESTADO_SERVICIO, TIPO_LABEL } from '@/lib/dominio';
 import { RANGO_LABEL, NIVEL_LABEL } from '@/lib/nannie-ui';
@@ -30,10 +30,14 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
   const hoy = fechaHoy();
   const [d, setD] = useState<Dashboard | null>(null);
   const [expandir, setExpandir] = useState<{ titulo: string; datos: Dashboard['serviciosPorNannie'] } | null>(null);
+  const [resolver, setResolver] = useState<Dashboard['adeudosPorDefinir'][number] | null>(null);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
     api.dashboard().then(setD).catch(() => undefined);
   }, []);
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
 
   const nanniesTol = (d?.serviciosPorNannie ?? []).filter((n) => n.plaza === 'TOLUCA');
   const nanniesQro = (d?.serviciosPorNannie ?? []).filter((n) => n.plaza === 'QUERETARO');
@@ -58,7 +62,7 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
         <AccionRapida href="/asignacion" icon={Plus} label="Nuevo servicio" />
         <AccionRapida href="/familias" icon={UserPlus} label="Nueva familia" />
         <AccionRapida href="/nannies" icon={Users} label="Agregar nannie" />
-        <AccionRapida href="/calendario" icon={CalendarDays} label="Calendario de hoy" />
+        <AccionRapida href="/hoy" icon={CalendarDays} label="Calendario de hoy" />
         <AccionRapida href="/reportes" icon={FileText} label="Reportes" />
       </section>
 
@@ -118,6 +122,33 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
           </div>
         ) : (
           <Vacio texto={d ? 'Ningún paquete por agotarse.' : 'Cargando…'} />
+        )}
+      </Panel>
+
+      {/* Alerta: adeudos por definir (horas de desborde de paquete sin facturar) */}
+      <Panel titulo={`Adeudos por definir${d && d.adeudosPorDefinir.length ? ` (${d.adeudosPorDefinir.length})` : ''}`} icon={AlertCircle}>
+        {d && d.adeudosPorDefinir.length > 0 ? (
+          <div className="divide-y divide-borde">
+            {d.adeudosPorDefinir.map((a) => (
+              <div key={a.servicioId} className="flex items-center gap-2 px-1.5 py-2 text-xs">
+                <span className="min-w-0 flex-1 truncate">
+                  <Link href={`/familias/${a.familiaId}`} className="font-medium text-texto-fuerte hover:text-marca-azul hover:underline">
+                    {a.familia}
+                  </Link>
+                  <span className="text-texto-suave"> · {a.fecha} · {a.horaInicio}–{a.horaFin} · {a.nannie}</span>
+                </span>
+                <span className="shrink-0 font-semibold text-marca-rojo">{a.horas} h</span>
+                <button
+                  onClick={() => setResolver(a)}
+                  className="shrink-0 rounded-lg bg-marca-azul px-2.5 py-1 font-semibold text-white transition hover:brightness-95"
+                >
+                  Resolver
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Vacio texto={d ? 'Sin adeudos por definir.' : 'Cargando…'} />
         )}
       </Panel>
 
@@ -207,6 +238,116 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
       </section>
 
       {expandir && <ModalDona titulo={expandir.titulo} datos={expandir.datos} onCerrar={() => setExpandir(null)} />}
+      {resolver && (
+        <ModalResolverAdeudo adeudo={resolver} onCerrar={() => setResolver(null)} onResuelto={() => { setResolver(null); cargar(); }} />
+      )}
+    </div>
+  );
+}
+
+/** Modal para resolver un adeudo por definir: cobrarlo individual o pasarlo a un
+ *  paquete nuevo. Al resolver, refresca el dashboard. */
+function ModalResolverAdeudo({
+  adeudo,
+  onCerrar,
+  onResuelto,
+}: {
+  adeudo: Dashboard['adeudosPorDefinir'][number];
+  onCerrar: () => void;
+  onResuelto: () => void;
+}) {
+  const [modo, setModo] = useState<'INDIVIDUAL' | 'PAQUETE_NUEVO'>('INDIVIDUAL');
+  const [cobro, setCobro] = useState('');
+  const [paqueteHoras, setPaqueteHoras] = useState(20);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function guardar() {
+    setError('');
+    if (modo === 'INDIVIDUAL' && (!cobro || Number(cobro) <= 0)) {
+      return setError('Indica el cobro de las horas.');
+    }
+    setBusy(true);
+    try {
+      await api.resolverDesborde(
+        adeudo.servicioId,
+        modo === 'INDIVIDUAL'
+          ? { modo: 'INDIVIDUAL', cobro: Number(cobro) }
+          : { modo: 'PAQUETE_NUEVO', paqueteHoras },
+      );
+      onResuelto();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo resolver.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const radio = 'flex items-start gap-2 rounded-xl border p-3 text-left text-sm cursor-pointer transition';
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCerrar}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-texto-fuerte">Resolver adeudo</h2>
+          <button onClick={onCerrar} className="text-texto-suave hover:text-texto-fuerte"><X className="h-5 w-5" /></button>
+        </div>
+        <p className="mb-4 text-xs text-texto-suave">
+          <strong>{adeudo.familia}</strong> · {adeudo.fecha} · {adeudo.horas} h de desborde ({adeudo.nannie}). ¿Cómo se
+          cobran estas horas?
+        </p>
+
+        <div className="space-y-2">
+          <label className={cn(radio, modo === 'INDIVIDUAL' ? 'border-marca-azul bg-marca-azul/5' : 'border-borde')}>
+            <input type="radio" checked={modo === 'INDIVIDUAL'} onChange={() => setModo('INDIVIDUAL')} className="mt-0.5" />
+            <span className="flex-1">
+              <span className="font-medium text-texto-fuerte">Cobrar como horas individuales</span>
+              <span className="block text-xs text-texto-suave">Se factura al monto que captures.</span>
+              {modo === 'INDIVIDUAL' && (
+                <span className="mt-2 flex items-center gap-1">
+                  <span className="text-texto-suave">$</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={cobro}
+                    onChange={(e) => setCobro(e.target.value)}
+                    placeholder={`Cobro por las ${adeudo.horas} h`}
+                    className="w-full rounded-lg border border-borde px-2 py-1 text-sm outline-none focus:border-marca-azul"
+                  />
+                </span>
+              )}
+            </span>
+          </label>
+
+          <label className={cn(radio, modo === 'PAQUETE_NUEVO' ? 'border-marca-azul bg-marca-azul/5' : 'border-borde')}>
+            <input type="radio" checked={modo === 'PAQUETE_NUEVO'} onChange={() => setModo('PAQUETE_NUEVO')} className="mt-0.5" />
+            <span className="flex-1">
+              <span className="font-medium text-texto-fuerte">Pasar a un paquete nuevo</span>
+              <span className="block text-xs text-texto-suave">Crea un paquete y descuenta de él estas horas.</span>
+              {modo === 'PAQUETE_NUEVO' && (
+                <select
+                  value={paqueteHoras}
+                  onChange={(e) => setPaqueteHoras(Number(e.target.value))}
+                  className="mt-2 w-full rounded-lg border border-borde px-2 py-1 text-sm outline-none focus:border-marca-azul"
+                >
+                  {[10, 20, 30, 40, 50].map((h) => (
+                    <option key={h} value={h}>Paquete de {h} h</option>
+                  ))}
+                </select>
+              )}
+            </span>
+          </label>
+        </div>
+
+        {error && <p className="mt-2 text-xs text-marca-rojo">{error}</p>}
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onCerrar} className="rounded-lg border border-borde px-3 py-1.5 text-sm font-medium text-texto-suave hover:bg-fondo">
+            Cancelar
+          </button>
+          <button onClick={guardar} disabled={busy} className="rounded-lg bg-marca-azul px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
+            {busy ? 'Resolviendo…' : 'Resolver'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
