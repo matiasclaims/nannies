@@ -2,13 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CalendarDays, Package, ChevronRight } from 'lucide-react';
+import { CalendarDays, Package, ChevronRight, ChevronLeft } from 'lucide-react';
 import { api, type Servicio, type NannieLite, type FamiliaLite, type Plaza } from '@/lib/api';
 import { ESTADO_SERVICIO, TIPO_LABEL } from '@/lib/dominio';
 import { cn } from '@/lib/utils';
 
 /** Fecha de hoy en ISO (YYYY-MM-DD), zona local. */
 export const hoyISO = () => new Date().toLocaleDateString('en-CA');
+/** ISO desplazado N días (para moverse día a día). */
+const shiftISO = (iso: string, days: number) => {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString('en-CA');
+};
 /** ISO → fecha larga ("jueves, 18 de septiembre de 2026"). */
 const fechaLarga = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString('es-MX', {
@@ -63,7 +69,23 @@ export function PanoramaDia({ iso }: { iso: string }) {
             <CalendarDays className="h-5 w-5 text-marca-azul" />
             {esHoy ? 'Hoy' : 'Día'}
           </h1>
-          <p className="text-sm capitalize text-texto-suave">{fechaLarga(iso)}</p>
+          <div className="flex items-center gap-1">
+            <Link
+              href={`/dia/${shiftISO(iso, -1)}`}
+              aria-label="Día anterior"
+              className="grid h-6 w-6 place-items-center rounded-lg text-texto-suave transition hover:bg-fondo hover:text-marca-azul"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Link>
+            <p className="text-sm capitalize text-texto-suave">{fechaLarga(iso)}</p>
+            <Link
+              href={`/dia/${shiftISO(iso, 1)}`}
+              aria-label="Día siguiente"
+              className="grid h-6 w-6 place-items-center rounded-lg text-texto-suave transition hover:bg-fondo hover:text-marca-azul"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
         <Link
           href="/calendario"
