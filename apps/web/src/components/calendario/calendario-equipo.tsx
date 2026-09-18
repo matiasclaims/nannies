@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Package } from 'lucide-react';
 import {
   api,
@@ -653,15 +654,17 @@ function Rejilla({
         <div className="flex flex-1">
           {dias.map((d) => (
             <div key={d.fecha} className="min-w-[92px] flex-1 border-l border-borde">
-              <div
+              <Link
+                href={`/dia/${d.fecha}`}
+                title={`Ver el detalle de ${d.etiqueta}`}
                 style={{ height: HEADER }}
                 className={cn(
-                  'flex items-center justify-center text-[11px] capitalize',
+                  'flex items-center justify-center text-[11px] capitalize transition hover:bg-fondo hover:text-marca-azul',
                   d.esHoy ? 'font-semibold text-marca-azul' : 'text-texto-suave',
                 )}
               >
                 {d.etiqueta}
-              </div>
+              </Link>
               <div
                 className="relative"
                 style={{

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { api, type PaqueteActivo, type NannieLite, type TipoServicio } from '@/lib/api';
+import { useEffect, useState } from 'react';
+import { api, type PaqueteActivo, type NannieLite, type TipoServicio, type Plaza, type ColoniaCat } from '@/lib/api';
 import { TIPO_LABEL } from '@/lib/dominio';
 import { HoraSelect } from '@/components/hora-select';
+import { SelectColonia } from '@/components/select-colonia';
 import { cn } from '@/lib/utils';
 
 const TRAMOS = [10, 20, 30, 40, 50];
@@ -23,12 +24,14 @@ function horasEntre(hi: string, hf: string): number {
  *  acciones, o el control para registrar uno. */
 export function PaqueteFamilia({
   familiaId,
+  plaza,
   zona,
   paquete,
   nannies,
   onCambio,
 }: {
   familiaId: string;
+  plaza: Plaza;
   zona: string | null;
   paquete: PaqueteActivo | null;
   nannies: NannieLite[];
@@ -140,6 +143,7 @@ export function PaqueteFamilia({
             {programando && (
               <ProgramarPaquete
                 paquete={p}
+                plaza={plaza}
                 zonaDefault={zona}
                 nannies={nannies}
                 onHecho={async () => {
@@ -199,16 +203,19 @@ export function PaqueteFamilia({
  *  crea una sesión por cada una, todas con la misma nannie y el mismo horario. */
 function ProgramarPaquete({
   paquete,
+  plaza,
   zonaDefault,
   nannies,
   onHecho,
 }: {
   paquete: PaqueteActivo;
+  plaza: Plaza;
   zonaDefault: string | null;
   nannies: NannieLite[];
   onHecho: () => Promise<void>;
 }) {
   const hoy = new Date();
+  const esToluca = plaza === 'TOLUCA';
   const [verMes, setVerMes] = useState({ y: hoy.getFullYear(), m: hoy.getMonth() });
   const [fechas, setFechas] = useState<string[]>([]);
   const [horaInicio, setHoraInicio] = useState('09:00');
@@ -216,10 +223,37 @@ function ProgramarPaquete({
   const [tipo, setTipo] = useState<TipoServicio>('DAYCARE');
   const [numNinos, setNumNinos] = useState(1);
   const [zona, setZona] = useState(zonaDefault ?? '');
+  const [coloniaId, setColoniaId] = useState('');
+  const [direccion, setDireccion] = useState('');
+  const [catalogo, setCatalogo] = useState<ColoniaCat[]>([]);
   const [nannieId, setNannieId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [resultado, setResultado] = useState<{ creados: number; horasConsumidas: number; omitidas: string[] } | null>(null);
+
+  // Toluca: resolver la colonia de la familia contra el catálogo (coordenadas para
+  // el match por km). Se toma automático; solo cambia si es otra ubicación.
+  useEffect(() => {
+    if (!esToluca) return;
+    api.catalogoColonias().then((cat) => {
+      setCatalogo(cat);
+      const z = (zonaDefault ?? '').trim();
+      const m = z ? cat.find((c) => c.colonia.toLowerCase() === z.toLowerCase()) : undefined;
+      if (m) setColoniaId(m.id);
+    }).catch(() => undefined);
+  }, [esToluca, zonaDefault]);
+
+  // Al VACIAR la dirección, las sesiones vuelven al domicilio de la familia →
+  // se restablece su colonia. Al llenarla, la colonia queda editable.
+  function cambiarDireccion(v: string) {
+    if (!v.trim() && esToluca) {
+      const z = (zonaDefault ?? '').trim();
+      const m = z ? catalogo.find((c) => c.colonia.toLowerCase() === z.toLowerCase()) : undefined;
+      setColoniaId(m ? m.id : '');
+      setZona(m ? m.colonia : z);
+    }
+    setDireccion(v);
+  }
 
   const dur = horasEntre(horaInicio, horaFin);
   const horasPedidas = fechas.length * dur;
@@ -244,6 +278,8 @@ function ProgramarPaquete({
         tipoServicio: tipo,
         numNinos,
         zona,
+        coloniaId: esToluca && coloniaId ? coloniaId : undefined,
+        direccion: direccion.trim() || undefined,
         nannieId: nannieId || undefined,
       });
       setResultado({ creados: r.creados, horasConsumidas: r.horasConsumidas, omitidas: r.omitidas });
@@ -311,9 +347,40 @@ function ProgramarPaquete({
           <input type="number" min={1} max={8} value={numNinos} onChange={(e) => setNumNinos(Number(e.target.value))} className={cn(chico, 'w-full')} />
         </label>
       </div>
+      {/* Colonia/zona: automático del domicilio de la familia; solo se pide si las
+          sesiones son en otra ubicación (Toluca). */}
       <label className="block">
-        <span className="mb-0.5 block text-texto-suave">Zona</span>
-        <input value={zona} onChange={(e) => setZona(e.target.value)} placeholder="Ej. Metepec" className={cn(chico, 'w-full')} />
+        <span className="mb-0.5 block text-texto-suave">{esToluca ? 'Colonia' : 'Zona'}</span>
+        {esToluca && (direccion.trim() || !zona.trim()) ? (
+          <>
+            <SelectColonia
+              catalogo={catalogo}
+              coloniaId={coloniaId}
+              zona={zona}
+              className={cn(chico, 'w-full')}
+              onPick={(id, label) => { setColoniaId(id); setZona(label); }}
+            />
+            <span className="mt-0.5 block text-[10px] text-texto-suave">
+              {direccion.trim()
+                ? 'Colonia de la dirección del servicio (para asignar la nannie más cercana).'
+                : 'La familia no tiene colonia registrada; elige una.'}
+            </span>
+          </>
+        ) : (
+          <>
+            <div className={cn(chico, 'w-full bg-white text-texto-fuerte')}>{zona || '—'}</div>
+            <span className="mt-0.5 block text-[10px] text-texto-suave">Del domicilio de la familia.</span>
+          </>
+        )}
+      </label>
+      <label className="block">
+        <span className="mb-0.5 block text-texto-suave">Dirección del servicio (opcional)</span>
+        <input
+          value={direccion}
+          onChange={(e) => cambiarDireccion(e.target.value)}
+          placeholder="Vacía = domicilio de la familia. Otra ubicación: dirección + referencias."
+          className={cn(chico, 'w-full')}
+        />
       </label>
       <label className="block">
         <span className="mb-0.5 block text-texto-suave">Nannie (opcional)</span>

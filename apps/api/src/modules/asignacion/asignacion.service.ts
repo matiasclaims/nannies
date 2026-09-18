@@ -265,6 +265,8 @@ export class AsignacionService {
             ...(dto.nannieId ? { nannie: { connect: { id: dto.nannieId } } } : {}),
             plaza: paquete.familia.plaza,
             zona: dto.zona,
+            ...(dto.coloniaId ? { coloniaToluca: { connect: { id: dto.coloniaId } } } : {}),
+            ...(dto.direccion?.trim() ? { direccion: dto.direccion.trim() } : {}),
             tipoServicio: dto.tipoServicio,
             formato: 'PAQUETE',
             paquete: { connect: { id: paquete.id } },

@@ -948,6 +948,8 @@ export const api = {
     tipoServicio: TipoServicio;
     numNinos: number;
     zona: string;
+    coloniaId?: string;
+    direccion?: string;
     nannieId?: string;
   }) =>
     req<{ creados: number; fechas: string[]; omitidas: string[]; horasConsumidas: number; restantes: number }>(

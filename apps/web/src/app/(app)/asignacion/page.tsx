@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { UserPlus, Search, CheckCircle2, ChevronDown } from 'lucide-react';
+import { UserPlus, Search, CheckCircle2 } from 'lucide-react';
 import {
   api,
   type FamiliaLite,
@@ -15,6 +15,7 @@ import { TIPO_LABEL } from '@/lib/dominio';
 import { Avatar } from '@/components/avatar';
 import { NombreNannie } from '@/components/nombre-nannie';
 import { HoraSelect } from '@/components/hora-select';
+import { SelectColonia } from '@/components/select-colonia';
 import { dividirDiaNoche, TARIFA_NOCHE_MIN } from '@/lib/dia-noche';
 import {
   ZONAS_QRO,
@@ -279,21 +280,42 @@ export default function AsignacionPage() {
     setExito('');
   }
 
+  // Colonia del domicilio de la familia (para el match por km en Toluca). Si su
+  // colonia coincide con el catálogo, fija el coloniaId (coordenadas); si no,
+  // queda como texto (colonia manual). Se toma AUTOMÁTICO, sin preguntar.
+  const coloniaFamilia = (zonaFamRaw: string): { coloniaId: string; zona: string } => {
+    const zonaFam = (zonaFamRaw ?? '').trim();
+    const match = zonaFam ? catalogo.find((c) => c.colonia.toLowerCase() === zonaFam.toLowerCase()) : undefined;
+    return { coloniaId: match ? match.id : '', zona: match ? match.colonia : zonaFam };
+  };
+
   function elegirFamilia(id: string) {
     const fam = familias.find((f) => f.id === id);
-    // Autollenar la colonia de la familia. Si su colonia coincide con el catálogo
-    // de Toluca, fija también el coloniaId (coordenadas para el match por km); si
-    // no, queda como colonia manual (solo el texto en zona).
-    const zonaFam = (fam?.zona ?? '').trim();
-    const match = zonaFam ? catalogo.find((c) => c.colonia.toLowerCase() === zonaFam.toLowerCase()) : undefined;
+    const c = coloniaFamilia(fam?.zona ?? '');
     setForm((f) => ({
       ...f,
       familiaId: id,
       plaza: fam?.plaza ?? f.plaza,
-      zona: match ? match.colonia : zonaFam || f.zona,
-      coloniaId: match ? match.id : '',
+      zona: c.zona || f.zona,
+      coloniaId: c.coloniaId,
+      direccion: '', // nueva familia: arranca en su domicilio (sin dirección alterna)
     }));
     setCobrarAPaquete(true); // por defecto, cobrar al paquete si la familia tiene uno
+    setCandidatas(null);
+    setExito('');
+  }
+
+  // "Dirección del servicio": al VACIARLA el servicio vuelve al domicilio de la
+  // familia → se restablece su colonia. Al llenarla, la colonia queda editable
+  // (el usuario indica la colonia de esa otra dirección para el match).
+  function cambiarDireccion(v: string) {
+    setForm((f) => {
+      if (!v.trim() && f.plaza === 'TOLUCA') {
+        const c = coloniaFamilia(familiaSel?.zona ?? '');
+        return { ...f, direccion: v, coloniaId: c.coloniaId, zona: c.zona };
+      }
+      return { ...f, direccion: v };
+    });
     setCandidatas(null);
     setExito('');
   }
@@ -444,14 +466,31 @@ export default function AsignacionPage() {
                   </option>
                 ))}
               </select>
+            ) : form.direccion.trim() || !form.zona.trim() ? (
+              // Otra ubicación (o la familia no tiene colonia): se pide la colonia
+              // de esa dirección para recomendar a la nannie más cercana.
+              <>
+                <SelectColonia
+                  catalogo={catalogo}
+                  coloniaId={form.coloniaId}
+                  zona={form.zona}
+                  className={inputCls}
+                  onPick={(id, label) => setForm((f) => ({ ...f, coloniaId: id, zona: label }))}
+                />
+                <p className="mt-1 text-[11px] text-texto-suave">
+                  {form.direccion.trim()
+                    ? 'Colonia de la dirección del servicio (para asignar la nannie más cercana).'
+                    : 'La familia no tiene colonia registrada; elige una.'}
+                </p>
+              </>
             ) : (
-              <SelectColonia
-                catalogo={catalogo}
-                coloniaId={form.coloniaId}
-                zona={form.zona}
-                className={inputCls}
-                onPick={(id, label) => setForm((f) => ({ ...f, coloniaId: id, zona: label }))}
-              />
+              // Domicilio de la familia: automático, sin preguntar.
+              <>
+                <div className={`${inputCls} flex items-center bg-fondo text-texto-fuerte`}>{form.zona}</div>
+                <p className="mt-1 text-[11px] text-texto-suave">
+                  Del domicilio de la familia · se usa para asignar la nannie más cercana.
+                </p>
+              </>
             )}
           </Campo>
 
@@ -459,7 +498,7 @@ export default function AsignacionPage() {
             <Campo label="Dirección del servicio (opcional)">
               <input
                 value={form.direccion}
-                onChange={(e) => set('direccion', e.target.value)}
+                onChange={(e) => cambiarDireccion(e.target.value)}
                 className={inputCls}
                 placeholder="Vacía = domicilio de la familia. Si es otra ubicación: dirección + referencias para llegar."
               />
@@ -1050,73 +1089,3 @@ function AltaFamilia({ onCreada }: { onCreada: (f: FamiliaLite) => void }) {
   );
 }
 
-/** Buscador de colonia (Toluca) para el servicio. Elige del catálogo → fija la
- *  colonia (coordenadas para el match por km) y su nombre como zona. Si la
- *  colonia no está en el catálogo, se puede escribir manualmente (queda solo
- *  como texto en zona; el match por km no aplica). */
-function SelectColonia({
-  catalogo,
-  coloniaId,
-  zona,
-  onPick,
-  className,
-}: {
-  catalogo: ColoniaCat[];
-  coloniaId: string;
-  zona: string;
-  onPick: (id: string, label: string) => void;
-  className?: string;
-}) {
-  const [q, setQ] = useState('');
-  const [abierto, setAbierto] = useState(false);
-  const sel = catalogo.find((c) => c.id === coloniaId);
-  const res = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    if (!t) return [];
-    return catalogo.filter((c) => `${c.colonia} ${c.municipio}`.toLowerCase().includes(t)).slice(0, 12);
-  }, [q, catalogo]);
-  const qLimpio = q.trim();
-  // Ofrecer "usar manual" cuando escribieron algo que no calza EXACTO con el catálogo.
-  const hayExacta = res.some((c) => c.colonia.toLowerCase() === qLimpio.toLowerCase());
-  // Texto visible cuando está cerrado: la colonia del catálogo, o el texto manual.
-  const cerradoLabel = sel ? `${sel.colonia} · ${sel.municipio}` : zona;
-
-  return (
-    <div className="relative">
-      <input
-        value={abierto ? q : cerradoLabel}
-        onChange={(e) => { setQ(e.target.value); setAbierto(true); }}
-        onFocus={() => { setAbierto(true); setQ(''); }}
-        onBlur={() => setTimeout(() => setAbierto(false), 150)}
-        placeholder="Buscar o escribir colonia…"
-        className={cn(className, 'pr-9')}
-      />
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-texto-suave" />
-      {abierto && (res.length > 0 || qLimpio.length > 0) && (
-        <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-borde bg-panel shadow-card">
-          {res.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onMouseDown={() => { onPick(c.id, c.colonia); setAbierto(false); }}
-              className="block w-full px-3 py-2 text-left text-sm hover:bg-fondo"
-            >
-              <span className="text-texto-fuerte">{c.colonia}</span>
-              <span className="text-xs text-texto-suave"> · {c.municipio}</span>
-            </button>
-          ))}
-          {qLimpio.length > 0 && !hayExacta && (
-            <button
-              type="button"
-              onMouseDown={() => { onPick('', qLimpio); setAbierto(false); }}
-              className="block w-full border-t border-borde px-3 py-2 text-left text-sm hover:bg-fondo"
-            >
-              <span className="text-texto-fuerte">Usar «{qLimpio}»</span>
-              <span className="text-xs text-texto-suave"> · colonia manual (sin match por km)</span>
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}

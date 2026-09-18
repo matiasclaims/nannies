@@ -47,6 +47,19 @@ export class ProgramarPaqueteDto {
   @MaxLength(120)
   zona!: string;
 
+  // Toluca: colonia del servicio (coordenadas para el match por km). Se toma de
+  // la familia; solo cambia si las sesiones son en otra ubicación.
+  @IsOptional()
+  @IsString()
+  coloniaId?: string;
+
+  // Dirección de las sesiones si es distinta al domicilio de la familia (M5). No
+  // toca la tarjeta de la familia; queda en cada servicio.
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  direccion?: string;
+
   @IsOptional()
   @IsString()
   nannieId?: string;

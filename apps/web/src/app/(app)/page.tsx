@@ -51,7 +51,6 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
           <p className="text-sm capitalize text-white/90">{hoy}</p>
         </div>
         <div className="flex gap-2">
-          <HeroBadge valor={d?.servicios.hoy} label="hoy" href="/calendario" tip="Servicios programados para hoy. Clic para ver el calendario." />
           <BadgePorAsignar valor={d?.servicios.porAsignar} lista={d?.porAsignarLista} />
           <HeroBadge valor={d?.cobertura.sinCobertura} label="sin cubrir" href="/asignacion" tip="Servicios vigentes sin nannie asignada. Clic para asignar." />
         </div>

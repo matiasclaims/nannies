@@ -152,12 +152,15 @@ export class DashboardService {
     }));
 
     // --- Comparativo anual: horas del MES ACTUAL en los últimos 4 años ---
+    // Cuenta TODOS los servicios relevantes (no cancelados/rechazados), no solo
+    // los COMPLETADO: así el mes en curso —cuyos servicios están OFERTADO/ACEPTADO
+    // y aún no se completan— sí suma sus horas programadas (Mario 2026-09-18).
     const comparativoAnual: { anio: number; horas: number }[] = [];
     for (let dy = 3; dy >= 0; dy--) {
       const ini = new Date(Date.UTC(y - dy, m, 1));
       const fin = new Date(Date.UTC(y - dy, m + 1, 1));
       const svs = await this.prisma.servicio.findMany({
-        where: { estado: 'COMPLETADO', fecha: { gte: ini, lt: fin } },
+        where: { estado: { notIn: ['CANCELADO', 'RECHAZADO'] }, fecha: { gte: ini, lt: fin } },
         select: { duracionHoras: true },
       });
       comparativoAnual.push({ anio: y - dy, horas: svs.reduce((s, x) => s + x.duracionHoras, 0) });

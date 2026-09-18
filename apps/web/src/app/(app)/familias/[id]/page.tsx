@@ -137,6 +137,7 @@ export default function PerfilFamiliaPage() {
         <h2 className="mb-3 text-sm font-semibold text-texto-fuerte">Paquete de horas</h2>
         <PaqueteFamilia
           familiaId={data.id}
+          plaza={data.plaza}
           zona={data.zona}
           paquete={data.paqueteActivo}
           nannies={nannies}
