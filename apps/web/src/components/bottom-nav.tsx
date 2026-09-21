@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { MoreHorizontal, TrendingUp, X } from 'lucide-react';
 import { navPara } from '@/lib/nav';
-import { api, type Sesion } from '@/lib/api';
+import { useModoPerfil, SelectorModo } from '@/lib/modo-perfil';
 import { cn } from '@/lib/utils';
 
 /** Bottom nav de celular (los ítems `movil` visibles para el rol). Piel "Claro".
@@ -13,26 +13,22 @@ import { cn } from '@/lib/utils';
  *  menú "Más" para no saturar la barra. */
 export function BottomNav() {
   const pathname = usePathname();
-  const [sesion, setSesion] = useState<Sesion | null>(null);
+  const { dual, rolEfectivo } = useModoPerfil();
   const [masAbierto, setMasAbierto] = useState(false);
-
-  useEffect(() => {
-    api.me().then(setSesion).catch(() => undefined);
-  }, []);
 
   // Cierra el menú al navegar.
   useEffect(() => {
     setMasAbierto(false);
   }, [pathname]);
 
-  const visibles = navPara(sesion?.rol);
+  const visibles = navPara(rolEfectivo);
   const items = visibles.filter((i) => i.movil);
   const resto = visibles.filter((i) => !i.movil);
 
   // Avance: provisional, solo coordinación (igual que el sidebar).
   const extras = [
     ...resto.map((i) => ({ href: i.href, label: i.label, icon: i.icon })),
-    ...(sesion && sesion.rol !== 'NANNIE'
+    ...(rolEfectivo && rolEfectivo !== 'NANNIE'
       ? [{ href: '/avance', label: 'Avance del proyecto', icon: TrendingUp }]
       : []),
   ];
@@ -61,6 +57,8 @@ export function BottomNav() {
                 <X className="h-5 w-5" />
               </button>
             </div>
+            {/* Doble perfil (Jacky): alternar coordinación / nannie. */}
+            {dual && <SelectorModo className="mb-2" />}
             <div className="grid grid-cols-1 gap-1">
               {extras.map((item) => {
                 const activo = pathname.startsWith(item.href);
@@ -105,7 +103,7 @@ export function BottomNav() {
           );
         })}
 
-        {extras.length > 0 && (
+        {(extras.length > 0 || dual) && (
           <button
             type="button"
             onClick={() => setMasAbierto((v) => !v)}

@@ -3,25 +3,23 @@
 import { useCallback, useEffect, useState, type ElementType, type ReactNode } from 'react';
 import Link from 'next/link';
 import { CalendarDays, TrendingUp, MapPin, XCircle, Activity, PieChart, Package, Star, Maximize2, X, Plus, UserPlus, Users, FileText, AlertCircle, type LucideIcon } from 'lucide-react';
-import { api, type Sesion, type Dashboard, type MiPanorama, type TipoServicio } from '@/lib/api';
+import { api, type Dashboard, type MiPanorama, type TipoServicio } from '@/lib/api';
 import { ESTADO_SERVICIO, TIPO_LABEL } from '@/lib/dominio';
 import { RANGO_LABEL, NIVEL_LABEL } from '@/lib/nannie-ui';
 import { Avatar } from '@/components/avatar';
+import { useModoPerfil } from '@/lib/modo-perfil';
 import { cn } from '@/lib/utils';
 
 const money = (n: number) =>
   n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 0 });
 
 export default function PanoramaPage() {
-  const [sesion, setSesion] = useState<Sesion | null>(null);
-
-  useEffect(() => {
-    api.me().then(setSesion).catch(() => undefined);
-  }, []);
+  const { sesion, rolEfectivo } = useModoPerfil();
 
   // La nannie ve SU panorama personal; coordinación ve el dashboard de negocio.
-  if (sesion?.rol === 'NANNIE') {
-    return <PanoramaNannie nombre={sesion.nombre} />;
+  // Con doble perfil (Jacky), manda el rol efectivo del modo activo.
+  if (rolEfectivo === 'NANNIE') {
+    return <PanoramaNannie nombre={sesion?.nombre ?? ''} />;
   }
   return <PanoramaCoordinacion nombre={sesion?.nombre} />;
 }

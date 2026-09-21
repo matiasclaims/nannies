@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { TrendingUp, Camera } from 'lucide-react';
 import { navPara } from '@/lib/nav';
 import { api, type Sesion } from '@/lib/api';
+import { useModoPerfil, SelectorModo } from '@/lib/modo-perfil';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
 import { Avatar } from '@/components/avatar';
@@ -20,12 +21,8 @@ const ROL_LABEL: Record<Sesion['rol'], string> = {
 /** Sidebar de escritorio (piel "Claro"): marca arriba, perfil abajo. */
 export function Sidebar() {
   const pathname = usePathname();
-  const [sesion, setSesion] = useState<Sesion | null>(null);
+  const { sesion, rolEfectivo, recargar } = useModoPerfil();
   const [editandoFoto, setEditandoFoto] = useState(false);
-
-  useEffect(() => {
-    api.me().then(setSesion).catch(() => undefined);
-  }, []);
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-borde bg-panel px-3 py-5 md:flex">
@@ -33,8 +30,11 @@ export function Sidebar() {
         <Logo className="h-12 w-auto" />
       </div>
 
+      {/* Doble perfil (Jacky): alternar coordinación / nannie. Oculto si no aplica. */}
+      <SelectorModo className="mb-4" />
+
       <nav className="flex flex-col gap-1">
-        {navPara(sesion?.rol).map((item) => {
+        {navPara(rolEfectivo).map((item) => {
           const activo = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
@@ -57,7 +57,7 @@ export function Sidebar() {
 
       {/* PROVISIONAL: seguimiento de avance para Paula (se retira al entregar).
           Solo coordinación; la nannie no lo ve. */}
-      {sesion?.rol !== 'NANNIE' && (
+      {rolEfectivo !== 'NANNIE' && (
         <Link
           href="/avance"
           className={cn(
@@ -101,8 +101,8 @@ export function Sidebar() {
           fotoActual={sesion.foto}
           titulo="Mi foto"
           onGuardar={async (foto) => {
-            const r = await api.miFoto(foto);
-            setSesion((s) => (s ? { ...s, foto: r.foto } : s));
+            await api.miFoto(foto);
+            recargar();
           }}
           onClose={() => setEditandoFoto(false)}
         />
