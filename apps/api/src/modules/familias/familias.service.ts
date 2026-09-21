@@ -318,6 +318,41 @@ export class FamiliasService {
     });
     if (!familia) throw new NotFoundException('Familia no encontrada');
 
+    // Consumo de paquete POR servicio (historial): balance corrido por paquete.
+    // Cada sesión de paquete descuenta sus horas; el remanente es el saldo del
+    // paquete justo después de esa sesión. Se recorre en orden cronológico y solo
+    // cuentan las sesiones vivas (no canceladas/rechazadas), igual que
+    // horasConsumidas del paquete.
+    const paquetesFam = await this.prisma.paquete.findMany({
+      where: { familiaId },
+      select: { id: true, horasTotales: true, horasConsumidas: true },
+    });
+    const totalPaquete = new Map(paquetesFam.map((p) => [p.id, p.horasTotales]));
+    const servPaquete = await this.prisma.servicio.findMany({
+      where: { familiaId, paqueteId: { not: null }, estado: { notIn: ['CANCELADO', 'RECHAZADO'] } },
+      select: { id: true, paqueteId: true, duracionHoras: true },
+      orderBy: [{ fecha: 'asc' }, { horaInicio: 'asc' }],
+    });
+    // Horas consumidas SIN servicio registrado (p.ej. el saldo con el que arrancó
+    // un paquete cargado a mano). Se toman como consumidas antes de la 1a sesión,
+    // así el remanente de la última sesión cuadra con las horas restantes reales.
+    const sumServPorPaquete = new Map<string, number>();
+    for (const s of servPaquete) {
+      sumServPorPaquete.set(s.paqueteId as string, (sumServPorPaquete.get(s.paqueteId as string) ?? 0) + s.duracionHoras);
+    }
+    const acumulado = new Map<string, number>();
+    for (const pq of paquetesFam) {
+      acumulado.set(pq.id, Math.max(0, pq.horasConsumidas - (sumServPorPaquete.get(pq.id) ?? 0)));
+    }
+    const infoPaqueteServicio = new Map<string, { consumidas: number; remanentes: number; totales: number }>();
+    for (const s of servPaquete) {
+      const pid = s.paqueteId as string;
+      const totales = totalPaquete.get(pid) ?? 0;
+      const nuevo = (acumulado.get(pid) ?? 0) + s.duracionHoras;
+      acumulado.set(pid, nuevo);
+      infoPaqueteServicio.set(s.id, { consumidas: s.duracionHoras, remanentes: Math.max(0, totales - nuevo), totales });
+    }
+
     const p = familia.paquetes[0];
     const referencia = familia.servicios[0]?.fecha ?? familia.fechaAlta;
     const diasSinServicio = diasEntre(referencia, new Date());
@@ -354,6 +389,10 @@ export class FamiliasService {
         tipoServicio: s.tipoServicio,
         nannie: s.nannie?.nombre ?? 'Por asignar',
         estado: s.estado,
+        // Distintivo de paquete: si nació de un paquete, cuánto consumió del
+        // paquete esa sesión y cuánto quedó de saldo tras ella (Mario 2026-09-21).
+        esPaquete: s.paqueteId != null,
+        paquete: infoPaqueteServicio.get(s.id) ?? null,
         // Reporte de servicio (M6 · 6.1): coordinación lo lee inline.
         reporte: s.reporte
           ? {

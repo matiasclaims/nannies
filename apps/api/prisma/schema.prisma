@@ -566,6 +566,11 @@ model Paquete {
   precioTotal      Decimal       @db.Decimal(10, 2)
   fechaContratacion DateTime      @default(now())
   estado           EstadoPaquete @default(ACTIVO)
+  // Comisión de coordinación sobre el COBRO del paquete (manual, opcional). Se
+  // reconoce en el mes de contratación: resta al margen y se paga al beneficiario
+  // (id de Nannie; hoy Jacky) en su nómina de ese periodo (Mario 2026-09-21).
+  comision         Decimal?      @db.Decimal(10, 2)
+  comisionBeneficiarioId String?
   // La familia no dio fechas: las sesiones se asignan a mano conforme las pide
   // (no se programa de un jalón). Ver M2 §paquetes.
   asignacionManual Boolean       @default(false)
@@ -600,6 +605,9 @@ model FinanzaServicio {
   pagoNannie    Decimal?     @db.Decimal(10, 2) // se fija al COMPLETAR
   nivelAplicado NivelTarifa? // nivel-tarifa con el que se pagó (auditable)
   comision      Decimal?     @db.Decimal(10, 2) // manual, opcional (en blanco por defecto)
+  // Beneficiario de la comisión (id de Nannie; hoy Jacky). Su monto se paga en
+  // la nómina de esa persona además de restar al margen (Mario 2026-09-21).
+  comisionBeneficiarioId String?
   ajuste        Decimal?     @db.Decimal(10, 2) // manual (descuento/ajuste al COBRO de la familia)
   // Descuento al PAGO de la nannie por incidencia (M4). Reduce su pago → el
   // margen SUBE. Lo aplica la Directora desde la bandeja de incidencias.

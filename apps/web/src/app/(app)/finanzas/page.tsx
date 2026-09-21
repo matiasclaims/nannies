@@ -187,7 +187,7 @@ export default function FinanzasPage() {
       ) : estado === 'cargando' ? (
         <div className="h-40 animate-pulse rounded-2xl bg-panel" />
       ) : tab === 'ingresos' && ingresos ? (
-        <VistaIngresos data={ingresos} />
+        <VistaIngresos data={ingresos} nannies={nannies} esDirectora={sesion?.rol === 'DIRECTORA'} onGuardar={cargar} />
       ) : tab === 'nomina' && nomina ? (
         <VistaNomina data={nomina} onCambio={cargar} />
       ) : tab === 'margen' && margen ? (
@@ -206,7 +206,17 @@ export default function FinanzasPage() {
   );
 }
 
-function VistaIngresos({ data }: { data: Ingresos }) {
+function VistaIngresos({
+  data,
+  nannies,
+  esDirectora,
+  onGuardar,
+}: {
+  data: Ingresos;
+  nannies: NannieLite[];
+  esDirectora: boolean;
+  onGuardar: () => Promise<void>;
+}) {
   const { paquetes, individuales, totales } = data;
   return (
     <div className="space-y-4">
@@ -218,14 +228,14 @@ function VistaIngresos({ data }: { data: Ingresos }) {
 
       <Seccion
         titulo="Paquetes contratados"
-        nota="El ingreso del paquete se registra al contratarlo."
+        nota="El ingreso del paquete se registra al contratarlo. La comisión (opcional) se calcula sobre el cobro del paquete."
         count={paquetes.length}
       >
         {paquetes.length === 0 ? (
           <VacioFila texto="Sin paquetes contratados este mes." />
         ) : (
           paquetes.map((p) => (
-            <Fila key={p.id} izq={p.familia} centro={`Paquete ${p.horas} h`} fecha={p.fecha} monto={p.monto} />
+            <PaqueteFila key={p.id} p={p} nannies={nannies} esDirectora={esDirectora} onGuardar={onGuardar} />
           ))
         )}
       </Seccion>
@@ -243,6 +253,82 @@ function VistaIngresos({ data }: { data: Ingresos }) {
           ))
         )}
       </Seccion>
+    </div>
+  );
+}
+
+/** Fila de paquete contratado con editor de comisión de coordinación (monto +
+ *  beneficiario). La comisión resta al margen y se paga al beneficiario en su
+ *  nómina del mes de contratación. Solo la Directora la fija. */
+function PaqueteFila({
+  p,
+  nannies,
+  esDirectora,
+  onGuardar,
+}: {
+  p: Ingresos['paquetes'][number];
+  nannies: NannieLite[];
+  esDirectora: boolean;
+  onGuardar: () => Promise<void>;
+}) {
+  const [comision, setComision] = useState(p.comision != null ? String(p.comision) : '');
+
+  async function guardarComision() {
+    const num = comision.trim() === '' ? null : Number(comision);
+    if (num !== null && (Number.isNaN(num) || num < 0)) return;
+    if ((num ?? 0) === (p.comision ?? 0)) return;
+    await api.editarComisionPaquete(p.id, { comision: num }).catch(() => undefined);
+    await onGuardar();
+  }
+  async function guardarBenef(id: string) {
+    if (id === (p.comisionBeneficiarioId ?? '')) return;
+    await api.editarComisionPaquete(p.id, { comisionBeneficiarioId: id || null }).catch(() => undefined);
+    await onGuardar();
+  }
+
+  const benefNombre = nannies.find((n) => n.id === p.comisionBeneficiarioId)?.nombre;
+  const chico = 'rounded-lg border border-borde bg-white px-2 py-1 text-sm outline-none focus:border-marca-azul';
+
+  return (
+    <div className="border-b border-borde py-2 last:border-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-texto-fuerte">{p.familia}</p>
+          <p className="text-xs text-texto-suave">Paquete {p.horas} h · {fechaCorta(p.fecha)}</p>
+        </div>
+        <span className="shrink-0 text-sm font-semibold text-texto-fuerte">{money(p.monto)}</span>
+      </div>
+      {esDirectora ? (
+        <div className="mt-2 grid gap-2 sm:grid-cols-[8rem_1fr]">
+          <label className="block">
+            <span className="mb-0.5 block text-[11px] text-texto-suave">Comisión $</span>
+            <input
+              type="number"
+              min={0}
+              value={comision}
+              onChange={(e) => setComision(e.target.value)}
+              onBlur={guardarComision}
+              placeholder="—"
+              className={cn(chico, 'w-full')}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-0.5 block text-[11px] text-texto-suave">Beneficiario</span>
+            <select value={p.comisionBeneficiarioId ?? ''} onChange={(e) => guardarBenef(e.target.value)} className={cn(chico, 'w-full')}>
+              <option value="">Sin beneficiario</option>
+              {nannies.map((n) => (
+                <option key={n.id} value={n.id}>{n.nombre}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : (
+        p.comision != null && p.comision > 0 && (
+          <p className="mt-1 text-[11px] text-texto-suave">
+            Comisión: {money(p.comision)}{benefNombre ? ` · ${benefNombre}` : ''}
+          </p>
+        )
+      )}
     </div>
   );
 }
@@ -395,6 +481,15 @@ function NominaNannieCard({
                 <span className="shrink-0 font-semibold text-[#3b6d11]">+{money(b.monto)}</span>
               </div>
             ))}
+            {n.comisiones.map((c, i) => (
+              <div key={`com-${i}`} className="flex items-center justify-between gap-2 py-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate text-texto-fuerte">{c.concepto}</p>
+                  <p className="text-xs text-texto-suave">{fechaCorta(c.fecha)}</p>
+                </div>
+                <span className="shrink-0 font-semibold text-[#3b6d11]">+{money(c.monto)}</span>
+              </div>
+            ))}
           </div>
           {n.tienePendientes && (
             <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
@@ -417,13 +512,13 @@ function VistaMargen({
   nannies: NannieLite[];
   onGuardar: () => Promise<void>;
 }) {
-  const { servicios, totales, pendientes, bonos } = data;
+  const { servicios, totales, pendientes, bonos, comisionesPaquete } = data;
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tarjeta titulo="Cobro" monto={totales.cobro} />
         <Tarjeta titulo="Pago" monto={totales.pago} />
-        <Tarjeta titulo="Comisión + bonos" monto={totales.comision + totales.bonos} />
+        <Tarjeta titulo="Comisiones + bonos" monto={totales.comision + totales.comisionesPaquete + totales.bonos} />
         <Tarjeta titulo="Margen neto del mes" monto={totales.margenNeto} destacado />
       </div>
 
@@ -439,8 +534,31 @@ function VistaMargen({
       ) : (
         <div className="space-y-2">
           {servicios.map((s) => (
-            <MargenFila key={s.servicioId} s={s} onGuardar={onGuardar} />
+            <MargenFila key={s.servicioId} s={s} nannies={nannies} onGuardar={onGuardar} />
           ))}
+        </div>
+      )}
+
+      {comisionesPaquete.length > 0 && (
+        <div className="rounded-2xl bg-panel p-4 shadow-card">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-texto-fuerte">Comisiones de paquete del mes</h2>
+            <span className="text-sm font-bold text-marca-rojo">−{money(totales.comisionesPaquete)}</span>
+          </div>
+          <p className="mb-2 text-xs text-texto-suave">
+            Sobre el cobro del paquete (mes de contratación). Se editan en la pestaña Ingresos y se pagan al beneficiario en su nómina.
+          </p>
+          <div className="divide-y divide-borde">
+            {comisionesPaquete.map((c) => (
+              <div key={c.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate text-texto-fuerte">{c.familia}</p>
+                  <p className="text-xs text-texto-suave">{fechaCorta(c.fecha)}</p>
+                </div>
+                <span className="shrink-0 font-semibold text-marca-rojo">−{money(c.monto)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -554,7 +672,15 @@ function BonosPanel({
   );
 }
 
-function MargenFila({ s, onGuardar }: { s: import('@/lib/api').MargenServicio; onGuardar: () => Promise<void> }) {
+function MargenFila({
+  s,
+  nannies,
+  onGuardar,
+}: {
+  s: import('@/lib/api').MargenServicio;
+  nannies: NannieLite[];
+  onGuardar: () => Promise<void>;
+}) {
   const [comision, setComision] = useState(s.comision ? String(s.comision) : '');
   const [ajuste, setAjuste] = useState(s.ajuste ? String(s.ajuste) : '');
 
@@ -563,6 +689,11 @@ function MargenFila({ s, onGuardar }: { s: import('@/lib/api').MargenServicio; o
     if (num !== null && (Number.isNaN(num) || num < 0)) return;
     if ((num ?? 0) === original) return; // sin cambio real
     await api.editarFinanza(s.servicioId, { [campo]: num }).catch(() => undefined);
+    await onGuardar();
+  }
+  async function guardarBenef(id: string) {
+    if (id === (s.comisionBeneficiarioId ?? '')) return;
+    await api.editarFinanza(s.servicioId, { comisionBeneficiarioId: id || null }).catch(() => undefined);
     await onGuardar();
   }
 
@@ -612,6 +743,21 @@ function MargenFila({ s, onGuardar }: { s: import('@/lib/api').MargenServicio; o
           />
         </label>
       </div>
+      {(comision.trim() !== '' || s.comisionBeneficiarioId) && (
+        <label className="mt-2 block">
+          <span className="mb-0.5 block text-[11px] text-texto-suave">Comisión para (se paga en su nómina)</span>
+          <select
+            value={s.comisionBeneficiarioId ?? ''}
+            onChange={(e) => guardarBenef(e.target.value)}
+            className="w-full rounded-lg border border-borde bg-white px-2 py-1 text-sm outline-none focus:border-marca-azul"
+          >
+            <option value="">Sin beneficiario (solo resta al margen)</option>
+            {nannies.map((n) => (
+              <option key={n.id} value={n.id}>{n.nombre}</option>
+            ))}
+          </select>
+        </label>
+      )}
       {s.descuentoNannie > 0 && (
         <p className="mt-2 text-xs text-[#5B292D]">
           Descuento por incidencia al pago: −{money(s.descuentoNannie)}

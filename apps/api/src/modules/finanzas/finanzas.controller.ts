@@ -14,6 +14,7 @@ import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decor
 import { UsuarioActual } from '../../core/auth/decorators/usuario-actual.decorator';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { EditarFinanzaDto } from './dto/editar-finanza.dto';
+import { EditarComisionPaqueteDto } from './dto/editar-comision-paquete.dto';
 import { CerrarMesDto } from './dto/cerrar-mes.dto';
 import { CrearBonoDto } from './dto/crear-bono.dto';
 import { MarcarPagoDto } from './dto/marcar-pago.dto';
@@ -63,6 +64,13 @@ export class FinanzasController {
   @Patch('servicios/:servicioId')
   editarFinanza(@Param('servicioId') servicioId: string, @Body() dto: EditarFinanzaDto) {
     return this.finanzas.editarFinanza(servicioId, dto);
+  }
+
+  // Comisión de coordinación de un PAQUETE (sobre su cobro). SOLO Directora.
+  @RequiereAccion('finanzas.comision.fijar')
+  @Patch('paquetes/:paqueteId/comision')
+  editarComisionPaquete(@Param('paqueteId') paqueteId: string, @Body() dto: EditarComisionPaqueteDto) {
+    return this.finanzas.editarComisionPaquete(paqueteId, dto);
   }
 
   // Cierre de mes: niveles vigentes + historial de cierres. Operativo.

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode, Package } from 'lucide-react';
 import { api, type PerfilFamilia, type NinoPerfil, type NinoInput, type FamiliaInput, type NannieLite } from '@/lib/api';
 import { TIPO_LABEL, ESTADO_SERVICIO, edadLabel } from '@/lib/dominio';
 import { AREAS_TRABAJO, CONSENTIMIENTOS } from '@/lib/familia-catalogo';
@@ -198,6 +198,14 @@ export default function PerfilFamiliaPage() {
                     <p className="text-xs text-texto-suave">{s.horaInicio}–{s.horaFin} · {s.nannie}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
+                    {s.esPaquete && (
+                      <span
+                        title="Servicio de paquete"
+                        className="flex items-center gap-1 rounded-full bg-marca-morado/15 px-2 py-0.5 text-[11px] font-semibold text-marca-morado"
+                      >
+                        <Package className="h-3 w-3" /> Paquete
+                      </span>
+                    )}
                     {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
                       <button
                         onClick={() => setEncuestaSid(s.id)}
@@ -212,6 +220,12 @@ export default function PerfilFamiliaPage() {
                     </span>
                   </div>
                 </div>
+                {s.paquete && (
+                  <p className="mt-1 flex items-center gap-1.5 text-[11px] text-marca-morado">
+                    <Package className="h-3 w-3 shrink-0" />
+                    Consumió {s.paquete.consumidas} h del paquete · quedan {s.paquete.remanentes} h de {s.paquete.totales} h
+                  </p>
+                )}
                 {s.reporte && (
                   <div className="mt-2 rounded-lg bg-fondo px-3 py-2 text-xs">
                     <p className="mb-1 font-semibold text-texto-fuerte">

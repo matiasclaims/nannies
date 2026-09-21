@@ -92,6 +92,7 @@ export class FinanzasService {
           motivo?: string;
         }[];
         bonos: { id: string; monto: number; motivo: string; fecha: string }[];
+        comisiones: { monto: number; concepto: string; fecha: string }[];
         total: number;
         tienePendientes: boolean;
         documentacionCompleta: boolean;
@@ -117,6 +118,7 @@ export class FinanzasService {
           nivel: n.nivelTarifaMesActual,
           servicios: [],
           bonos: [],
+          comisiones: [],
           total: 0,
           tienePendientes: false,
           documentacionCompleta: n.documentacionCompleta,
@@ -173,6 +175,7 @@ export class FinanzasService {
           nivel: n.nivelTarifaMesActual,
           servicios: [],
           bonos: [],
+          comisiones: [],
           total: 0,
           tienePendientes: false,
           documentacionCompleta: n.documentacionCompleta,
@@ -183,6 +186,74 @@ export class FinanzasService {
       const monto = Number(b.monto);
       grupo.bonos.push({ id: b.id, monto, motivo: b.motivo, fecha: b.fecha.toISOString().slice(0, 10) });
       grupo.total += monto;
+    }
+
+    // Comisiones de coordinación del periodo (Mario 2026-09-21): se pagan al
+    // BENEFICIARIO junto con su nómina, igual que un bono. Vienen de servicios
+    // (por fecha del servicio) y de paquetes (por fecha de contratación).
+    const [comServicios, comPaquetes] = await Promise.all([
+      this.prisma.finanzaServicio.findMany({
+        where: { comision: { gt: 0 }, comisionBeneficiarioId: { not: null }, servicio: { fecha: { gte, lte } } },
+        select: {
+          comision: true,
+          comisionBeneficiarioId: true,
+          servicio: { select: { fecha: true, familia: { select: { nombreContacto: true } } } },
+        },
+      }),
+      this.prisma.paquete.findMany({
+        where: { comision: { gt: 0 }, comisionBeneficiarioId: { not: null }, fechaContratacion: { gte, lte } },
+        select: {
+          comision: true,
+          comisionBeneficiarioId: true,
+          fechaContratacion: true,
+          familia: { select: { nombreContacto: true } },
+        },
+      }),
+    ]);
+    const comItems = [
+      ...comServicios.map((c) => ({
+        beneficiarioId: c.comisionBeneficiarioId as string,
+        monto: Number(c.comision),
+        concepto: `Comisión · ${c.servicio.familia.nombreContacto}`,
+        fecha: c.servicio.fecha.toISOString().slice(0, 10),
+      })),
+      ...comPaquetes.map((c) => ({
+        beneficiarioId: c.comisionBeneficiarioId as string,
+        monto: Number(c.comision),
+        concepto: `Comisión de paquete · ${c.familia.nombreContacto}`,
+        fecha: c.fechaContratacion.toISOString().slice(0, 10),
+      })),
+    ];
+    // Crea el grupo de los beneficiarios que aún no aparecen (comisión sin
+    // servicios/bonos propios esa semana).
+    const benefFaltantes = [...new Set(comItems.map((c) => c.beneficiarioId))].filter((id) => !porNannie.has(id));
+    if (benefFaltantes.length) {
+      const benefNannies = await this.prisma.nannie.findMany({
+        where: { id: { in: benefFaltantes } },
+        select: { id: true, nombre: true, foto: true, color: true, nivelTarifaMesActual: true, documentacionCompleta: true, capacitacionCompleta: true },
+      });
+      for (const n of benefNannies) {
+        porNannie.set(n.id, {
+          nannieId: n.id,
+          nombre: n.nombre,
+          foto: n.foto,
+          color: n.color,
+          nivel: n.nivelTarifaMesActual,
+          servicios: [],
+          bonos: [],
+          comisiones: [],
+          total: 0,
+          tienePendientes: false,
+          documentacionCompleta: n.documentacionCompleta,
+          capacitacionCompleta: n.capacitacionCompleta,
+        });
+      }
+    }
+    for (const c of comItems) {
+      const grupo = porNannie.get(c.beneficiarioId);
+      if (!grupo) continue; // beneficiario ya no existe
+      grupo.comisiones.push({ monto: c.monto, concepto: c.concepto, fecha: c.fecha });
+      grupo.total += c.monto;
     }
 
     // Marcas de "pagado" de esta semana (una por nannie; existencia = pagado).
@@ -290,6 +361,7 @@ export class FinanzasService {
         pago: pago.monto,
         descuentoNannie,
         comision,
+        comisionBeneficiarioId: s.finanza?.comisionBeneficiarioId ?? null,
         ajuste,
         margen,
         pendiente: pago.monto == null,
@@ -314,21 +386,39 @@ export class FinanzasService {
       fecha: b.fecha.toISOString().slice(0, 10),
     }));
     const totalBonos = redondea2(bonos.reduce((s, b) => s + b.monto, 0));
+
+    // Comisiones de PAQUETE del periodo (por fecha de contratación): reducen el
+    // margen igual que un bono; el pago al beneficiario va por nómina. La comisión
+    // por servicio ya se restó fila por fila (arriba, en 'comision'). (Mario 2026-09-21)
+    const comPaqRaw = await this.prisma.paquete.findMany({
+      where: { comision: { gt: 0 }, fechaContratacion: { gte, lte } },
+      include: { familia: { select: { nombreContacto: true } } },
+      orderBy: { fechaContratacion: 'asc' },
+    });
+    const comisionesPaquete = comPaqRaw.map((p) => ({
+      id: p.id,
+      familia: p.familia.nombreContacto,
+      monto: Number(p.comision),
+      fecha: p.fechaContratacion.toISOString().slice(0, 10),
+    }));
+    const totalComisionesPaquete = redondea2(comisionesPaquete.reduce((s, c) => s + c.monto, 0));
     const margenBruto = suma((x) => x.margen ?? 0);
 
     return {
       rango: { desde, hasta },
       servicios: filas,
       bonos,
+      comisionesPaquete,
       totales: {
         cobro: suma((x) => x.cobro),
         pago: suma((x) => x.pago ?? 0),
         descuentoNannie: suma((x) => x.descuentoNannie),
         comision: suma((x) => x.comision),
+        comisionesPaquete: totalComisionesPaquete,
         ajuste: suma((x) => x.ajuste),
         bonos: totalBonos,
         margen: margenBruto,
-        margenNeto: redondea2(margenBruto - totalBonos),
+        margenNeto: redondea2(margenBruto - totalBonos - totalComisionesPaquete),
       },
       pendientes: filas.filter((x) => x.pendiente).length,
     };
@@ -358,7 +448,26 @@ export class FinanzasService {
       where: { servicioId },
       data: {
         ...(dto.comision !== undefined ? { comision: dto.comision } : {}),
+        ...(dto.comisionBeneficiarioId !== undefined ? { comisionBeneficiarioId: dto.comisionBeneficiarioId } : {}),
         ...(dto.ajuste !== undefined ? { ajuste: dto.ajuste } : {}),
+      },
+    });
+  }
+
+  /** Fija/limpia la comisión de coordinación de un PAQUETE (sobre su cobro total)
+   *  y su beneficiario (id de Nannie). Se reconoce en el mes de contratación.
+   *  SOLO Directora. Pasar null limpia el campo; omitir lo deja igual. */
+  async editarComisionPaquete(
+    paqueteId: string,
+    dto: { comision?: number | null; comisionBeneficiarioId?: string | null },
+  ) {
+    const paquete = await this.prisma.paquete.findUnique({ where: { id: paqueteId } });
+    if (!paquete) throw new NotFoundException('Paquete no encontrado.');
+    return this.prisma.paquete.update({
+      where: { id: paqueteId },
+      data: {
+        ...(dto.comision !== undefined ? { comision: dto.comision } : {}),
+        ...(dto.comisionBeneficiarioId !== undefined ? { comisionBeneficiarioId: dto.comisionBeneficiarioId } : {}),
       },
     });
   }
@@ -522,6 +631,8 @@ export class FinanzasService {
       horas: p.horasTotales,
       monto: Number(p.precioTotal),
       fecha: p.fechaContratacion.toISOString().slice(0, 10),
+      comision: p.comision != null ? Number(p.comision) : null,
+      comisionBeneficiarioId: p.comisionBeneficiarioId ?? null,
     }));
 
     const listaIndividuales = individuales.map((f) => ({

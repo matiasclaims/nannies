@@ -506,6 +506,10 @@ export interface ServicioHist {
   nannie: string;
   estado: EstadoServicio;
   reporte: ReporteServicio | null;
+  /** Si el servicio nació de un paquete de horas. */
+  esPaquete: boolean;
+  /** Consumo del paquete de ESA sesión (solo si esPaquete y no está cancelada). */
+  paquete: { consumidas: number; remanentes: number; totales: number } | null;
 }
 export interface NotaFamilia {
   id: string;
@@ -652,7 +656,15 @@ export interface MiReporte {
 
 export interface Ingresos {
   rango: { desde: string; hasta: string };
-  paquetes: { id: string; familia: string; horas: number; monto: number; fecha: string }[];
+  paquetes: {
+    id: string;
+    familia: string;
+    horas: number;
+    monto: number;
+    fecha: string;
+    comision: number | null;
+    comisionBeneficiarioId: string | null;
+  }[];
   individuales: { id: string; familia: string; tipoServicio: TipoServicio; monto: number; fecha: string }[];
   horasPagadas: number;
   totales: { paquetes: number; individuales: number; total: number };
@@ -674,6 +686,11 @@ export interface NominaBono {
   motivo: string;
   fecha: string;
 }
+export interface NominaComision {
+  monto: number;
+  concepto: string;
+  fecha: string;
+}
 export interface NominaNannie {
   nannieId: string;
   nombre: string;
@@ -682,6 +699,7 @@ export interface NominaNannie {
   nivel: string;
   servicios: NominaServicio[];
   bonos: NominaBono[];
+  comisiones: NominaComision[];
   total: number;
   tienePendientes: boolean;
   pagado: boolean;
@@ -706,6 +724,7 @@ export interface MargenServicio {
   pago: number | null;
   descuentoNannie: number;
   comision: number;
+  comisionBeneficiarioId: string | null;
   ajuste: number;
   margen: number | null;
   pendiente: boolean;
@@ -718,15 +737,23 @@ export interface BonoLite {
   motivo: string;
   fecha: string;
 }
+export interface ComisionPaqueteLite {
+  id: string;
+  familia: string;
+  monto: number;
+  fecha: string;
+}
 export interface Margen {
   rango: { desde: string; hasta: string };
   servicios: MargenServicio[];
   bonos: BonoLite[];
+  comisionesPaquete: ComisionPaqueteLite[];
   totales: {
     cobro: number;
     pago: number;
     descuentoNannie: number;
     comision: number;
+    comisionesPaquete: number;
     ajuste: number;
     bonos: number;
     margen: number;
@@ -1099,8 +1126,19 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ nannieId, semana, pagado }),
     }),
-  editarFinanza: (servicioId: string, body: { comision?: number | null; ajuste?: number | null }) =>
+  editarFinanza: (
+    servicioId: string,
+    body: { comision?: number | null; comisionBeneficiarioId?: string | null; ajuste?: number | null },
+  ) =>
     req<unknown>(`/finanzas/servicios/${servicioId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  editarComisionPaquete: (
+    paqueteId: string,
+    body: { comision?: number | null; comisionBeneficiarioId?: string | null },
+  ) =>
+    req<unknown>(`/finanzas/paquetes/${paqueteId}/comision`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
