@@ -113,7 +113,7 @@ export class AsignacionService {
       for (const b of susBloques) {
         if (b.estado !== 'DISPONIBLE') continue;
         const faltaInicio = Math.max(0, aMin(b.horaInicio) - aMin(dto.horaInicio));
-        const faltaFin = Math.max(0, aMin(dto.horaFin) - aMin(b.horaFin));
+        const faltaFin = Math.max(0, finMin(dto.horaInicio, dto.horaFin) - finMin(b.horaInicio, b.horaFin));
         if (faltaInicio > TOLERANCIA_MIN || faltaFin > TOLERANCIA_MIN) continue;
         if (!mejor || faltaInicio + faltaFin < mejor.faltaInicio + mejor.faltaFin) {
           mejor = { bloque: b, faltaInicio, faltaFin };
@@ -204,7 +204,9 @@ export class AsignacionService {
         'Este paquete es de asignación manual: sus sesiones se agregan una por una.',
       );
     }
-    const dur = (aMin(dto.horaFin) - aMin(dto.horaInicio)) / 60;
+    let durMin = aMin(dto.horaFin) - aMin(dto.horaInicio);
+    if (durMin <= 0) durMin += 24 * 60; // cruza medianoche (ej. fin 00:00)
+    const dur = durMin / 60;
     // Sin mínimo de 3 h: son sesiones de PAQUETE (horas ya pagadas), igual que en
     // Asignación se permite drenar el saldo sobrante <3 h (Paula/Mario 2026-09-15).
     if (!Number.isInteger(dur) || dur < 1) {
@@ -231,8 +233,8 @@ export class AsignacionService {
         ocupados.some(
           (o) =>
             o.fecha.getTime() === f.getTime() &&
-            o.horaInicio < dto.horaFin &&
-            dto.horaInicio < o.horaFin,
+            aMin(o.horaInicio) < finMin(dto.horaInicio, dto.horaFin) &&
+            aMin(dto.horaInicio) < finMin(o.horaInicio, o.horaFin),
         );
       const libres: Date[] = [];
       for (const f of fechas) {
@@ -326,9 +328,17 @@ function aMin(hhmm: string): number {
   return h * 60 + m;
 }
 
-/** Dos rangos "HH:mm" se traslapan si aInicio < bFin && bInicio < aFin. */
+/** Minutos del FIN de un bloque; un fin ≤ inicio se interpreta como cruce de
+ *  medianoche (ej. 21:00–00:00 = 3 h; 00:00 como fin = 1440). */
+function finMin(inicio: string, fin: string): number {
+  const i = aMin(inicio);
+  const f = aMin(fin);
+  return f > i ? f : f + 1440;
+}
+
+/** Dos rangos "HH:mm" se traslapan (maneja cruce de medianoche vía finMin). */
 function solapan(aIni: string, aFin: string, bIni: string, bFin: string): boolean {
-  return aIni < bFin && bIni < aFin;
+  return aMin(aIni) < finMin(bIni, bFin) && aMin(bIni) < finMin(aIni, aFin);
 }
 
 function fechaUTC(dia: string): Date {

@@ -24,6 +24,13 @@ const ESTADOS_CERRADOS: EstadoServicio[] = ['ACEPTADO', 'COMPLETADO', 'CANCELADO
 // Tipos que atienden grupos (4-8 niños); el resto es 1-3 (Reglamento PF).
 const TIPOS_GRUPO: TipoServicio[] = ['NANNIE_FIESTA_PLAYDATE', 'LUDOTECA_MOVIL'];
 
+// Nannie de fiesta: cobro FIJO a la familia $250/h en ambas plazas (Paula/Mario
+// 2026-09-18). El pago a la nannie va por tabulador Fiesta 3-6 h (Toluca) o por
+// zona (Qro). La fiesta solo se ofrece de 3 a 6 h (lo que cubre el tabulador).
+const COBRO_FIESTA_HORA = 250;
+const FIESTA_DUR_MIN = 3;
+const FIESTA_DUR_MAX = 6;
+
 interface RangoFechas {
   desde?: string;
   hasta?: string;
@@ -65,7 +72,8 @@ export class CalendarioService {
     if (dto.estado === 'TEMPORAL' && !dto.fechaReintegro) {
       throw new BadRequestException('Un bloqueo TEMPORAL requiere fechaReintegro');
     }
-    if (dto.horaFin <= dto.horaInicio) {
+    // horaFin 00:00 = medianoche (fin de día), permitido; el resto debe ser posterior.
+    if ((dto.horaFin === '00:00' ? 24 * 60 : aMin(dto.horaFin)) <= aMin(dto.horaInicio)) {
       throw new BadRequestException('horaFin debe ser posterior a horaInicio');
     }
 
@@ -98,7 +106,7 @@ export class CalendarioService {
     const bloque = await this.exigirBloquePropio(user, id);
     const horaInicio = dto.horaInicio ?? bloque.horaInicio;
     const horaFin = dto.horaFin ?? bloque.horaFin;
-    if (horaFin <= horaInicio) {
+    if ((horaFin === '00:00' ? 24 * 60 : aMin(horaFin)) <= aMin(horaInicio)) {
       throw new BadRequestException('horaFin debe ser posterior a horaInicio');
     }
     return this.prisma.disponibilidad.update({
@@ -155,9 +163,17 @@ export class CalendarioService {
       throw new BadRequestException('Un servicio de paquete requiere paqueteId');
     }
     // Mínimo de 3 h solo para servicios sueltos/individuales (piso de cobro). Un
-    // servicio de PAQUETE puede ser de 1-2 h (horas ya pagadas). Opción B, Mario 2026-09-15.
-    if (dto.formato !== 'PAQUETE' && dto.duracionHoras < 3) {
+    // servicio de PAQUETE puede ser de 1-2 h (horas ya pagadas, Opción B); la
+    // LUDOTECA admite desde 1 h (cobro por hora por estación, Mario 2026-09-18).
+    if (dto.formato !== 'PAQUETE' && dto.tipoServicio !== 'LUDOTECA_MOVIL' && dto.duracionHoras < 3) {
       throw new BadRequestException('El mínimo de horas por servicio es 3');
+    }
+    // Fiesta: solo 3-6 h (rango del tabulador de pago de fiesta).
+    if (
+      dto.tipoServicio === 'NANNIE_FIESTA_PLAYDATE' &&
+      (dto.duracionHoras < FIESTA_DUR_MIN || dto.duracionHoras > FIESTA_DUR_MAX)
+    ) {
+      throw new BadRequestException(`Una nannie de fiesta es de ${FIESTA_DUR_MIN} a ${FIESTA_DUR_MAX} horas.`);
     }
     // M3 · cobro individual al CREAR. Querétaro: esquema por zona (sin Ludoteca);
     // fiesta por hora, individuales con bandas por NIVEL (día: Básico/Interm/Premium;
@@ -170,31 +186,34 @@ export class CalendarioService {
     if (dto.formato !== 'PAQUETE') {
       const { horasDia, horasNoche } = dividirDiaNoche(dto.horaInicio, dto.duracionHoras);
 
-      if (dto.plaza === 'QUERETARO') {
+      if (dto.tipoServicio === 'NANNIE_FIESTA_PLAYDATE') {
+        // Cobro plano $250/h en ambas plazas. En Qro se valida la zona porque el
+        // PAGO a la nannie sí va por zona (el cobro sí es fijo).
+        if (dto.plaza === 'QUERETARO' && !tarifasZonaQro(dto.zona)) {
+          throw new BadRequestException(`Zona de Querétaro no reconocida: "${dto.zona}".`);
+        }
+        cobroSuelto = redondea2(COBRO_FIESTA_HORA * dto.duracionHoras);
+      } else if (dto.plaza === 'QUERETARO') {
         if (dto.tipoServicio === 'LUDOTECA_MOVIL') {
           throw new BadRequestException('Querétaro no ofrece servicio de Ludoteca.');
         }
         const tz = tarifasZonaQro(dto.zona);
         if (!tz) throw new BadRequestException(`Zona de Querétaro no reconocida: "${dto.zona}".`);
-        if (dto.tipoServicio === 'NANNIE_FIESTA_PLAYDATE') {
-          cobroSuelto = redondea2(tz.cobroFiestaHora * dto.duracionHoras);
-        } else {
-          if (horasDia > 0) {
-            if (!dto.nivelDia)
-              throw new BadRequestException('Falta el nivel de día (Básico, Intermedio o Premium).');
-            tarifaDia = tz.cobroIndividualHora[dto.nivelDia];
-          }
-          if (horasNoche > 0) {
-            if (!dto.nivelNoche)
-              throw new BadRequestException('Falta el nivel de noche (Intermedio o Premium).');
-            if (dto.nivelNoche === 'BASICO')
-              throw new BadRequestException(
-                'De noche (desde 19:00) el nivel Básico no está disponible en Querétaro.',
-              );
-            tarifaNoche = tz.cobroIndividualHora[dto.nivelNoche];
-          }
-          cobroSuelto = redondea2((tarifaDia ?? 0) * horasDia + (tarifaNoche ?? 0) * horasNoche);
+        if (horasDia > 0) {
+          if (!dto.nivelDia)
+            throw new BadRequestException('Falta el nivel de día (Básico, Intermedio o Premium).');
+          tarifaDia = tz.cobroIndividualHora[dto.nivelDia];
         }
+        if (horasNoche > 0) {
+          if (!dto.nivelNoche)
+            throw new BadRequestException('Falta el nivel de noche (Intermedio o Premium).');
+          if (dto.nivelNoche === 'BASICO')
+            throw new BadRequestException(
+              'De noche (desde 19:00) el nivel Básico no está disponible en Querétaro.',
+            );
+          tarifaNoche = tz.cobroIndividualHora[dto.nivelNoche];
+        }
+        cobroSuelto = redondea2((tarifaDia ?? 0) * horasDia + (tarifaNoche ?? 0) * horasNoche);
       } else if (dto.cobroTotal != null && dto.cobroTotal > 0) {
         cobroSuelto = dto.cobroTotal; // Ludoteca (Toluca): total de estaciones
       } else {
@@ -333,8 +352,18 @@ export class CalendarioService {
     }
 
     const nuevaDur = horasEntre(servicio.horaInicio, dto.horaFin);
-    if (nuevaDur == null || nuevaDur < 3) {
+    if (nuevaDur == null) {
+      throw new BadRequestException('El nuevo horario debe dar horas completas.');
+    }
+    // Mínimo 3 h, salvo LUDOTECA (admite desde 1 h). Fiesta se valida abajo (3-6 h).
+    if (nuevaDur < 3 && servicio.tipoServicio !== 'LUDOTECA_MOVIL') {
       throw new BadRequestException('El nuevo horario debe dar horas completas y mínimo 3 h.');
+    }
+    if (
+      servicio.tipoServicio === 'NANNIE_FIESTA_PLAYDATE' &&
+      (nuevaDur < FIESTA_DUR_MIN || nuevaDur > FIESTA_DUR_MAX)
+    ) {
+      throw new BadRequestException(`Una nannie de fiesta es de ${FIESTA_DUR_MIN} a ${FIESTA_DUR_MAX} horas.`);
     }
     if (nuevaDur === servicio.duracionHoras) return servicio; // sin cambio
 
@@ -370,6 +399,9 @@ export class CalendarioService {
         nuevoCobro = redondea2(
           (Number(servicio.paquete.precioTotal) / servicio.paquete.horasTotales) * durBase,
         );
+      } else if (servicio.tipoServicio === 'NANNIE_FIESTA_PLAYDATE') {
+        // Fiesta: cobro plano $250/h con la nueva duración.
+        nuevoCobro = redondea2(COBRO_FIESTA_HORA * durBase);
       } else if (servicio.finanza?.tarifaDia != null || servicio.finanza?.tarifaNoche != null) {
         const { horasDia, horasNoche } = dividirDiaNoche(servicio.horaInicio, durBase);
         const td = servicio.finanza.tarifaDia ? Number(servicio.finanza.tarifaDia) : 0;
@@ -767,7 +799,9 @@ export class CalendarioService {
       },
       select: { horaInicio: true, horaFin: true },
     });
-    const choca = otros.find((s) => s.horaInicio < horaFin && horaInicio < s.horaFin);
+    const choca = otros.find(
+      (s) => aMin(s.horaInicio) < finMin(horaInicio, horaFin) && aMin(horaInicio) < finMin(s.horaInicio, s.horaFin),
+    );
     if (choca) {
       throw new BadRequestException(
         `Esta nannie ya tiene un servicio de ${choca.horaInicio} a ${choca.horaFin} ese día. ` +
@@ -936,4 +970,18 @@ function horasEntre(inicio: string, fin: string): number | null {
   if (diff <= 0) diff += 24 * 60; // cruza medianoche
   if (diff % 60 !== 0) return null;
   return diff / 60;
+}
+
+/** "HH:mm" → minutos desde medianoche. */
+function aMin(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/** Minutos del FIN de un bloque; un fin ≤ inicio se interpreta como cruce de
+ *  medianoche (ej. 21:00–00:00; 00:00 como fin = 1440). */
+function finMin(inicio: string, fin: string): number {
+  const i = aMin(inicio);
+  const f = aMin(fin);
+  return f > i ? f : f + 1440;
 }

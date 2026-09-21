@@ -5,19 +5,11 @@ import { api, type PaqueteActivo, type NannieLite, type TipoServicio, type Plaza
 import { TIPO_LABEL } from '@/lib/dominio';
 import { HoraSelect } from '@/components/hora-select';
 import { SelectColonia } from '@/components/select-colonia';
+import { horasEntre } from '@/lib/dia-noche';
 import { cn } from '@/lib/utils';
 
 const TRAMOS = [10, 20, 30, 40, 50];
 const inputCls = 'rounded-lg border border-borde bg-white px-3 py-1.5 text-sm outline-none focus:border-marca-azul';
-
-/** Horas entre dos "HH:mm" (fin − inicio). */
-function horasEntre(hi: string, hf: string): number {
-  const min = (s: string) => {
-    const [h, m] = s.split(':').map(Number);
-    return h * 60 + m;
-  };
-  return (min(hf) - min(hi)) / 60;
-}
 
 /** M5/M2 · Control completo del paquete de horas de una familia (vive DENTRO del
  *  expediente de la familia). Muestra el saldo del paquete activo con sus
@@ -255,7 +247,7 @@ function ProgramarPaquete({
     setDireccion(v);
   }
 
-  const dur = horasEntre(horaInicio, horaFin);
+  const dur = horasEntre(horaInicio, horaFin) ?? 0;
   const horasPedidas = fechas.length * dur;
   const excede = horasPedidas > paquete.horasRestantes;
 

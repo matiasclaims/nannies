@@ -341,7 +341,8 @@ function AccionesServicio({
   const nuevaDur = horasEntre(servicio.horaInicio, horaFin);
   const { horasNoche } = nuevaDur ? dividirDiaNoche(servicio.horaInicio, nuevaDur) : { horasNoche: 0 };
   const cruzaNoche = horasNoche > 0;
-  const invalida = nuevaDur == null || nuevaDur < 3;
+  // Mínimo 3 h, salvo LUDOTECA (admite desde 1 h).
+  const invalida = nuevaDur == null || (nuevaDur < 3 && servicio.tipoServicio !== 'LUDOTECA_MOVIL');
 
   // --- Reasignar ---
   const [nannieSel, setNannieSel] = useState('');
@@ -599,7 +600,8 @@ function AccionesServicio({
 
 function offset(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
-  const t = Math.max(HORA_MIN, Math.min(HORA_MAX, (h || 0) + (m || 0) / 60));
+  const hh = (h || 0) === 0 ? 24 : h; // 00:00 = medianoche = fin de día (24:00)
+  const t = Math.max(HORA_MIN, Math.min(HORA_MAX, hh + (m || 0) / 60));
   return t - HORA_MIN;
 }
 

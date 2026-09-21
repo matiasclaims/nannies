@@ -16,7 +16,7 @@ import { Avatar } from '@/components/avatar';
 import { NombreNannie } from '@/components/nombre-nannie';
 import { HoraSelect } from '@/components/hora-select';
 import { SelectColonia } from '@/components/select-colonia';
-import { dividirDiaNoche, TARIFA_NOCHE_MIN } from '@/lib/dia-noche';
+import { dividirDiaNoche, horasEntre, TARIFA_NOCHE_MIN } from '@/lib/dia-noche';
 import {
   ZONAS_QRO,
   COBRO_QRO,
@@ -29,6 +29,11 @@ import { cn } from '@/lib/utils';
 
 const inputCls =
   'w-full rounded-xl border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-marca-azul focus:ring-2 focus:ring-marca-azul/20';
+
+// Nannie de fiesta: cobro FIJO $250/h (ambas plazas) y solo 3-6 h (tabulador de pago).
+const COBRO_FIESTA_HORA = 250;
+const FIESTA_DUR_MIN = 3;
+const FIESTA_DUR_MAX = 6;
 
 const normTxt = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -172,14 +177,6 @@ const LUDOTECA_ESTACIONES: { nombre: string; tarifa: number; porNino?: boolean }
   { nombre: 'Pottery Lab', tarifa: 550 },
 ];
 
-function calcDuracion(ini: string, fin: string): number | null {
-  const [ih, im] = ini.split(':').map(Number);
-  const [fh, fm] = fin.split(':').map(Number);
-  const mins = fh * 60 + fm - (ih * 60 + im);
-  if (mins <= 0 || mins % 60 !== 0) return null; // solo horas completas
-  return mins / 60;
-}
-
 export default function AsignacionPage() {
   const [familias, setFamilias] = useState<FamiliaLite[]>([]);
   const [nannies, setNannies] = useState<NannieLite[]>([]);
@@ -230,7 +227,7 @@ export default function AsignacionPage() {
   }, [form.plaza, form.tipoServicio]);
 
   const duracion = useMemo(
-    () => calcDuracion(form.horaInicio, form.horaFin),
+    () => horasEntre(form.horaInicio, form.horaFin),
     [form.horaInicio, form.horaFin],
   );
 
@@ -254,24 +251,30 @@ export default function AsignacionPage() {
   // nivel (día: 3 opciones; noche: solo Interm/Premium).
   const cobroQroZona = esQro && esZonaQro(form.zona) ? COBRO_QRO[form.zona] : null;
   const cobroQroTotal =
-    !cobroQroZona || duracion == null
+    duracion == null
       ? 0
       : esFiesta
-        ? cobroQroZona.fiestaHora * duracion
-        : (horasDia > 0 ? cobroQroZona.individualHora[nivelDiaQro] * horasDia : 0) +
-          (horasNoche > 0 ? cobroQroZona.individualHora[nivelNocheQro] * horasNoche : 0);
+        ? COBRO_FIESTA_HORA * duracion
+        : !cobroQroZona
+          ? 0
+          : (horasDia > 0 ? cobroQroZona.individualHora[nivelDiaQro] * horasDia : 0) +
+            (horasNoche > 0 ? cobroQroZona.individualHora[nivelNocheQro] * horasNoche : 0);
+  // Cobro fijo de fiesta (ambas plazas): $250/h × horas.
+  const cobroFiestaTotal = esFiesta && duracion != null ? COBRO_FIESTA_HORA * duracion : 0;
 
   const excedePaquete =
     usaPaquete && paquete !== null && duracion !== null ? duracion > paquete.horasRestantes : false;
   const cobroInvalido =
     !usaPaquete &&
-    (esQro
-      ? !esZonaQro(form.zona) // en Qro basta con elegir zona válida (niveles con default)
-      : esLudoteca
-        ? cobroLudoteca <= 0
-        : (horasDia > 0 && tarifaDia <= 0) ||
-          (horasNoche > 0 && (tarifaNoche <= 0 || tarifaNoche < TARIFA_NOCHE_MIN)) ||
-          cobroIndividualTotal <= 0);
+    (esFiesta
+      ? esQro && !esZonaQro(form.zona) // fiesta: cobro fijo $250/h; en Qro solo pide zona (para el pago)
+      : esQro
+        ? !esZonaQro(form.zona) // en Qro basta con elegir zona válida (niveles con default)
+        : esLudoteca
+          ? cobroLudoteca <= 0
+          : (horasDia > 0 && tarifaDia <= 0) ||
+            (horasNoche > 0 && (tarifaNoche <= 0 || tarifaNoche < TARIFA_NOCHE_MIN)) ||
+            cobroIndividualTotal <= 0);
   const bloqueaOferta = excedePaquete || cobroInvalido;
 
   function set<K extends keyof Form>(k: K, v: Form[K]) {
@@ -329,8 +332,11 @@ export default function AsignacionPage() {
     if (!esQro && !form.coloniaId && !form.zona.trim())
       return setError('Elige o escribe la colonia del servicio.');
     if (duracion === null) return setError('El horario debe ser en horas completas.');
-    // Mínimo 3 h solo para servicios sueltos; un paquete admite sesiones <3 h.
-    if (duracion < 3 && !usaPaquete)
+    // Fiesta: solo 3-6 h (tabulador de pago de fiesta).
+    if (esFiesta && (duracion < FIESTA_DUR_MIN || duracion > FIESTA_DUR_MAX))
+      return setError(`Una nannie de fiesta es de ${FIESTA_DUR_MIN} a ${FIESTA_DUR_MAX} horas.`);
+    // Mínimo 3 h solo para servicios sueltos; paquete y LUDOTECA admiten <3 h.
+    if (!esFiesta && !esLudoteca && duracion < 3 && !usaPaquete)
       return setError('El horario debe ser en horas completas y de mínimo 3 horas.');
     setBuscando(true);
     try {
@@ -365,8 +371,8 @@ export default function AsignacionPage() {
         tipoServicio: form.tipoServicio,
         formato: usaPaquete ? 'PAQUETE' : 'INDIVIDUAL',
         paqueteId: usaPaquete && paquete ? paquete.id : undefined,
-        tarifaDia: usaPaquete || esLudoteca || esQro || horasDia <= 0 ? undefined : tarifaDia,
-        tarifaNoche: usaPaquete || esLudoteca || esQro || horasNoche <= 0 ? undefined : tarifaNoche,
+        tarifaDia: usaPaquete || esLudoteca || esFiesta || esQro || horasDia <= 0 ? undefined : tarifaDia,
+        tarifaNoche: usaPaquete || esLudoteca || esFiesta || esQro || horasNoche <= 0 ? undefined : tarifaNoche,
         cobroTotal: !usaPaquete && esLudoteca ? cobroLudoteca : undefined,
         nivelDia: !usaPaquete && esQro && !esFiesta && horasDia > 0 ? nivelDiaQro : undefined,
         nivelNoche: !usaPaquete && esQro && !esFiesta && horasNoche > 0 ? nivelNocheQro : undefined,
@@ -629,11 +635,11 @@ export default function AsignacionPage() {
             ) : esFiesta ? (
               <p className="text-xs text-texto-suave">
                 Nannie de fiesta:{' '}
-                <strong className="text-texto-fuerte">${cobroQroZona!.fiestaHora}/h</strong>
+                <strong className="text-texto-fuerte">${COBRO_FIESTA_HORA}/h</strong>
                 {duracion != null && ` × ${duracion} h = `}
                 {duracion != null && (
                   <strong className="text-texto-fuerte">
-                    ${cobroQroTotal.toLocaleString('es-MX')}
+                    ${cobroFiestaTotal.toLocaleString('es-MX')}
                   </strong>
                 )}
               </p>
@@ -680,46 +686,59 @@ export default function AsignacionPage() {
           <div className="rounded-xl border border-borde bg-fondo p-3">
             <p className="mb-2 text-xs font-medium text-texto-suave">
               Cobro a la familia (por hora)
-              {horasDia > 0 && horasNoche > 0 && (
+              {!esFiesta && horasDia > 0 && horasNoche > 0 && (
                 <span className="text-marca-morado"> · el horario cruza día/noche</span>
               )}
             </p>
-            <div className="space-y-2">
-              {horasDia > 0 && (
-                <BandaCobro
-                  label="Día (hasta 19:00)"
-                  horas={horasDia}
-                  tarifa={tarifaDia}
-                  setTarifa={setTarifaDia}
-                  libre={libreDia}
-                  setLibre={setLibreDia}
-                  piso={0}
-                />
-              )}
-              {horasNoche > 0 && (
-                <BandaCobro
-                  label="Noche (19:00–07:00)"
-                  horas={horasNoche}
-                  tarifa={tarifaNoche}
-                  setTarifa={setTarifaNoche}
-                  libre={libreNoche}
-                  setLibre={setLibreNoche}
-                  piso={TARIFA_NOCHE_MIN}
-                />
-              )}
-            </div>
-            {duracion !== null && cobroIndividualTotal > 0 && (
-              <p className="mt-2 text-xs text-texto-suave">
-                Cobro total:{' '}
-                <strong className="text-texto-fuerte">
-                  ${cobroIndividualTotal.toLocaleString('es-MX')}
-                </strong>{' '}
-                {horasDia > 0 && horasNoche > 0
-                  ? `(día $${tarifaDia}×${horasDia} h + noche $${tarifaNoche}×${horasNoche} h)`
-                  : horasNoche > 0
-                    ? `($${tarifaNoche}/h × ${horasNoche} h de noche)`
-                    : `($${tarifaDia}/h × ${horasDia} h)`}
+            {esFiesta ? (
+              <p className="text-xs text-texto-suave">
+                Nannie de fiesta:{' '}
+                <strong className="text-texto-fuerte">${COBRO_FIESTA_HORA}/h</strong>
+                {duracion != null && ` × ${duracion} h = `}
+                {duracion != null && (
+                  <strong className="text-texto-fuerte">${cobroFiestaTotal.toLocaleString('es-MX')}</strong>
+                )}
               </p>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  {horasDia > 0 && (
+                    <BandaCobro
+                      label="Día (hasta 19:00)"
+                      horas={horasDia}
+                      tarifa={tarifaDia}
+                      setTarifa={setTarifaDia}
+                      libre={libreDia}
+                      setLibre={setLibreDia}
+                      piso={0}
+                    />
+                  )}
+                  {horasNoche > 0 && (
+                    <BandaCobro
+                      label="Noche (19:00–07:00)"
+                      horas={horasNoche}
+                      tarifa={tarifaNoche}
+                      setTarifa={setTarifaNoche}
+                      libre={libreNoche}
+                      setLibre={setLibreNoche}
+                      piso={TARIFA_NOCHE_MIN}
+                    />
+                  )}
+                </div>
+                {duracion !== null && cobroIndividualTotal > 0 && (
+                  <p className="mt-2 text-xs text-texto-suave">
+                    Cobro total:{' '}
+                    <strong className="text-texto-fuerte">
+                      ${cobroIndividualTotal.toLocaleString('es-MX')}
+                    </strong>{' '}
+                    {horasDia > 0 && horasNoche > 0
+                      ? `(día $${tarifaDia}×${horasDia} h + noche $${tarifaNoche}×${horasNoche} h)`
+                      : horasNoche > 0
+                        ? `($${tarifaNoche}/h × ${horasNoche} h de noche)`
+                        : `($${tarifaDia}/h × ${horasDia} h)`}
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}
