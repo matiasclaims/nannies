@@ -354,6 +354,10 @@ export interface Dashboard {
   serviciosPorNannie: { nannieId: string; nombre: string; color: string | null; plaza: Plaza; total: number }[];
   serviciosPorTipo: { tipo: TipoServicio; total: number }[];
   comparativoAnual: { anio: number; horas: number }[];
+  comparativoMensual: {
+    anios: number[];
+    series: { anio: number; toluca: number[]; queretaro: number[]; total: number[] }[];
+  };
   manana: { horaInicio: string; zona: string; familia: string; nannie: string; porAsignar: boolean }[];
   actividad: { estado: EstadoServicio; familiaId: string; familia: string; nannie: string; zona: string; fecha: string }[];
   margen: number | null;

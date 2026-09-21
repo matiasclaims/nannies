@@ -166,6 +166,35 @@ export class DashboardService {
       comparativoAnual.push({ anio: y - dy, horas: svs.reduce((s, x) => s + x.duracionHoras, 0) });
     }
 
+    // --- Comparativo mensual por año (Paula 2026-09-21): horas CUBIERTAS
+    //     (COMPLETADO) por mes, una serie por año, últimos 3 años, separable por
+    //     plaza. Para la gráfica de líneas superpuestas ("onditas") del Panorama. ---
+    const aniosComp = [y - 2, y - 1, y];
+    const inicioComp = new Date(Date.UTC(y - 2, 0, 1)); // 1-ene de hace 2 años
+    const completadosComp = await this.prisma.servicio.findMany({
+      where: { estado: 'COMPLETADO', fecha: { gte: inicioComp, lt: finMesExcl } },
+      select: { fecha: true, duracionHoras: true, plaza: true },
+    });
+    const ceros = () => aniosComp.map(() => Array(12).fill(0) as number[]);
+    const horasTol = ceros();
+    const horasQro = ceros();
+    for (const s of completadosComp) {
+      const i = s.fecha.getUTCFullYear() - (y - 2);
+      if (i < 0 || i > 2) continue;
+      const mo = s.fecha.getUTCMonth();
+      if (s.plaza === 'QUERETARO') horasQro[i][mo] += s.duracionHoras;
+      else horasTol[i][mo] += s.duracionHoras;
+    }
+    const comparativoMensual = {
+      anios: aniosComp,
+      series: aniosComp.map((anio, i) => ({
+        anio,
+        toluca: horasTol[i].map((h) => Math.round(h)),
+        queretaro: horasQro[i].map((h) => Math.round(h)),
+        total: horasTol[i].map((h, j) => Math.round(h + horasQro[i][j])),
+      })),
+    };
+
     // --- Lista de servicios POR ASIGNAR (mismo criterio que el indicador): sin
     //     nannie, ofertados y a futuro. Para el atajo del dashboard: dice CUÁL. ---
     const porAsignarLista = servicios
@@ -283,6 +312,7 @@ export class DashboardService {
       serviciosPorNannie,
       serviciosPorTipo,
       comparativoAnual,
+      comparativoMensual,
       manana,
       actividad,
       margen,

@@ -203,6 +203,13 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
         </Panel>
       </section>
 
+      {/* Horas cubiertas por mes, una línea por año (comparativo interanual) */}
+      <section>
+        <Panel titulo="Horas cubiertas por mes (comparativo por año)" icon={Activity}>
+          {d ? <LineasMensuales data={d.comparativoMensual} /> : <Vacio texto="Cargando…" />}
+        </Panel>
+      </section>
+
       {/* Barras: zonas + aceptación por nannie */}
       <section className="grid gap-4 lg:grid-cols-2">
         <Panel titulo="Zonas de más demanda" icon={MapPin}>
@@ -548,6 +555,95 @@ function ModalDona({ titulo, datos, onCerrar }: { titulo: string; datos: Dashboa
       </div>
     </div>
   );
+}
+
+/** Líneas superpuestas: horas cubiertas por mes, una serie por año, con selector
+ *  de plaza (Todas/Toluca/Querétaro). SVG puro, sin librería. */
+function LineasMensuales({ data }: { data: Dashboard['comparativoMensual'] }) {
+  const [plaza, setPlaza] = useState<'total' | 'toluca' | 'queretaro'>('total');
+  const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const MESES_LARGO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  // Más viejo → más nuevo: gris, verde, azul (el año en curso resalta en azul).
+  const COLORES = ['#B9C2CF', '#9DCD5A', '#1971C2'];
+
+  const series = data.series.map((s) => ({ anio: s.anio, valores: s[plaza] }));
+  const maxDato = Math.max(1, ...series.flatMap((s) => s.valores));
+  const paso = pasoBonito(maxDato);
+  const maxY = Math.max(paso, Math.ceil(maxDato / paso) * paso);
+  const yticks: number[] = [];
+  for (let t = 0; t <= maxY + 0.001; t += paso) yticks.push(Math.round(t));
+
+  const W = 640, H = 240, padL = 40, padR = 12, padT = 12, padB = 26;
+  const iw = W - padL - padR, ih = H - padT - padB;
+  const x = (i: number) => padL + (iw * i) / 11;
+  const yv = (v: number) => padT + ih - (ih * v) / maxY;
+
+  const btn = (k: typeof plaza, l: string) => (
+    <button
+      key={k}
+      onClick={() => setPlaza(k)}
+      className={cn(
+        'rounded-lg px-3 py-1 text-xs font-medium transition',
+        plaza === k ? 'bg-marca-azul text-white' : 'bg-fondo text-texto-suave hover:text-texto-fuerte',
+      )}
+    >
+      {l}
+    </button>
+  );
+
+  return (
+    <div>
+      <div className="mb-3 flex gap-1.5">
+        {btn('total', 'Todas')}
+        {btn('toluca', 'Toluca')}
+        {btn('queretaro', 'Querétaro')}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Horas cubiertas por mes por año">
+        {yticks.map((t) => (
+          <g key={t}>
+            <line x1={padL} x2={W - padR} y1={yv(t)} y2={yv(t)} stroke="#eef0f2" strokeWidth="1" />
+            <text x={padL - 6} y={yv(t) + 3} textAnchor="end" fontSize="9" fill="#9aa4b2">{t}</text>
+          </g>
+        ))}
+        {MESES.map((mm, i) => (
+          <text key={mm} x={x(i)} y={H - 8} textAnchor="middle" fontSize="9" fill="#9aa4b2">{mm}</text>
+        ))}
+        {series.map((s, si) => {
+          const color = COLORES[si] ?? '#CB6CE6';
+          const pts = s.valores.map((v, i) => `${x(i)},${yv(v)}`).join(' ');
+          return (
+            <g key={s.anio}>
+              <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+              {s.valores.map((v, i) =>
+                v > 0 ? (
+                  <circle key={i} cx={x(i)} cy={yv(v)} r="2.5" fill={color}>
+                    <title>{`${s.anio} · ${MESES_LARGO[i]}: ${v} h`}</title>
+                  </circle>
+                ) : null,
+              )}
+            </g>
+          );
+        })}
+      </svg>
+      <div className="mt-2 flex flex-wrap justify-center gap-4">
+        {series.map((s, si) => (
+          <span key={s.anio} className="flex items-center gap-1.5 text-xs text-texto-suave">
+            <span className="inline-block h-2 w-4 rounded-full" style={{ backgroundColor: COLORES[si] ?? '#CB6CE6' }} />
+            {s.anio}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Paso "bonito" para el eje Y (1/2/5 × 10^n) según el máximo del dato. */
+function pasoBonito(max: number): number {
+  const bruto = max / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(bruto || 1)));
+  const norm = bruto / mag;
+  const paso = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10;
+  return Math.max(1, paso * mag);
 }
 
 /** Barras horizontales de servicios por tipo (el más demandado arriba). */
