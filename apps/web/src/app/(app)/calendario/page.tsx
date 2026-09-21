@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { api, type Sesion } from '@/lib/api';
+import { useModoPerfil } from '@/lib/modo-perfil';
 import { inicioSemana, diasDeSemana, sumarSemanas, etiquetaSemana } from '@/lib/semana';
 import { CalendarioEquipo } from '@/components/calendario/calendario-equipo';
 import { AgendaNannie } from '@/components/calendario/agenda-nannie';
@@ -13,7 +13,8 @@ import { AgendaNannie } from '@/components/calendario/agenda-nannie';
  *  - Nannie: su semana como agenda + ofertas + marcar disponibilidad.
  */
 export default function CalendarioPage() {
-  const [sesion, setSesion] = useState<Sesion | null>(null);
+  // Con doble perfil (Jacky), manda el rol efectivo del modo activo.
+  const { sesion, rolEfectivo } = useModoPerfil();
   // Semana inicial: la del parámetro ?fecha=YYYY-MM-DD (atajo "por asignar" del
   // dashboard) o la de hoy.
   const [lunes, setLunes] = useState<Date>(() => {
@@ -27,12 +28,8 @@ export default function CalendarioPage() {
     return inicioSemana(new Date());
   });
 
-  useEffect(() => {
-    api.me().then(setSesion).catch(() => undefined);
-  }, []);
-
   const dias = useMemo(() => diasDeSemana(lunes), [lunes]);
-  const esNannie = sesion?.rol === 'NANNIE';
+  const esNannie = rolEfectivo === 'NANNIE';
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-4">
@@ -68,7 +65,7 @@ export default function CalendarioPage() {
       {sesion === null ? (
         <div className="h-40 animate-pulse rounded-2xl bg-panel shadow-card" />
       ) : esNannie ? (
-        <AgendaNannie dias={dias} />
+        <AgendaNannie dias={dias} nannieId={sesion.nannieId ?? undefined} />
       ) : (
         <CalendarioEquipo dias={dias} sesion={sesion} />
       )}

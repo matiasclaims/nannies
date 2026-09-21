@@ -19,9 +19,12 @@ import { cn } from '@/lib/utils';
 import { FormMarcarDisponibilidad } from './form-marcar-disponibilidad';
 import { HoraSelect } from '@/components/hora-select';
 
-/** Vista de la nannie: sus ofertas arriba + su semana como agenda + marcar disponibilidad. */
-export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
+/** Vista de la nannie: sus ofertas arriba + su semana como agenda + marcar disponibilidad.
+ *  `nannieId` acota los datos a la nannie (necesario para el doble perfil de Jacky:
+ *  su cuenta es de coordinación, así que el backend no la acota por rol). */
+export function AgendaNannie({ dias, nannieId }: { dias: DiaSemana[]; nannieId?: string }) {
   const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [ofertasPend, setOfertasPend] = useState<Servicio[]>([]);
   const [dispon, setDispon] = useState<Disponibilidad[]>([]);
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'error'>('cargando');
   const [marcando, setMarcando] = useState(false);
@@ -40,17 +43,21 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
   const cargar = useCallback(async () => {
     setEstado('cargando');
     try {
-      const [s, d] = await Promise.all([
-        api.listarServicios({ desde, hasta }),
-        api.listarDisponibilidad({ desde, hasta }),
+      const [s, d, ofertas] = await Promise.all([
+        api.listarServicios({ desde, hasta, nannieId }),
+        api.listarDisponibilidad({ desde, hasta, nannieId }),
+        // Ofertas pendientes SIN importar la fecha (una oferta a futuro debe
+        // poder aceptarse sin navegar hasta esa semana).
+        api.listarServicios({ nannieId, estado: 'OFERTADO' }),
       ]);
       setServicios(s);
       setDispon(d);
+      setOfertasPend(ofertas);
       setEstado('ok');
     } catch {
       setEstado('error');
     }
-  }, [desde, hasta]);
+  }, [desde, hasta, nannieId]);
 
   useEffect(() => {
     void cargar();
@@ -70,7 +77,8 @@ export function AgendaNannie({ dias }: { dias: DiaSemana[] }) {
     return <Aviso texto="No se pudo cargar tu agenda. ¿Está arriba la API?" />;
   }
 
-  const ofertas = servicios.filter((s) => s.estado === 'OFERTADO');
+  // Todas las ofertas por responder (de cualquier fecha), ordenadas por fecha.
+  const ofertas = [...ofertasPend].sort((a, b) => a.fecha.localeCompare(b.fecha));
   const enDia = (iso: string, dia: string) => iso.slice(0, 10) === dia;
 
   return (

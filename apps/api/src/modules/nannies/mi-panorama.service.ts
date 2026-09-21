@@ -21,7 +21,7 @@ export class MiPanoramaService {
     const finMesExcl = new Date(Date.UTC(y, m + 1, 1));
     const inicio12 = new Date(Date.UTC(y, m - 11, 1)); // 12 meses hacia atrás
 
-    const [nannie, serviciosMesActual, serviciosHist, evalPapas, evalAgencia] = await Promise.all([
+    const [nannie, serviciosMesActual, ofertasPendientes, serviciosHist, evalPapas, evalAgencia] = await Promise.all([
       this.prisma.nannie.findUnique({
         where: { id: nannieId },
         select: { nombre: true, foto: true, especialidad: true, rangoPermanente: true, nivelTarifaMesActual: true },
@@ -30,6 +30,8 @@ export class MiPanoramaService {
         where: { nannieId, fecha: { gte: inicioMes, lt: finMesExcl } },
         select: { estado: true, duracionHoras: true },
       }),
+      // Ofertas por responder de CUALQUIER fecha (una oferta a futuro cuenta).
+      this.prisma.servicio.count({ where: { nannieId, estado: 'OFERTADO' } }),
       // Servicios COMPLETADOS de los últimos 12 meses (para el histórico por mes/semana).
       this.prisma.servicio.findMany({
         where: { nannieId, estado: 'COMPLETADO', fecha: { gte: inicio12, lt: finMesExcl } },
@@ -46,7 +48,7 @@ export class MiPanoramaService {
 
     const completadosMes = serviciosMesActual.filter((s) => s.estado === 'COMPLETADO');
     const horasMes = completadosMes.reduce((s, x) => s + x.duracionHoras, 0);
-    const ofertas = serviciosMesActual.filter((s) => s.estado === 'OFERTADO').length;
+    const ofertas = ofertasPendientes;
 
     // Histórico por MES (12 meses)
     const buckMes = new Map<string, { mes: string; label: string; horas: number }>();
