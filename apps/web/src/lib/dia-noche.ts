@@ -47,5 +47,7 @@ export function dividirDiaNoche(
     inicio += paso;
     restante -= paso;
   }
-  return { horasDia: dia / 60, horasNoche: noche / 60 };
+  // Sin fracciones (Paula/Mario 2026-09-21): cada banda redondea hacia arriba a
+  // hora completa (ej. 6:30–7:30 = 1 h día + 1 h noche). Solo afecta el cobro.
+  return { horasDia: Math.ceil(dia / 60), horasNoche: Math.ceil(noche / 60) };
 }

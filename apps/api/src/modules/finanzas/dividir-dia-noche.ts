@@ -14,8 +14,11 @@ function enNoche(minutoDelDia: number): boolean {
 }
 
 /**
- * Reparte la duración (en horas) desde `horaInicio` (HH:mm) entre día y noche,
- * respetando bloques de 30 min. Maneja el cruce de medianoche.
+ * Reparte la duración (en horas) desde `horaInicio` (HH:mm) entre día y noche.
+ * SIN FRACCIONES (Paula/Mario 2026-09-21): cada banda se redondea HACIA ARRIBA a
+ * hora completa — cualquier minuto que cruce a noche (o a día) cuenta como hora
+ * completa (ej. 6:30–7:30 = 1 h día + 1 h noche). Solo afecta el COBRO a la
+ * familia; el pago a la nannie va por duración total. Maneja el cruce de medianoche.
  */
 export function dividirDiaNoche(
   horaInicio: string,
@@ -44,5 +47,6 @@ export function dividirDiaNoche(
     restante -= paso;
   }
 
-  return { horasDia: dia / 60, horasNoche: noche / 60 };
+  // Sin fracciones: cada banda redondea hacia arriba a hora completa.
+  return { horasDia: Math.ceil(dia / 60), horasNoche: Math.ceil(noche / 60) };
 }

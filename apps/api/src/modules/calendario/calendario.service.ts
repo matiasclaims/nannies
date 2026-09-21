@@ -24,12 +24,15 @@ const ESTADOS_CERRADOS: EstadoServicio[] = ['ACEPTADO', 'COMPLETADO', 'CANCELADO
 // Tipos que atienden grupos (4-8 niños); el resto es 1-3 (Reglamento PF).
 const TIPOS_GRUPO: TipoServicio[] = ['NANNIE_FIESTA_PLAYDATE', 'LUDOTECA_MOVIL'];
 
-// Nannie de fiesta: cobro FIJO a la familia $250/h en ambas plazas (Paula/Mario
-// 2026-09-18). El pago a la nannie va por tabulador Fiesta 3-6 h (Toluca) o por
-// zona (Qro). La fiesta solo se ofrece de 3 a 6 h (lo que cubre el tabulador).
-const COBRO_FIESTA_HORA = 250;
-const FIESTA_DUR_MIN = 3;
-const FIESTA_DUR_MAX = 6;
+// Nannie de fiesta (PE/PEqro 2026, Mario 2026-09-21):
+//  - COBRO a la familia: Toluca $250/h fijo; Querétaro por zona (cobroFiestaHora).
+//  - PAGO a la nannie: Toluca por tabulador Fiesta 3-6 h (fuera de eso, pago
+//    pendiente/manual en Finanzas); Querétaro por zona (pagoFiestaHora × horas).
+//  - DURACIÓN permitida: Toluca 2-10 h; Querétaro 3-5 h.
+const COBRO_FIESTA_HORA = 250; // solo Toluca
+function rangoFiesta(plaza: Plaza): { min: number; max: number } {
+  return plaza === 'QUERETARO' ? { min: 3, max: 5 } : { min: 2, max: 10 };
+}
 
 interface RangoFechas {
   desde?: string;
@@ -164,16 +167,22 @@ export class CalendarioService {
     }
     // Mínimo de 3 h solo para servicios sueltos/individuales (piso de cobro). Un
     // servicio de PAQUETE puede ser de 1-2 h (horas ya pagadas, Opción B); la
-    // LUDOTECA admite desde 1 h (cobro por hora por estación, Mario 2026-09-18).
-    if (dto.formato !== 'PAQUETE' && dto.tipoServicio !== 'LUDOTECA_MOVIL' && dto.duracionHoras < 3) {
+    // LUDOTECA admite desde 1 h y la FIESTA tiene su propio rango por plaza (abajo).
+    if (
+      dto.formato !== 'PAQUETE' &&
+      dto.tipoServicio !== 'LUDOTECA_MOVIL' &&
+      dto.tipoServicio !== 'NANNIE_FIESTA_PLAYDATE' &&
+      dto.duracionHoras < 3
+    ) {
       throw new BadRequestException('El mínimo de horas por servicio es 3');
     }
-    // Fiesta: solo 3-6 h (rango del tabulador de pago de fiesta).
-    if (
-      dto.tipoServicio === 'NANNIE_FIESTA_PLAYDATE' &&
-      (dto.duracionHoras < FIESTA_DUR_MIN || dto.duracionHoras > FIESTA_DUR_MAX)
-    ) {
-      throw new BadRequestException(`Una nannie de fiesta es de ${FIESTA_DUR_MIN} a ${FIESTA_DUR_MAX} horas.`);
+    // Fiesta: rango por plaza (Toluca 2-10 h, Qro 3-5 h). PE/PEqro 2026.
+    if (dto.tipoServicio === 'NANNIE_FIESTA_PLAYDATE') {
+      const { min, max } = rangoFiesta(dto.plaza);
+      if (dto.duracionHoras < min || dto.duracionHoras > max) {
+        const p = dto.plaza === 'QUERETARO' ? 'Querétaro' : 'Toluca';
+        throw new BadRequestException(`Una nannie de fiesta en ${p} es de ${min} a ${max} horas.`);
+      }
     }
     // M3 · cobro individual al CREAR. Querétaro: esquema por zona (sin Ludoteca);
     // fiesta por hora, individuales con bandas por NIVEL (día: Básico/Interm/Premium;
@@ -187,12 +196,15 @@ export class CalendarioService {
       const { horasDia, horasNoche } = dividirDiaNoche(dto.horaInicio, dto.duracionHoras);
 
       if (dto.tipoServicio === 'NANNIE_FIESTA_PLAYDATE') {
-        // Cobro plano $250/h en ambas plazas. En Qro se valida la zona porque el
-        // PAGO a la nannie sí va por zona (el cobro sí es fijo).
-        if (dto.plaza === 'QUERETARO' && !tarifasZonaQro(dto.zona)) {
-          throw new BadRequestException(`Zona de Querétaro no reconocida: "${dto.zona}".`);
+        // Cobro: Toluca $250/h fijo; Querétaro por zona (PEqro). El PAGO en Qro
+        // también va por zona (pagoFiestaHora), por eso se valida la zona.
+        if (dto.plaza === 'QUERETARO') {
+          const tz = tarifasZonaQro(dto.zona);
+          if (!tz) throw new BadRequestException(`Zona de Querétaro no reconocida: "${dto.zona}".`);
+          cobroSuelto = redondea2(tz.cobroFiestaHora * dto.duracionHoras);
+        } else {
+          cobroSuelto = redondea2(COBRO_FIESTA_HORA * dto.duracionHoras);
         }
-        cobroSuelto = redondea2(COBRO_FIESTA_HORA * dto.duracionHoras);
       } else if (dto.plaza === 'QUERETARO') {
         if (dto.tipoServicio === 'LUDOTECA_MOVIL') {
           throw new BadRequestException('Querétaro no ofrece servicio de Ludoteca.');
@@ -355,15 +367,20 @@ export class CalendarioService {
     if (nuevaDur == null) {
       throw new BadRequestException('El nuevo horario debe dar horas completas.');
     }
-    // Mínimo 3 h, salvo LUDOTECA (admite desde 1 h). Fiesta se valida abajo (3-6 h).
-    if (nuevaDur < 3 && servicio.tipoServicio !== 'LUDOTECA_MOVIL') {
+    // Mínimo 3 h, salvo LUDOTECA (desde 1 h) y FIESTA (rango propio por plaza).
+    if (
+      nuevaDur < 3 &&
+      servicio.tipoServicio !== 'LUDOTECA_MOVIL' &&
+      servicio.tipoServicio !== 'NANNIE_FIESTA_PLAYDATE'
+    ) {
       throw new BadRequestException('El nuevo horario debe dar horas completas y mínimo 3 h.');
     }
-    if (
-      servicio.tipoServicio === 'NANNIE_FIESTA_PLAYDATE' &&
-      (nuevaDur < FIESTA_DUR_MIN || nuevaDur > FIESTA_DUR_MAX)
-    ) {
-      throw new BadRequestException(`Una nannie de fiesta es de ${FIESTA_DUR_MIN} a ${FIESTA_DUR_MAX} horas.`);
+    if (servicio.tipoServicio === 'NANNIE_FIESTA_PLAYDATE') {
+      const { min, max } = rangoFiesta(servicio.plaza);
+      if (nuevaDur < min || nuevaDur > max) {
+        const p = servicio.plaza === 'QUERETARO' ? 'Querétaro' : 'Toluca';
+        throw new BadRequestException(`Una nannie de fiesta en ${p} es de ${min} a ${max} horas.`);
+      }
     }
     if (nuevaDur === servicio.duracionHoras) return servicio; // sin cambio
 
@@ -400,8 +417,9 @@ export class CalendarioService {
           (Number(servicio.paquete.precioTotal) / servicio.paquete.horasTotales) * durBase,
         );
       } else if (servicio.tipoServicio === 'NANNIE_FIESTA_PLAYDATE') {
-        // Fiesta: cobro plano $250/h con la nueva duración.
-        nuevoCobro = redondea2(COBRO_FIESTA_HORA * durBase);
+        // Fiesta: Toluca $250/h; Querétaro por zona.
+        const tzF = servicio.plaza === 'QUERETARO' ? tarifasZonaQro(servicio.zona) : null;
+        nuevoCobro = redondea2((tzF ? tzF.cobroFiestaHora : COBRO_FIESTA_HORA) * durBase);
       } else if (servicio.finanza?.tarifaDia != null || servicio.finanza?.tarifaNoche != null) {
         const { horasDia, horasNoche } = dividirDiaNoche(servicio.horaInicio, durBase);
         const td = servicio.finanza.tarifaDia ? Number(servicio.finanza.tarifaDia) : 0;

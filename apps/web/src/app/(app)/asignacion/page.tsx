@@ -30,10 +30,10 @@ import { cn } from '@/lib/utils';
 const inputCls =
   'w-full rounded-xl border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-marca-azul focus:ring-2 focus:ring-marca-azul/20';
 
-// Nannie de fiesta: cobro FIJO $250/h (ambas plazas) y solo 3-6 h (tabulador de pago).
-const COBRO_FIESTA_HORA = 250;
-const FIESTA_DUR_MIN = 3;
-const FIESTA_DUR_MAX = 6;
+// Nannie de fiesta (PE/PEqro 2026): cobro Toluca $250/h fijo; Qro por zona.
+// Duración: Toluca 2-10 h, Qro 3-5 h.
+const COBRO_FIESTA_HORA = 250; // solo Toluca
+const rangoFiesta = (esQro: boolean) => (esQro ? { min: 3, max: 5 } : { min: 2, max: 10 });
 
 const normTxt = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -253,13 +253,13 @@ export default function AsignacionPage() {
   const cobroQroTotal =
     duracion == null
       ? 0
-      : esFiesta
-        ? COBRO_FIESTA_HORA * duracion
-        : !cobroQroZona
-          ? 0
+      : !cobroQroZona
+        ? 0
+        : esFiesta
+          ? cobroQroZona.fiestaHora * duracion
           : (horasDia > 0 ? cobroQroZona.individualHora[nivelDiaQro] * horasDia : 0) +
             (horasNoche > 0 ? cobroQroZona.individualHora[nivelNocheQro] * horasNoche : 0);
-  // Cobro fijo de fiesta (ambas plazas): $250/h × horas.
+  // Cobro de fiesta en Toluca: $250/h × horas (en Qro va por zona, arriba).
   const cobroFiestaTotal = esFiesta && duracion != null ? COBRO_FIESTA_HORA * duracion : 0;
 
   const excedePaquete =
@@ -332,9 +332,12 @@ export default function AsignacionPage() {
     if (!esQro && !form.coloniaId && !form.zona.trim())
       return setError('Elige o escribe la colonia del servicio.');
     if (duracion === null) return setError('El horario debe ser en horas completas.');
-    // Fiesta: solo 3-6 h (tabulador de pago de fiesta).
-    if (esFiesta && (duracion < FIESTA_DUR_MIN || duracion > FIESTA_DUR_MAX))
-      return setError(`Una nannie de fiesta es de ${FIESTA_DUR_MIN} a ${FIESTA_DUR_MAX} horas.`);
+    // Fiesta: Toluca 2-10 h, Qro 3-5 h.
+    if (esFiesta) {
+      const { min, max } = rangoFiesta(esQro);
+      if (duracion < min || duracion > max)
+        return setError(`Una nannie de fiesta en ${esQro ? 'Querétaro' : 'Toluca'} es de ${min} a ${max} horas.`);
+    }
     // Mínimo 3 h solo para servicios sueltos; paquete y LUDOTECA admiten <3 h.
     if (!esFiesta && !esLudoteca && duracion < 3 && !usaPaquete)
       return setError('El horario debe ser en horas completas y de mínimo 3 horas.');
@@ -635,11 +638,11 @@ export default function AsignacionPage() {
             ) : esFiesta ? (
               <p className="text-xs text-texto-suave">
                 Nannie de fiesta:{' '}
-                <strong className="text-texto-fuerte">${COBRO_FIESTA_HORA}/h</strong>
+                <strong className="text-texto-fuerte">${cobroQroZona!.fiestaHora}/h</strong>
                 {duracion != null && ` × ${duracion} h = `}
                 {duracion != null && (
                   <strong className="text-texto-fuerte">
-                    ${cobroFiestaTotal.toLocaleString('es-MX')}
+                    ${cobroQroTotal.toLocaleString('es-MX')}
                   </strong>
                 )}
               </p>
