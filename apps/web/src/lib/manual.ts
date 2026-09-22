@@ -36,9 +36,12 @@ export const MANUAL: CapituloModulo[] = [
           pasos: [
             'Entra a "Calendario" en el menú de la izquierda.',
             'Con las flechas ‹ › cambias de semana; en medio ves el rango de fechas.',
-            'Modo "Todas": ves a todas las nannies (filas) y los días (columnas), con su disponibilidad de fondo y sus servicios como etiquetas.',
+            'Modo "Todas": ves a todas las nannies (filas) y los días (columnas), con su disponibilidad de fondo y sus servicios como bloques.',
+            'Cada bloque de servicio muestra dos líneas: arriba la nannie (en negrita) y debajo la familia a la que atiende.',
+            'Al hacer clic en un servicio se despliega su detalle completo (familia, peques, tipo, horario, zona y nannie) y desde ahí lo gestionas.',
             'Modo "Por nannie": elige una nannie en el panel derecho y verás su semana con el eje de horas (07:00–24:00), para ubicar sus huecos disponibles.',
           ],
+          nota: 'La familia y los peques del servicio solo los ve coordinación en su calendario; la nannie no los ve en su agenda (Opción A de privacidad).',
         },
         {
           titulo: 'Ofertar un servicio a una nannie',
@@ -62,6 +65,17 @@ export const MANUAL: CapituloModulo[] = [
           titulo: 'Sobre la disponibilidad',
           intro:
             'Cada nannie marca su propia disponibilidad; tú la ves (solo lectura). Si una coordinadora también opera como nannie, verá el botón "Marcar mi disponibilidad" para registrar la suya.',
+        },
+        {
+          titulo: 'Doble perfil: Coordinación y Nannie',
+          intro:
+            'Si una persona de coordinación (p. ej. la Subdirectora) también es nannie, arriba del menú aparece un selector "Coordinación / Nannie".',
+          pasos: [
+            'En "Coordinación" ves el sistema completo (asignación, finanzas, nannies, etc.).',
+            'En "Nannie" ves TU lado como nannie: tu panorama, tu calendario, tus ofertas, mis colonias y mis documentos.',
+            'Cambias de un lado a otro cuando quieras; el sistema recuerda en qué modo te quedaste.',
+          ],
+          nota: 'Es solo una vista: tus permisos no cambian. El selector solo aparece para quien tiene los dos roles.',
         },
       ],
       nannie: [
@@ -118,9 +132,20 @@ export const MANUAL: CapituloModulo[] = [
             'Elige la familia. Si es nueva, usa el botón + para darla de alta al momento.',
             'Elige el tipo de servicio, la plaza y la zona (al elegir la familia se rellenan solas si ya las tiene).',
             'Indica la fecha, el horario (Desde/Hasta) y el número de niños.',
-            'El horario debe ser en horas completas y de mínimo 3 horas por visita.',
+            'El horario va en horas completas. El mínimo depende del tipo: la mayoría son 3 horas, la Ludoteca desde 1 hora y la Nannie de fiesta 2–10 h en Toluca / 3–5 h en Querétaro.',
+            'El "Hasta" puede llegar a las 00:00 (medianoche), para cerrar servicios que terminan a esa hora.',
           ],
-          nota: 'La duración se calcula sola y te avisa en rojo si no cumple el mínimo de 3 horas.',
+          nota: 'La duración se calcula sola y te avisa en rojo si no cumple el mínimo del tipo de servicio. El sistema NO deja asignar a una nannie dos servicios que se traslapen el mismo día (aunque uno siga solo ofertado), para evitar duplicidades.',
+        },
+        {
+          titulo: 'Nannie de fiesta y Ludoteca',
+          intro:
+            'Además de los cuidados normales, hay tipos de servicio especiales para eventos.',
+          pasos: [
+            'Nannie de fiesta: cuidado en fiestas/eventos. En Toluca se cobra $250/h por nannie; en Querétaro, la tarifa por zona.',
+            'Ludoteca móvil: eliges las estaciones y el sistema suma su costo; una nannie cubre una estación. Admite servicios desde 1 hora.',
+          ],
+          nota: 'El pago a la nannie de fiesta/ludoteca sale de su tabulador según el nivel. Para casos sin tarifa fija (algunas duraciones de fiesta), el pago queda pendiente y Paula lo ajusta a mano en Finanzas.',
         },
         {
           titulo: 'Cobro: paquete o servicio suelto',
@@ -130,7 +155,7 @@ export const MANUAL: CapituloModulo[] = [
             '"Descontar del paquete": las horas del servicio se restan del saldo del paquete. Verás cuántas horas quedan.',
             '"Servicio suelto": el servicio va fuera del paquete (su cobro se maneja en Finanzas).',
           ],
-          nota: 'Si el servicio pide más horas de las que quedan en el paquete, el sistema te avisa y no deja ofertar: reduce el horario, renueva el paquete o cóbralo como suelto.',
+          nota: 'Si el servicio pide más horas de las que quedan en el paquete, el sistema divide el servicio: las horas que alcanzan salen del paquete y el sobrante (el "desborde") lo defines aparte —como servicio individual, como un paquete nuevo, o lo dejas "por definir" para resolverlo después.',
         },
         {
           titulo: 'Buscar y elegir nannie',
@@ -205,30 +230,32 @@ export const MANUAL: CapituloModulo[] = [
             'Arriba está el indicador de horas pagadas del mes, con color por rango: naranja (bajo), azul (en rango) y verde limón (óptimo).',
             'Las listas de paquetes contratados y de servicios individuales se despliegan al tocar su título (para no ver todo el detalle de golpe).',
           ],
-          nota: 'El ingreso de un paquete se cuenta una sola vez, al contratarlo. Los servicios de ese paquete ya no se vuelven a cobrar.',
+          nota: 'Cuándo cuenta el ingreso: el de un PAQUETE, cuando se contrata; el de un SERVICIO individual, cuando Paula lo CREA (aunque el servicio se dé mucho después). Por eso la fecha que ves es la de creación. Las sesiones de un paquete ya no se cobran aparte.',
         },
         {
           titulo: 'Nómina semanal (pago a las nannies)',
           intro:
-            'La nómina suma el pago de los servicios que cada nannie completó en la semana (domingo a sábado), tarifado con el tabulador según su nivel del mes. Es lo que pagas el sábado.',
+            'La nómina suma el pago de los servicios que cada nannie marcó como TERMINADOS en la semana (domingo a sábado), tarifado con el tabulador según su nivel del mes. El pago se reconoce el día que ella dio "terminado", no la fecha del servicio. Es lo que pagas el sábado.',
           pasos: [
             'Entra a "Finanzas" › pestaña "Nómina".',
             'Con las flechas ‹ › cambias de semana.',
             'Cada nannie muestra su total; toca su tarjeta para desplegar el detalle de sus servicios (cada uno con la familia).',
             'Cuando le pagues, marca su botón "Pagado" (queda con un check verde para que no la confundas).',
           ],
-          nota: 'Solo cuentan los servicios que la nannie marcó como "Terminado". Los paquetes y la Ludoteca calculan su pago automáticamente. Los bonos que registres se suman a su nómina de la semana.',
+          nota: 'Solo cuentan los servicios que la nannie marcó como "Terminado". Los paquetes y la Ludoteca calculan su pago automáticamente. Los bonos —y las comisiones de coordinación cuyo beneficiario sea esa persona— se suman a su nómina de la semana.',
         },
         {
           titulo: 'Cobro al crear un servicio',
           intro:
             'El cobro a la familia se captura al momento de asignar el servicio, en la pantalla de Asignación:',
           pasos: [
-            'Servicio individual: eliges la tarifa por hora del menú ($95–$160) o un monto libre. Si el horario cruza las 19:00, el cobro se parte en dos bandas —día y noche— y pones la tarifa de cada una (la de noche desde $125). El sistema suma ambas.',
+            'Servicio individual: eliges la tarifa por hora del menú ($95–$160) o un monto libre (hasta 4 decimales). Si el horario cruza las 19:00, el cobro se parte en dos bandas —día y noche— y pones la tarifa de cada una (la de noche desde $125). El sistema suma ambas.',
+            'Nightcare sin fracciones: al cruzar las 19:00, cada banda se cobra por HORA COMPLETA (p. ej. 18:30–21:30 se cobra como 1 h de día + 3 h de noche). Solo afecta el cobro a la familia.',
+            'Nannie de fiesta: Toluca $250/h por nannie; Querétaro por zona (el sistema lo calcula).',
             'Ludoteca: eliges las estaciones (varias) y el sistema suma su costo.',
             'Servicio de paquete: no se cobra aparte; se descuenta del paquete y se prorratea.',
           ],
-          nota: 'La banda de noche solo afecta lo que cobras a la familia; a la nannie se le paga por la duración total, igual de día que de noche.',
+          nota: 'Las bandas de noche solo afectan lo que cobras a la familia; a la nannie se le paga por la duración total, igual de día que de noche.',
         },
         {
           titulo: 'Extender un servicio (la familia se queda más)',
@@ -242,15 +269,17 @@ export const MANUAL: CapituloModulo[] = [
           nota: 'Si la extensión entra a horario de noche (después de las 19:00), te pedirá la tarifa de noche. Los servicios cancelados o rechazados no se pueden editar.',
         },
         {
-          titulo: 'Margen, comisión y bonos (solo Directora)',
+          titulo: 'Margen mensual, comisión y bonos (solo Directora)',
           intro:
-            'El Margen es tu utilidad por servicio: cobro − pago − comisión − ajuste − bonos. Es información sensible: solo la Directora la ve.',
+            'El Margen es tu utilidad del MES: ingresos del mes − ajustes − comisiones − pago a nannies del mes − bonos. Como el ingreso se reconoce al crear el servicio y el pago al completarlo, ambos pueden caer en meses distintos (un servicio creado en un mes y dado en otro se ve como ingreso en el primero y como pago en el segundo). Es información sensible: solo la Directora la ve.',
           pasos: [
-            'Entra a "Finanzas" › pestaña "Margen".',
-            'En cada servicio puedes escribir la comisión de coordinadora y un ajuste/descuento manual.',
-            'Para dar un bono a una nannie, usa la opción de bono (monto + motivo); se descuenta del margen y queda registrado a quién y por qué.',
+            'Entra a "Finanzas" › pestaña "Margen". Arriba ves las tarjetas del mes: Ingresos, Pago a nannies, Comisiones + bonos y Margen neto.',
+            'Abajo, en cada servicio con ingreso ese mes, puedes escribir la comisión de coordinación y un ajuste/descuento manual.',
+            'Comisión con beneficiario: al poner una comisión eliges a quién se le otorga; ese monto resta al margen Y se le paga en su nómina (igual que un bono).',
+            'Comisión de paquete: se captura en la pestaña Ingresos, en cada paquete (sobre su cobro total), y cuenta en el mes en que se contrató.',
+            'Bonos: la opción de bono (monto + a quién + motivo) resta al margen y se paga en la nómina de esa persona.',
           ],
-          nota: 'La comisión está en blanco por defecto; se llena solo cuando aplica. La Subdirectora ve la operación pero no el margen.',
+          nota: 'Todas las comisiones y bonos son MANUALES (no hay porcentajes automáticos); en blanco por defecto. La Subdirectora ve la operación pero no el margen.',
         },
         {
           titulo: 'Cierre de mes (niveles)',
@@ -277,7 +306,7 @@ export const MANUAL: CapituloModulo[] = [
             'En ese servicio presiona "Marcar terminado".',
             'Pasa a "Terminado" y entra a tu pago de esa semana.',
           ],
-          nota: 'Es importante marcarlo al concluir: un servicio que no marcas como terminado no entra en tu nómina de la semana.',
+          nota: 'Es importante marcarlo al concluir: un servicio que no marcas como terminado no entra en tu nómina de la semana. Solo puedes marcar terminado un servicio cuyo día ya llegó; el sistema no te deja cerrar por adelantado un servicio que aún no sucede.',
         },
         {
           titulo: 'Tu reporte (horas y ganancias)',
@@ -304,17 +333,18 @@ export const MANUAL: CapituloModulo[] = [
             'El alta la puede hacer tanto la Directora como la Subdirectora. La nannie entra en estado "Prueba" (aprox. un mes); si se queda, la pasas a "Activa".',
           pasos: [
             'Entra a "Nannies" › botón "Agregar nannie".',
-            'Captura su nombre, correo (será su acceso), teléfono, ciudad y las zonas que cubre, y elige un color para identificarla.',
-            'Al crearla se genera una contraseña temporal: si el correo está configurado le llega por email; si no, el sistema te la muestra para que se la pases.',
-            'Ella cambia esa contraseña la primera vez que entra.',
+            'Captura su nombre, teléfono, ciudad y las zonas que cubre, y elige un color para identificarla.',
+            'Usuario de acceso: escribe solo la parte antes de la arroba (por ejemplo "vianney") y el sistema arma su acceso "vianney@nannies.mx". Con ese usuario entra al sistema.',
+            'Correo personal (opcional): es su correo real de contacto; NO es su acceso, solo queda guardado en su ficha.',
+            'Al crearla se genera una contraseña temporal que el sistema te muestra para que se la pases; ella la cambia la primera vez que entra.',
           ],
-          nota: 'El color se elige aquí, al alta; después se modifica desde el botón "Editar" del perfil.',
+          nota: 'El acceso siempre es usuario@nannies.mx (no el correo personal). El color se elige aquí, al alta; después se modifica desde el botón "Editar" del perfil.',
         },
         {
           titulo: 'Editar el perfil de la nannie',
           intro: 'En la tarjeta de la nannie, el botón "Editar" abre todo su perfil de una sola vez.',
           pasos: [
-            'Puedes cambiar: nombre, foto, estado, ciudad, teléfono, zonas que cubre, color y su especialidad/experiencia.',
+            'Puedes cambiar: nombre, foto, estado, ciudad, teléfono, correo personal de contacto, zonas que cubre, color y su especialidad/experiencia.',
             'Para la foto usa "Cambiar foto": se recorta en cuadrado y se ajusta sola.',
             'Guarda con "Guardar".',
           ],
@@ -460,6 +490,12 @@ export const MANUAL: CapituloModulo[] = [
           nota: 'La zona de la familia es una referencia; la zona de cada servicio puede ser distinta y se captura al asignarlo (a veces piden el servicio en otra dirección).',
         },
         {
+          titulo: 'Historial de servicios de la familia',
+          intro:
+            'En el expediente ves el historial de servicios de la familia. Cada servicio trae un distintivo de si fue "de paquete" o suelto.',
+          nota: 'Cuando la familia tiene paquete, arriba del historial ves su balance de horas: cuántas lleva consumidas y cuántas le quedan.',
+        },
+        {
           titulo: 'Paquete de horas de la familia',
           intro:
             'El paquete de horas vive DENTRO del expediente de la familia (sección "Paquete de horas"), no en la lista. En la lista, cada familia solo muestra un indicador verde "Paquete · X/Y h" cuando tiene uno activo.',
@@ -467,7 +503,9 @@ export const MANUAL: CapituloModulo[] = [
             'Abre la familia y baja a "Paquete de horas".',
             'Si no tiene: elige las horas (10, 20, 30, 40 o 50) y presiona "Registrar paquete". Si la familia aún no dio fechas, marca "Asignación manual".',
             'Si ya tiene: ves su saldo (horas restantes de las contratadas). Con "Programar sesiones" generas de golpe el patrón semanal (días + horario) hasta agotar las horas; aparecen como ofertas en el calendario.',
+            'Fechas sueltas: cuando la familia no lleva un patrón fijo, puedes agregar sesiones una por una (fecha + horario), en lugar del patrón semanal; cada una descuenta del saldo igual.',
             '"Ver proyección (PDF)" abre un documento con marca para compartir con la familia; "Copiar enlace de avance" copia un enlace sin contraseña para que la familia consulte sus horas y fechas.',
+            'Eliminar paquete: si te equivocaste al registrarlo, puedes borrarlo desde la misma sección (queda como si nunca se hubiera creado).',
           ],
           nota: 'Una familia solo puede tener un paquete activo a la vez. Desde el enlace de avance, la familia puede cancelar por su cuenta una fecha con al menos 24 h de anticipación (la hora regresa al saldo); con menos, se coordina contigo. El precio del paquete sale del tabulador; el cobro se refleja en Finanzas.',
         },
@@ -596,6 +634,37 @@ export const MANUAL: CapituloModulo[] = [
             'Abajo: zonas de más demanda, aceptación por nannie y actividad reciente.',
           ],
           nota: 'Un clic te lleva a su sección: la dona y las zonas al Calendario; cobertura y "por asignar" a Asignación; horas, ingreso y margen a Finanzas; una nannie a su ficha; "Paquetes activos" a las familias con paquete.',
+        },
+        {
+          titulo: 'Comparativo de horas por mes',
+          intro:
+            'En el Panorama hay una gráfica de líneas que compara las horas cubiertas mes a mes, con una línea por año (los últimos 3), para ver la tendencia y comparar contra el mismo mes del año pasado.',
+          pasos: [
+            'Cada línea es un año; cada punto, las horas cubiertas de ese mes.',
+            'Con el selector eliges la plaza: Toluca, Querétaro o Todas.',
+          ],
+          nota: 'Cuenta las horas de los servicios COMPLETADOS. Sirve para ver estacionalidad y crecimiento año contra año.',
+        },
+        {
+          titulo: 'El panorama del día (hoy)',
+          intro:
+            'Además del tablero del mes, tienes la vista del día: los servicios de hoy con su estado, para saber qué está pasando en la operación en este momento.',
+          pasos: [
+            'Con las flechas ‹ › te mueves de un día a otro.',
+            'Ves cada servicio del día (familia, nannie, horario, zona y estado).',
+          ],
+          nota: 'Es la foto operativa del día; el tablero de arriba sigue siendo del mes completo.',
+        },
+        {
+          titulo: 'Reporte del día (para los papás)',
+          intro:
+            'En la vista del día puedes generar, por familia, una hoja imprimible con el reporte del servicio para entregar a los papás. Reúne los servicios del día y te marca cuáles todavía no tienen reporte de la nannie.',
+          pasos: [
+            'En el panorama del día, ve a "Reportes del día".',
+            'Verás la lista de servicios del día; los que aún no tienen reporte capturado aparecen marcados.',
+            'En cada familia, abre su hoja y con "Imprimir / Guardar PDF" la entregas a los papás.',
+          ],
+          nota: 'Si un servicio sale marcado como "sin reporte", pídele a la nannie que lo capture antes de entregar la hoja.',
         },
         {
           titulo: 'El margen es solo tuyo (Directora)',
