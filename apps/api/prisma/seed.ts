@@ -20,10 +20,10 @@ async function main(): Promise<void> {
   const passSub = requireEnv('SEED_SUB_PASS');
   const passNannie = requireEnv('SEED_NANNIE_PASS');
 
-  // Directora (Paula)
+  // Directora (Paula). El re-seed también reestablece la contraseña.
   await prisma.usuario.upsert({
     where: { email: 'paula@nannies.mx' },
-    update: {},
+    update: { passwordHash: await hash(passDir) },
     create: {
       nombre: 'Paula',
       email: 'paula@nannies.mx',
@@ -35,7 +35,7 @@ async function main(): Promise<void> {
   // Subdirectora (Jackeline)
   await prisma.usuario.upsert({
     where: { email: 'jackeline@nannies.mx' },
-    update: {},
+    update: { passwordHash: await hash(passSub) },
     create: {
       nombre: 'Jackeline',
       email: 'jackeline@nannies.mx',
@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   });
   await prisma.usuario.upsert({
     where: { email: 'nannie@nannies.mx' },
-    update: {},
+    update: { passwordHash: await hash(passNannie) },
     create: {
       nombre: 'Nannie Demo',
       email: 'nannie@nannies.mx',
