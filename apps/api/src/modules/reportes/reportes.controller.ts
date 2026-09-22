@@ -24,6 +24,20 @@ export class ReportesController {
     return this.reportes.detalleNannie(nannieId, desde, hasta);
   }
 
+  // Reportes del DÍA (Panorama): servicios asignados + su reporte. Coordinación.
+  @RequiereAccion('reporte.gestionar')
+  @Get('dia')
+  reportesDelDia(@Query('fecha') fecha: string) {
+    return this.reportes.reportesDelDia(fecha);
+  }
+
+  // Hoja imprimible del reporte de UN servicio (para enviar al papá). Coordinación.
+  @RequiereAccion('reporte.gestionar')
+  @Get('servicio/:servicioId/hoja')
+  hojaReporte(@Param('servicioId') servicioId: string) {
+    return this.reportes.hojaReporte(servicioId);
+  }
+
   // Escribir/actualizar el reporte de un servicio. La nannie (su propio
   // servicio) o coordinación. La pertenencia se valida en el servicio.
   @RequiereAccion('reporte.propio.escribir')

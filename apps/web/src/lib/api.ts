@@ -500,6 +500,32 @@ export interface ReporteServicio {
   autor: string;
   fecha?: string;
 }
+/** Un servicio del día con su reporte (o null si aún no lo dejan). */
+export interface ReporteDiaItem {
+  servicioId: string;
+  familia: string;
+  ninos: string[];
+  nannie: string;
+  tipoServicio: TipoServicio;
+  horaInicio: string;
+  horaFin: string;
+  zona: string;
+  estado: EstadoServicio;
+  reporte: ReporteServicio | null;
+}
+/** Datos completos para la hoja imprimible del reporte de un servicio. */
+export interface HojaReporte {
+  servicioId: string;
+  familia: string;
+  ninos: string[];
+  nannie: string;
+  tipoServicio: TipoServicio;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  zona: string;
+  reporte: ReporteServicio | null;
+}
 export interface ServicioHist {
   id: string;
   fecha: string;
@@ -884,6 +910,8 @@ export const api = {
     req<ReporteGeneral>(`/reportes/general?desde=${desde}&hasta=${hasta}`),
   reporteNannie: (nannieId: string, desde: string, hasta: string) =>
     req<ReporteNannie>(`/reportes/nannie/${nannieId}?desde=${desde}&hasta=${hasta}`),
+  reportesDelDia: (fecha: string) => req<ReporteDiaItem[]>(`/reportes/dia?fecha=${fecha}`),
+  hojaReporte: (servicioId: string) => req<HojaReporte>(`/reportes/servicio/${servicioId}/hoja`),
   resumenEvalNannie: (nannieId: string) =>
     req<ResumenEvalNannie>(`/evaluaciones/nannie/${nannieId}/resumen`),
   guardarReporte: (

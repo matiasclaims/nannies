@@ -271,4 +271,75 @@ export class ReportesService {
       fecha: r.actualizadoEn.toISOString().slice(0, 10),
     };
   }
+
+  /** Reportes del DÍA (coordinación): todos los servicios ASIGNADOS de esa fecha
+   *  (aceptados/completados), con su reporte si ya existe. Sirve para dar
+   *  seguimiento a las nannies (faltantes) y para compartir a cada papá. */
+  async reportesDelDia(fechaISO: string) {
+    const gte = new Date(`${fechaISO}T00:00:00.000Z`);
+    const lt = new Date(gte.getTime() + 86_400_000);
+    const servicios = await this.prisma.servicio.findMany({
+      where: { fecha: { gte, lt }, nannieId: { not: null }, estado: { in: ['ACEPTADO', 'COMPLETADO'] } },
+      include: {
+        nannie: { select: { nombre: true } },
+        familia: { select: { nombreContacto: true, ninos: { select: { nombre: true }, orderBy: { creadoEn: 'asc' } } } },
+        reporte: true,
+      },
+      orderBy: [{ horaInicio: 'asc' }],
+    });
+    return servicios.map((s) => ({
+      servicioId: s.id,
+      familia: s.familia.nombreContacto,
+      ninos: s.familia.ninos.map((n) => n.nombre).filter(Boolean),
+      nannie: s.nannie?.nombre ?? '—',
+      tipoServicio: s.tipoServicio,
+      horaInicio: s.horaInicio,
+      horaFin: s.horaFin,
+      zona: s.zona,
+      estado: s.estado,
+      reporte: s.reporte
+        ? {
+            actividades: s.reporte.actividades,
+            animoNino: s.reporte.animoNino,
+            incidentes: s.reporte.incidentes,
+            notas: s.reporte.notas,
+            autor: s.reporte.autorNombre,
+          }
+        : null,
+    }));
+  }
+
+  /** Datos completos de UN servicio para la HOJA imprimible del reporte (coord),
+   *  lista para guardar como PDF y enviar al papá. */
+  async hojaReporte(servicioId: string) {
+    const s = await this.prisma.servicio.findUnique({
+      where: { id: servicioId },
+      include: {
+        nannie: { select: { nombre: true } },
+        familia: { select: { nombreContacto: true, ninos: { select: { nombre: true }, orderBy: { creadoEn: 'asc' } } } },
+        reporte: true,
+      },
+    });
+    if (!s) throw new NotFoundException('Servicio no encontrado');
+    return {
+      servicioId: s.id,
+      familia: s.familia.nombreContacto,
+      ninos: s.familia.ninos.map((n) => n.nombre).filter(Boolean),
+      nannie: s.nannie?.nombre ?? '—',
+      tipoServicio: s.tipoServicio,
+      fecha: s.fecha.toISOString().slice(0, 10),
+      horaInicio: s.horaInicio,
+      horaFin: s.horaFin,
+      zona: s.zona,
+      reporte: s.reporte
+        ? {
+            actividades: s.reporte.actividades,
+            animoNino: s.reporte.animoNino,
+            incidentes: s.reporte.incidentes,
+            notas: s.reporte.notas,
+            autor: s.reporte.autorNombre,
+          }
+        : null,
+    };
+  }
 }

@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CalendarDays, Package, ChevronRight, ChevronLeft } from 'lucide-react';
-import { api, type Servicio, type NannieLite, type FamiliaLite, type Plaza } from '@/lib/api';
+import { CalendarDays, Package, ChevronRight, ChevronLeft, NotebookPen, Printer, FileWarning } from 'lucide-react';
+import { api, type Servicio, type NannieLite, type FamiliaLite, type Plaza, type ReporteDiaItem } from '@/lib/api';
 import { ESTADO_SERVICIO, TIPO_LABEL } from '@/lib/dominio';
 import { cn } from '@/lib/utils';
 
@@ -33,13 +33,17 @@ export function PanoramaDia({ iso }: { iso: string }) {
   const [servicios, setServicios] = useState<Servicio[] | null>(null);
   const [nannies, setNannies] = useState<NannieLite[]>([]);
   const [familias, setFamilias] = useState<FamiliaLite[]>([]);
+  const [reportes, setReportes] = useState<ReporteDiaItem[] | null>(null);
   const esHoy = iso === hoyISO();
 
   useEffect(() => {
     setServicios(null);
+    setReportes(null);
     api.listarServicios({ desde: iso, hasta: iso }).then(setServicios).catch(() => setServicios([]));
     api.listarNannies().then(setNannies).catch(() => undefined);
     api.listarFamilias().then(setFamilias).catch(() => undefined);
+    // Reportes del día (solo coordinación; si 403, queda en []). Mario 2026-09-22.
+    api.reportesDelDia(iso).then(setReportes).catch(() => setReportes([]));
   }, [iso]);
 
   const nombreNannie = useMemo(() => new Map(nannies.map((n) => [n.id, n.nombre])), [nannies]);
@@ -129,7 +133,70 @@ export function PanoramaDia({ iso }: { iso: string }) {
           ))}
         </div>
       )}
+
+      {/* Reportes del día (coordinación): seguimiento + hoja por familia para papás */}
+      {reportes && reportes.length > 0 && <ReportesDelDia items={reportes} />}
     </div>
+  );
+}
+
+/** Sección de reportes del día: cada servicio asignado con su reporte (o
+ *  "pendiente"); botón para imprimir/PDF la hoja de esa familia. */
+function ReportesDelDia({ items }: { items: ReporteDiaItem[] }) {
+  const conReporte = items.filter((i) => i.reporte).length;
+  return (
+    <section className="rounded-2xl bg-panel p-4 shadow-card">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-texto-fuerte">
+          <NotebookPen className="h-4 w-4 text-marca-azul" /> Reportes del día
+        </h2>
+        <span className="text-xs text-texto-suave">{conReporte} de {items.length} con reporte</span>
+      </div>
+      <div className="divide-y divide-borde">
+        {items.map((it) => (
+          <div key={it.servicioId} className="py-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-texto-fuerte">
+                  {it.familia}
+                  {it.ninos.length > 0 && <span className="font-normal text-texto-suave"> · {it.ninos.join(', ')}</span>}
+                </p>
+                <p className="text-xs text-texto-suave">
+                  {it.horaInicio}–{it.horaFin} · {TIPO_LABEL[it.tipoServicio]} · {it.nannie}
+                </p>
+              </div>
+              {it.reporte ? (
+                <a
+                  href={`/reporte-servicio/${it.servicioId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex shrink-0 items-center gap-1 rounded-lg border border-borde px-2 py-1 text-[11px] font-medium text-marca-azul hover:bg-fondo"
+                >
+                  <Printer className="h-3.5 w-3.5" /> Imprimir / PDF
+                </a>
+              ) : (
+                <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                  <FileWarning className="h-3 w-3" /> Pendiente de reporte
+                </span>
+              )}
+            </div>
+            {it.reporte && (
+              <div className="mt-1.5 rounded-lg bg-fondo px-3 py-2 text-xs">
+                <p className="mb-0.5 font-medium text-texto-fuerte">Ánimo del peque: {it.reporte.animoNino}</p>
+                <p className="text-texto-suave"><span className="font-medium text-texto-fuerte">Actividades:</span> {it.reporte.actividades}</p>
+                {it.reporte.incidentes && (
+                  <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Incidentes:</span> {it.reporte.incidentes}</p>
+                )}
+                {it.reporte.notas && (
+                  <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Notas:</span> {it.reporte.notas}</p>
+                )}
+                <p className="mt-1 text-[11px] text-texto-suave">— {it.reporte.autor}</p>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
