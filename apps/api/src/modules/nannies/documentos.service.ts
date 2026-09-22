@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { SupabaseStorageService } from '../../core/storage/supabase-storage.service';
+import { LocalStorageService } from '../../core/storage/local-storage.service';
 import { CLAVES_DOCUMENTOS, CLAVES_CURSOS } from './catalogos';
 
 const MIME_EXT: Record<string, string> = {
@@ -12,12 +12,13 @@ const MIME_EXT: Record<string, string> = {
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB por archivo
 
 /** M4 · Documentos del expediente: la nannie los sube; coordinación los revisa.
- *  El binario vive en Supabase Storage; aquí la referencia + la URL firmada. */
+ *  El binario vive en el disco del servidor (LocalStorageService); aquí la
+ *  referencia en BD + la URL al endpoint que lo sirve autenticado. */
 @Injectable()
 export class DocumentosService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: SupabaseStorageService,
+    private readonly storage: LocalStorageService,
   ) {}
 
   private tipoDeClave(clave: string): 'DOCUMENTO' | 'CURSO' | null {
