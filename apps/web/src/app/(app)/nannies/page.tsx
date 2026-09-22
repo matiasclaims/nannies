@@ -146,7 +146,8 @@ export default function NanniesPage() {
 
 function AltaNannie({ onClose, onCreada }: { onClose: () => void; onCreada: () => void }) {
   const [nombre, setNombre] = useState('');
-  const [correo, setCorreo] = useState('');
+  const [usuario, setUsuario] = useState('');
+  const [emailPersonal, setEmailPersonal] = useState('');
   const [telefono, setTelefono] = useState('');
   const [plaza, setPlaza] = useState<Plaza>('TOLUCA');
   const [zonasTexto, setZonasTexto] = useState('');
@@ -158,7 +159,10 @@ function AltaNannie({ onClose, onCreada }: { onClose: () => void; onCreada: () =
 
   const esQro = plaza === 'QUERETARO';
   const zonas = esQro ? zonasQro : zonasTexto.split(',').map((z) => z.trim()).filter(Boolean);
-  const invalida = !nombre.trim() || !/.+@.+\..+/.test(correo) || zonas.length === 0;
+  // Usuario: minúsculas/números/punto/guion; el correo personal es opcional.
+  const usuarioValido = /^[a-z0-9][a-z0-9._-]{1,40}$/.test(usuario.trim().toLowerCase());
+  const emailPersonalValido = !emailPersonal.trim() || /.+@.+\..+/.test(emailPersonal.trim());
+  const invalida = !nombre.trim() || !usuarioValido || !emailPersonalValido || zonas.length === 0;
 
   const input =
     'w-full rounded-xl border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-marca-azul';
@@ -170,7 +174,8 @@ function AltaNannie({ onClose, onCreada }: { onClose: () => void; onCreada: () =
     try {
       const r = await api.crearNannie({
         nombre: nombre.trim(),
-        correo: correo.trim(),
+        usuario: usuario.trim().toLowerCase(),
+        emailPersonal: emailPersonal.trim() || undefined,
         telefono: telefono.trim() || undefined,
         plaza,
         zonas,
@@ -211,14 +216,18 @@ function AltaNannie({ onClose, onCreada }: { onClose: () => void; onCreada: () =
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                 <p className="flex items-center gap-1.5 font-medium">
                   <KeyRound className="h-4 w-4" />
-                  El correo no se envió (falta configurar el envío).
+                  Pásale a la nannie su usuario y contraseña temporal:
                 </p>
-                <p className="mt-1">
-                  Pásale esta contraseña temporal a la nannie:
-                </p>
-                <p className="mt-1 rounded-lg bg-white px-3 py-2 text-center font-mono text-base font-bold text-texto-fuerte">
-                  {resultado.passwordTemporal}
-                </p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-amber-800/80">Usuario</p>
+                  <p className="rounded-lg bg-white px-3 py-2 text-center font-mono text-sm font-bold text-texto-fuerte">
+                    {resultado.correo}
+                  </p>
+                  <p className="mt-1 text-xs text-amber-800/80">Contraseña temporal</p>
+                  <p className="rounded-lg bg-white px-3 py-2 text-center font-mono text-base font-bold text-texto-fuerte">
+                    {resultado.passwordTemporal}
+                  </p>
+                </div>
               </div>
             )}
             <button onClick={onClose} className="w-full rounded-xl bg-marca-azul px-4 py-2 text-sm font-semibold text-white">
@@ -230,8 +239,19 @@ function AltaNannie({ onClose, onCreada }: { onClose: () => void; onCreada: () =
             <Campo label="Nombre">
               <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={input} />
             </Campo>
-            <Campo label="Correo (su acceso)">
-              <input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} className={input} placeholder="nombre@correo.mx" />
+            <Campo label="Usuario de acceso">
+              <div className="flex items-center rounded-xl border border-borde bg-white focus-within:border-marca-azul">
+                <input
+                  value={usuario}
+                  onChange={(e) => setUsuario(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ''))}
+                  className="w-full rounded-l-xl bg-transparent px-3 py-2 text-sm outline-none"
+                  placeholder="vianney"
+                />
+                <span className="whitespace-nowrap rounded-r-xl bg-fondo px-3 py-2 text-sm text-texto-suave">@nannies.mx</span>
+              </div>
+            </Campo>
+            <Campo label="Correo personal (opcional)">
+              <input type="email" value={emailPersonal} onChange={(e) => setEmailPersonal(e.target.value)} className={input} placeholder="su correo de contacto" />
             </Campo>
             <div className="grid grid-cols-2 gap-3">
               <Campo label="Teléfono">

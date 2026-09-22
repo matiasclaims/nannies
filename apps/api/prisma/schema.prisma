@@ -162,6 +162,8 @@ model Nannie {
   id                  String          @id @default(cuid())
   nombre              String
   telefono            String? // contacto (M4 expediente)
+  email               String? // correo PERSONAL de contacto (dato de la ficha; el
+  //                             LOGIN es usuario@nannies.mx en Usuario.email)
   foto                String? // avatar (data URL redimensionada ~400px)
   especialidad        String? // perfil: para qué es especialista / experiencia (M4)
   plaza               Plaza

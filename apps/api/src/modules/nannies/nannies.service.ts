@@ -18,6 +18,8 @@ import { CLAVES_DOCUMENTOS, CLAVES_CURSOS, soloClavesValidas } from './catalogos
 const todas = (tiene: string[], catalogo: string[]) => catalogo.every((c) => tiene.includes(c));
 
 const APP_URL = process.env.APP_URL ?? 'https://nannies-api.vercel.app';
+/** Dominio del LOGIN de las nannies: el usuario queda como usuario@nannies.mx. */
+const DOMINIO_CORREO = 'nannies.mx';
 
 /** Contraseña temporal legible (~12 chars). */
 function passwordTemporal(): string {
@@ -42,7 +44,8 @@ export class NanniesService {
       id: n.id,
       nombre: n.nombre,
       foto: n.foto,
-      correo: n.usuario?.email ?? null,
+      correo: n.usuario?.email ?? null, // login (usuario@nannies.mx)
+      emailPersonal: n.email ?? null, // correo de contacto (ficha)
       telefono: n.telefono,
       plaza: n.plaza,
       zonas: n.zonas,
@@ -70,7 +73,8 @@ export class NanniesService {
       nombre: n.nombre,
       foto: n.foto,
       especialidad: n.especialidad,
-      correo: n.usuario?.email ?? null,
+      correo: n.usuario?.email ?? null, // login (usuario@nannies.mx)
+      emailPersonal: n.email ?? null, // correo de contacto (ficha)
       telefono: n.telefono,
       plaza: n.plaza,
       zonas: n.zonas,
@@ -93,9 +97,11 @@ export class NanniesService {
    * pudo enviar (Resend no configurado), devuelve la contraseña como respaldo.
    */
   async crear(dto: CrearNannieDto) {
-    const correo = dto.correo.trim().toLowerCase();
+    // El LOGIN es usuario@nannies.mx (más formal). El correo personal va en la ficha.
+    const correo = `${dto.usuario.trim().toLowerCase()}@${DOMINIO_CORREO}`;
+    const emailPersonal = dto.emailPersonal?.trim().toLowerCase() || null;
     const existe = await this.prisma.usuario.findUnique({ where: { email: correo } });
-    if (existe) throw new BadRequestException('Ya existe una cuenta con ese correo.');
+    if (existe) throw new BadRequestException(`Ya existe una cuenta con el usuario "${dto.usuario}".`);
 
     const temp = passwordTemporal();
     const passwordHash = await argon2.hash(temp, { type: argon2.argon2id });
@@ -105,6 +111,7 @@ export class NanniesService {
         data: {
           nombre: dto.nombre.trim(),
           telefono: dto.telefono?.trim() || null,
+          email: emailPersonal,
           plaza: dto.plaza,
           zonas: dto.zonas,
           color: dto.color || null,
@@ -162,6 +169,7 @@ export class NanniesService {
         ...(dto.nombre !== undefined ? { nombre: dto.nombre.trim() } : {}),
         ...(dto.plaza !== undefined ? { plaza: dto.plaza } : {}),
         ...(dto.telefono !== undefined ? { telefono: dto.telefono.trim() || null } : {}),
+        ...(dto.email !== undefined ? { email: dto.email.trim().toLowerCase() || null } : {}),
         ...(dto.especialidad !== undefined ? { especialidad: dto.especialidad.trim() || null } : {}),
         ...(dto.zonas !== undefined ? { zonas: dto.zonas } : {}),
         ...(dto.color !== undefined ? { color: dto.color || null } : {}),

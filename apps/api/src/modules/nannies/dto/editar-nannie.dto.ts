@@ -17,6 +17,12 @@ export class EditarNannieDto {
   @MaxLength(30)
   telefono?: string;
 
+  /** Correo PERSONAL de contacto (ficha). Cadena vacía lo limpia. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  email?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(500)

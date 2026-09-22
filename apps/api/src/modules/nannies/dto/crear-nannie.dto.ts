@@ -1,4 +1,4 @@
-import { ArrayNotEmpty, IsArray, IsEmail, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ArrayNotEmpty, IsArray, IsEmail, IsEnum, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 import { Plaza } from '@prisma/client';
 
 /** Alta de una nannie (M4): crea su expediente + cuenta (estado Prueba). */
@@ -7,8 +7,18 @@ export class CrearNannieDto {
   @MaxLength(120)
   nombre!: string;
 
+  /** Usuario de acceso (parte antes de @nannies.mx). Solo minúsculas, números,
+   *  punto o guion. El login queda como `usuario@nannies.mx`. */
+  @IsString()
+  @Matches(/^[a-z0-9][a-z0-9._-]{1,40}$/, {
+    message: 'El usuario solo admite minúsculas, números, punto o guion (ej. vianney).',
+  })
+  usuario!: string;
+
+  /** Correo PERSONAL de contacto (opcional; va en la ficha, no es el login). */
+  @IsOptional()
   @IsEmail()
-  correo!: string;
+  emailPersonal?: string;
 
   @IsOptional()
   @IsString()

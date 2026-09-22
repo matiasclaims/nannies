@@ -73,6 +73,11 @@ export default function NanniePerfilPage() {
           <p className="truncate text-xs text-texto-suave">
             {perfil.correo ?? 'sin cuenta'} · {ciudad}
           </p>
+          {(perfil.emailPersonal || perfil.telefono) && (
+            <p className="truncate text-xs text-texto-suave">
+              {[perfil.emailPersonal, perfil.telefono].filter(Boolean).join(' · ')}
+            </p>
+          )}
           {perfil.especialidad ? (
             <p className="mt-1 line-clamp-2 text-xs text-texto-fuerte">{perfil.especialidad}</p>
           ) : (
@@ -182,6 +187,7 @@ function EditarPerfilModal({
   const [plaza, setPlaza] = useState<Plaza>(perfil.plaza);
   const [estado, setEstadoV] = useState(perfil.estado);
   const [telefono, setTelefono] = useState(perfil.telefono ?? '');
+  const [email, setEmail] = useState(perfil.emailPersonal ?? '');
   const [zonas, setZonas] = useState<string[]>(perfil.zonas);
   const [zonasTexto, setZonasTexto] = useState(perfil.zonas.join(', '));
   const [color, setColor] = useState(perfil.color ?? COLORES_NANNIE[0]);
@@ -203,6 +209,7 @@ function EditarPerfilModal({
         plaza,
         estado: estado === 'BAJA' ? undefined : estado,
         telefono,
+        email,
         zonas: zonasFinal,
         color,
         especialidad,
@@ -270,6 +277,11 @@ function EditarPerfilModal({
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-texto-suave">Teléfono</span>
             <input value={telefono} onChange={(e) => setTelefono(e.target.value)} className={input} />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-texto-suave">Correo personal (contacto)</span>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={input} placeholder="opcional" />
           </label>
 
           <div>

@@ -23,7 +23,8 @@ export interface NannieExpediente {
   nombre: string;
   foto: string | null;
   especialidad: string | null;
-  correo: string | null;
+  correo: string | null; // login (usuario@nannies.mx)
+  emailPersonal: string | null; // correo de contacto (ficha)
   telefono: string | null;
   plaza: Plaza;
   zonas: string[];
@@ -71,7 +72,8 @@ export interface ColoniasNannie {
 }
 export interface NuevaNannie {
   nombre: string;
-  correo: string;
+  usuario: string; // parte antes de @nannies.mx (el login)
+  emailPersonal?: string; // correo de contacto (opcional, va en la ficha)
   telefono?: string;
   plaza: Plaza;
   zonas: string[];
@@ -1047,8 +1049,12 @@ export const api = {
   perfilNannie: (id: string) => req<NanniePerfil>(`/nannies/${id}`),
   crearNannie: (body: NuevaNannie) =>
     req<AltaNannieResultado>('/nannies', { method: 'POST', body: JSON.stringify(body) }),
-  editarNannie: (id: string, body: Partial<Omit<NannieExpediente, 'id' | 'correo' | 'tieneCuenta' | 'serviciosAcumulados'>>) =>
-    req<{ ok: true }>(`/nannies/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  editarNannie: (
+    id: string,
+    body: Partial<Omit<NannieExpediente, 'id' | 'correo' | 'emailPersonal' | 'tieneCuenta' | 'serviciosAcumulados'>> & {
+      email?: string; // correo personal (el DTO del backend lo llama 'email')
+    },
+  ) => req<{ ok: true }>(`/nannies/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   darDeBajaNannie: (id: string) =>
     req<{ ok: true }>(`/nannies/${id}/baja`, { method: 'POST' }),
   fotoNannie: (id: string, foto: string | null) =>
