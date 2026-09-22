@@ -236,6 +236,9 @@ export interface Servicio {
   duracionHoras: number;
   estado: EstadoServicio;
   requierePlaneacion: boolean;
+  /** Solo para coordinación (en su calendario). La nannie recibe null / []. */
+  familia?: string | null;
+  ninos?: string[];
 }
 
 export interface NuevaDisponibilidad {
@@ -665,7 +668,7 @@ export interface Ingresos {
     comision: number | null;
     comisionBeneficiarioId: string | null;
   }[];
-  individuales: { id: string; familia: string; tipoServicio: TipoServicio; monto: number; fecha: string }[];
+  individuales: { id: string; familia: string; tipoServicio: TipoServicio; monto: number; fecha: string; fechaServicio: string }[];
   horasPagadas: number;
   totales: { paquetes: number; individuales: number; total: number };
 }
@@ -719,16 +722,13 @@ export interface MargenServicio {
   familia: string;
   zona: string;
   tipoServicio: TipoServicio;
-  fecha: string;
+  fecha: string; // fecha del servicio (cuándo se da)
+  completado: boolean;
   cobro: number;
-  pago: number | null;
-  descuentoNannie: number;
+  pago: number | null; // informativo: solo si ya se completó
   comision: number;
   comisionBeneficiarioId: string | null;
   ajuste: number;
-  margen: number | null;
-  pendiente: boolean;
-  motivo?: string;
 }
 export interface BonoLite {
   id: string;
@@ -745,21 +745,21 @@ export interface ComisionPaqueteLite {
 }
 export interface Margen {
   rango: { desde: string; hasta: string };
-  servicios: MargenServicio[];
+  servicios: MargenServicio[]; // servicios cuyo INGRESO cae este mes (para editar comisión/ajuste)
   bonos: BonoLite[];
   comisionesPaquete: ComisionPaqueteLite[];
   totales: {
-    cobro: number;
-    pago: number;
-    descuentoNannie: number;
+    ingresos: number;
+    ingresosIndividuales: number;
+    ingresosPaquetes: number;
+    ajuste: number;
     comision: number;
     comisionesPaquete: number;
-    ajuste: number;
+    pago: number; // pago a nannies del mes (por completado)
     bonos: number;
-    margen: number;
     margenNeto: number;
   };
-  pendientes: number;
+  pendientes: number; // pagos de nannie pendientes de tarifa este mes
 }
 
 export interface NivelNannie {

@@ -36,7 +36,17 @@ interface Bloque {
   fin: string;
   clase: string;
   etiqueta: string;
+  sub?: string; // segunda línea (p. ej. la familia), para no confundirla con la nannie
+  detalle?: string; // texto completo (familia/niños/tipo/nannie) para el tooltip
   paquete?: boolean; // el servicio nació/es de un paquete de horas
+}
+
+/** Texto completo de un servicio para el tooltip del bloque (coordinación).
+ *  Incluye familia + niños si vienen (solo coord los recibe). */
+function detalleServicio(s: Servicio, nannie: string): string {
+  const ninos = s.ninos && s.ninos.length ? ` (${s.ninos.join(', ')})` : '';
+  const fam = s.familia ? `${s.familia}${ninos}` : '';
+  return [fam, TIPO_LABEL[s.tipoServicio], nannie, `${s.horaInicio}–${s.horaFin}`].filter(Boolean).join(' · ');
 }
 
 // Colores estilo Google Calendar (ver dominio.ts).
@@ -125,7 +135,9 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
         ini: s.horaInicio,
         fin: s.horaFin,
         clase: claseServicio(s.estado),
-        etiqueta: `${primerNombre(s.nannieId!)} · ${TIPO_LABEL[s.tipoServicio]}`,
+        etiqueta: primerNombre(s.nannieId!),
+        sub: s.familia ?? TIPO_LABEL[s.tipoServicio],
+        detalle: detalleServicio(s, primerNombre(s.nannieId!)),
         paquete: s.formato === 'PAQUETE',
       }));
     return [...disp, ...servs];
@@ -150,7 +162,9 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
         ini: s.horaInicio,
         fin: s.horaFin,
         clase: claseServicio(s.estado),
-        etiqueta: `${TIPO_LABEL[s.tipoServicio]} ${s.horaInicio}–${s.horaFin}`,
+        etiqueta: s.familia ?? TIPO_LABEL[s.tipoServicio],
+        sub: `${TIPO_LABEL[s.tipoServicio]} · ${s.horaInicio}–${s.horaFin}`,
+        detalle: detalleServicio(s, nannieActiva.nombre),
         paquete: s.formato === 'PAQUETE',
       }));
     return [...disp, ...servs];
@@ -429,9 +443,17 @@ function AccionesServicio({
     <div className="fixed inset-0 z-30 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-texto-fuerte/30 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-sm rounded-2xl border border-borde bg-panel p-4 shadow-2xl">
-        <h3 className="text-sm font-semibold text-texto-fuerte">Servicio</h3>
+        <h3 className="text-sm font-semibold text-texto-fuerte">
+          {servicio.familia ?? 'Servicio'}
+        </h3>
+        {servicio.ninos && servicio.ninos.length > 0 && (
+          <p className="mt-0.5 text-xs font-medium text-marca-azul">
+            {servicio.ninos.length === 1 ? 'Peque: ' : 'Peques: '}{servicio.ninos.join(', ')}
+          </p>
+        )}
         <p className="mt-0.5 text-xs text-texto-suave">
           {TIPO_LABEL[servicio.tipoServicio]} · {fechaCorta(servicio.fecha)} · {servicio.horaInicio}–{servicio.horaFin}
+          {servicio.zona && <> · {servicio.zona}</>}
           {nombreActual && <> · {nombreActual}</>}
         </p>
 
@@ -679,7 +701,7 @@ function Rejilla({
                   return (
                     <div
                       key={b.id}
-                      title={b.paquete ? `${b.etiqueta} · Paquete de horas` : b.etiqueta}
+                      title={`${b.detalle ?? b.etiqueta}${b.paquete ? ' · Paquete de horas' : ''}`}
                       onClick={clickable ? () => onBloqueClick!(b.id) : undefined}
                       style={{
                         position: 'absolute',
@@ -694,8 +716,11 @@ function Rejilla({
                         clickable && 'cursor-pointer hover:brightness-95',
                       )}
                     >
-                      {b.paquete && <Package className="mr-0.5 inline h-2.5 w-2.5 shrink-0 align-[-1px]" aria-label="Paquete" />}
-                      {b.etiqueta}
+                      <span className="block truncate font-semibold">
+                        {b.paquete && <Package className="mr-0.5 inline h-2.5 w-2.5 shrink-0 align-[-1px]" aria-label="Paquete" />}
+                        {b.etiqueta}
+                      </span>
+                      {b.sub && <span className="block truncate font-normal opacity-80">{b.sub}</span>}
                     </div>
                   );
                 })}

@@ -488,6 +488,10 @@ model Servicio {
   // Solo Ludoteca: +1 h de montaje/desmontaje en el PAGO a la nannie. Variable
   // (a veces no montan), por eso es un interruptor; encendido por defecto.
   ludotecaMontaje Boolean     @default(true)
+  // Momento en que la nannie marcó COMPLETADO. El EGRESO (pago a la nannie) se
+  // reconoce en esta fecha, no en la del servicio (Mario 2026-09-21). El INGRESO
+  // se reconoce por `creadoEn` (cuando Paula creó el servicio).
+  completadoEn DateTime?
   creadoEn     DateTime       @default(now())
   actualizadoEn DateTime      @updatedAt
 

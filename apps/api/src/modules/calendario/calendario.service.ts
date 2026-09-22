@@ -141,7 +141,7 @@ export class CalendarioService {
     // Pertenencia: la nannie solo ve sus servicios.
     const nannieId = user.rol === 'NANNIE' ? user.nannieId ?? '__none__' : filtro.nannieId;
 
-    return this.prisma.servicio.findMany({
+    const rows = await this.prisma.servicio.findMany({
       where: {
         ...(nannieId ? { nannieId } : {}),
         ...(esEstadoServicio(filtro.estado) ? { estado: filtro.estado } : {}),
@@ -149,8 +149,20 @@ export class CalendarioService {
           ? { fecha: { gte: fecha(filtro.desde), lte: fecha(filtro.hasta) } }
           : {}),
       },
+      include: {
+        familia: { select: { nombreContacto: true, ninos: { select: { nombre: true }, orderBy: { creadoEn: 'asc' } } } },
+      },
       orderBy: [{ fecha: 'asc' }, { horaInicio: 'asc' }],
     });
+
+    // La familia/niños solo se exponen a COORDINACIÓN (en su calendario de equipo).
+    // A la nannie NO (Opción A · privacidad): su ficha operativa va por otra ruta.
+    const esCoord = user.rol !== 'NANNIE';
+    return rows.map(({ familia, ...s }) => ({
+      ...s,
+      familia: esCoord ? familia.nombreContacto : null,
+      ninos: esCoord ? familia.ninos.map((n) => n.nombre).filter(Boolean) : [],
+    }));
   }
 
   async crearServicio(dto: CrearServicioDto) {
@@ -656,6 +668,15 @@ export class CalendarioService {
     if (servicio.estado !== 'ACEPTADO') {
       throw new BadRequestException('Solo un servicio aceptado se puede marcar como terminado.');
     }
+    // Candado (Mario 2026-09-21): una NANNIE no puede completar un servicio a
+    // futuro (evita cobrar algo aún no dado). Coordinación sí puede (override).
+    if (user.rol === 'NANNIE') {
+      const ahora = new Date();
+      const hoyMin = Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate());
+      if (servicio.fecha.getTime() > hoyMin) {
+        throw new BadRequestException('Aún no puedes marcar terminado un servicio que no ha llegado: se habilita el día del servicio.');
+      }
+    }
     // Al completar, cuenta un servicio de por vida (base del ascenso de rango,
     // que se evalúa en el cierre de mes). Transición ACEPTADO→COMPLETADO única.
     // Conteo para niveles (Paula, Opción A): un servicio INDIVIDUAL cuenta 1;
@@ -664,7 +685,7 @@ export class CalendarioService {
     return this.prisma.$transaction(async (tx) => {
       const actualizado = await tx.servicio.update({
         where: { id: servicioId },
-        data: { estado: 'COMPLETADO' },
+        data: { estado: 'COMPLETADO', completadoEn: new Date() },
       });
       if (servicio.nannieId) {
         let cuentaParaNivel = true;

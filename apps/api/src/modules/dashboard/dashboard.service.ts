@@ -280,7 +280,7 @@ export class DashboardService {
     let margen: number | null = null;
     if (user.rol === 'DIRECTORA') {
       const mg = await this.finanzas.margen(desde, hasta);
-      margen = mg.totales?.margenNeto ?? mg.totales?.margen ?? null;
+      margen = mg.totales?.margenNeto ?? null;
     }
 
     return {

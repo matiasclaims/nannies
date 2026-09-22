@@ -52,7 +52,9 @@ export class FinanzasService {
     const lte = new Date(`${hasta}T23:59:59.999Z`);
 
     const servicios = await this.prisma.servicio.findMany({
-      where: { estado: 'COMPLETADO', nannieId: { not: null }, fecha: { gte, lte } },
+      // EGRESO (Mario 2026-09-21): el pago a la nannie se reconoce el día en que
+      // ella marcó COMPLETADO (`completadoEn`), no la fecha del servicio.
+      where: { estado: 'COMPLETADO', nannieId: { not: null }, completadoEn: { gte, lte } },
       include: {
         nannie: {
           select: {
@@ -189,15 +191,16 @@ export class FinanzasService {
     }
 
     // Comisiones de coordinación del periodo (Mario 2026-09-21): se pagan al
-    // BENEFICIARIO junto con su nómina, igual que un bono. Vienen de servicios
-    // (por fecha del servicio) y de paquetes (por fecha de contratación).
+    // BENEFICIARIO junto con su nómina, igual que un bono. La comisión de servicio
+    // va por CREACIÓN del servicio (mismo momento que el ingreso); la de paquete
+    // por fecha de contratación.
     const [comServicios, comPaquetes] = await Promise.all([
       this.prisma.finanzaServicio.findMany({
-        where: { comision: { gt: 0 }, comisionBeneficiarioId: { not: null }, servicio: { fecha: { gte, lte } } },
+        where: { comision: { gt: 0 }, comisionBeneficiarioId: { not: null }, servicio: { creadoEn: { gte, lte } } },
         select: {
           comision: true,
           comisionBeneficiarioId: true,
-          servicio: { select: { fecha: true, familia: { select: { nombreContacto: true } } } },
+          servicio: { select: { creadoEn: true, familia: { select: { nombreContacto: true } } } },
         },
       }),
       this.prisma.paquete.findMany({
@@ -215,7 +218,7 @@ export class FinanzasService {
         beneficiarioId: c.comisionBeneficiarioId as string,
         monto: Number(c.comision),
         concepto: `Comisión · ${c.servicio.familia.nombreContacto}`,
-        fecha: c.servicio.fecha.toISOString().slice(0, 10),
+        fecha: c.servicio.creadoEn.toISOString().slice(0, 10),
       })),
       ...comPaquetes.map((c) => ({
         beneficiarioId: c.comisionBeneficiarioId as string,
@@ -311,45 +314,52 @@ export class FinanzasService {
   }
 
   /**
-   * 3.4 · Margen por servicio (SOLO Directora). Por cada servicio COMPLETADO:
-   * margen = cobro − pago − comisión − ajuste. La comisión y el ajuste son
-   * manuales (3.3). Si el pago está pendiente de tarifa, el margen queda
-   * pendiente y no suma.
+   * 3.4 · Margen MENSUAL (SOLO Directora). Estado de resultados del mes (Mario
+   * 2026-09-21): el INGRESO se reconoce por creación del servicio (`creadoEn`) y
+   * el EGRESO (pago a la nannie) por completado (`completadoEn`), así que ambos
+   * pueden caer en meses distintos. Margen = ingresos del mes − ajustes −
+   * comisiones (servicio + paquete) − pagos a nannies del mes − bonos.
+   * La lista `servicios` (para editar comisión/ajuste) es la de INGRESOS del mes.
    */
   async margen(desde: string, hasta: string) {
     const gte = new Date(`${desde}T00:00:00.000Z`);
     const lte = new Date(`${hasta}T23:59:59.999Z`);
 
-    const servicios = await this.prisma.servicio.findMany({
-      // El desborde POR_DEFINIR (adeudo sin resolver) queda fuera del margen hasta
-      // definirse: su ingreso está pendiente (Mario 2026-09-18). La nannie sí cobra
-      // sus horas por nómina; al resolverse, el servicio entra al margen normal.
-      where: { estado: 'COMPLETADO', fecha: { gte, lte }, estadoCobro: { not: 'POR_DEFINIR' } },
+    // --- INGRESO del mes (por creación): servicios individuales creados en el mes ---
+    const serviciosIngreso = await this.prisma.servicio.findMany({
+      where: {
+        formato: 'INDIVIDUAL',
+        creadoEn: { gte, lte },
+        estadoCobro: { not: 'POR_DEFINIR' },
+        OR: [
+          { estado: { in: ['OFERTADO', 'ACEPTADO', 'COMPLETADO'] } },
+          { estado: 'CANCELADO', canceladaCobrada: true },
+        ],
+      },
       include: {
         nannie: { select: { nombre: true, nivelTarifaMesActual: true } },
         finanza: true,
         paquete: { select: { horasTotales: true } },
         familia: { select: { nombreContacto: true } },
       },
-      orderBy: { fecha: 'asc' },
+      orderBy: { creadoEn: 'asc' },
     });
 
-    const filas = servicios.map((s) => {
+    const filas = serviciosIngreso.map((s) => {
       const cobro = s.finanza ? Number(s.finanza.cobroFamilia) : 0;
       const comision = s.finanza?.comision ? Number(s.finanza.comision) : 0;
       const ajuste = s.finanza?.ajuste ? Number(s.finanza.ajuste) : 0;
-      const pago = s.nannie
-        ? pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
-            paqueteHoras: s.paquete?.horasTotales,
-            ludotecaMontaje: s.ludotecaMontaje,
-            plaza: s.plaza,
-            zona: s.zona,
-          })
-        : { monto: null as number | null, motivo: 'Servicio sin nannie asignada' };
-      // Descuento por incidencia (M4): reduce el pago de la nannie → margen sube.
-      const descuentoNannie = s.finanza?.descuentoNannie ? Number(s.finanza.descuentoNannie) : 0;
-      const margen =
-        pago.monto == null ? null : redondea2(cobro - (pago.monto - descuentoNannie) - comision - ajuste);
+      // Pago SOLO informativo (se reconoce cuando se complete). Se muestra si ya
+      // se completó; si no, queda en null (aún no es egreso de este mes).
+      const pago =
+        s.estado === 'COMPLETADO' && s.nannie
+          ? pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
+              paqueteHoras: s.paquete?.horasTotales,
+              ludotecaMontaje: s.ludotecaMontaje,
+              plaza: s.plaza,
+              zona: s.zona,
+            }).monto
+          : null;
       return {
         servicioId: s.id,
         nannie: s.nannie?.nombre ?? '—',
@@ -357,22 +367,64 @@ export class FinanzasService {
         zona: s.zona,
         tipoServicio: s.tipoServicio,
         fecha: s.fecha.toISOString().slice(0, 10),
+        completado: s.estado === 'COMPLETADO',
         cobro,
-        pago: pago.monto,
-        descuentoNannie,
+        pago,
         comision,
         comisionBeneficiarioId: s.finanza?.comisionBeneficiarioId ?? null,
         ajuste,
-        margen,
-        pendiente: pago.monto == null,
-        motivo: pago.monto == null ? pago.motivo : undefined,
       };
     });
-
-    const suma = (f: (x: (typeof filas)[number]) => number) =>
+    const sumaFilas = (f: (x: (typeof filas)[number]) => number) =>
       redondea2(filas.reduce((s, x) => s + f(x), 0));
 
-    // Bonos manuales del periodo (reducen el margen; no van por servicio).
+    // Paquetes contratados en el mes (ingreso del paquete + su comisión).
+    const paquetesMes = await this.prisma.paquete.findMany({
+      where: { fechaContratacion: { gte, lte } },
+      include: { familia: { select: { nombreContacto: true } } },
+      orderBy: { fechaContratacion: 'asc' },
+    });
+    const ingresoPaquetes = redondea2(paquetesMes.reduce((s, p) => s + Number(p.precioTotal), 0));
+    const comisionesPaquete = paquetesMes
+      .filter((p) => p.comision != null && Number(p.comision) > 0)
+      .map((p) => ({
+        id: p.id,
+        familia: p.familia.nombreContacto,
+        monto: Number(p.comision),
+        fecha: p.fechaContratacion.toISOString().slice(0, 10),
+      }));
+    const totalComisionesPaquete = redondea2(comisionesPaquete.reduce((s, c) => s + c.monto, 0));
+
+    // --- EGRESO del mes (por completado): pago a nannies de lo COMPLETADO en el mes ---
+    const serviciosPago = await this.prisma.servicio.findMany({
+      where: { estado: 'COMPLETADO', completadoEn: { gte, lte }, estadoCobro: { not: 'POR_DEFINIR' } },
+      include: {
+        nannie: { select: { nivelTarifaMesActual: true } },
+        finanza: { select: { descuentoNannie: true } },
+        paquete: { select: { horasTotales: true } },
+      },
+    });
+    let pagoNannies = 0;
+    let pagosPendientes = 0;
+    for (const s of serviciosPago) {
+      const pago = s.nannie
+        ? pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
+            paqueteHoras: s.paquete?.horasTotales,
+            ludotecaMontaje: s.ludotecaMontaje,
+            plaza: s.plaza,
+            zona: s.zona,
+          }).monto
+        : null;
+      if (pago == null) {
+        pagosPendientes++;
+        continue;
+      }
+      const descuento = s.finanza?.descuentoNannie ? Number(s.finanza.descuentoNannie) : 0;
+      pagoNannies += pago - descuento;
+    }
+    pagoNannies = redondea2(pagoNannies);
+
+    // Bonos del mes (por su fecha).
     const bonosRaw = await this.prisma.bono.findMany({
       where: { fecha: { gte, lte } },
       include: { nannie: { select: { nombre: true } } },
@@ -387,22 +439,13 @@ export class FinanzasService {
     }));
     const totalBonos = redondea2(bonos.reduce((s, b) => s + b.monto, 0));
 
-    // Comisiones de PAQUETE del periodo (por fecha de contratación): reducen el
-    // margen igual que un bono; el pago al beneficiario va por nómina. La comisión
-    // por servicio ya se restó fila por fila (arriba, en 'comision'). (Mario 2026-09-21)
-    const comPaqRaw = await this.prisma.paquete.findMany({
-      where: { comision: { gt: 0 }, fechaContratacion: { gte, lte } },
-      include: { familia: { select: { nombreContacto: true } } },
-      orderBy: { fechaContratacion: 'asc' },
-    });
-    const comisionesPaquete = comPaqRaw.map((p) => ({
-      id: p.id,
-      familia: p.familia.nombreContacto,
-      monto: Number(p.comision),
-      fecha: p.fechaContratacion.toISOString().slice(0, 10),
-    }));
-    const totalComisionesPaquete = redondea2(comisionesPaquete.reduce((s, c) => s + c.monto, 0));
-    const margenBruto = suma((x) => x.margen ?? 0);
+    const ingresoIndividuales = sumaFilas((x) => x.cobro);
+    const totalAjuste = sumaFilas((x) => x.ajuste);
+    const totalComisionServicio = sumaFilas((x) => x.comision);
+    const ingresos = redondea2(ingresoIndividuales + ingresoPaquetes);
+    const margenNeto = redondea2(
+      ingresos - totalAjuste - totalComisionServicio - totalComisionesPaquete - pagoNannies - totalBonos,
+    );
 
     return {
       rango: { desde, hasta },
@@ -410,17 +453,17 @@ export class FinanzasService {
       bonos,
       comisionesPaquete,
       totales: {
-        cobro: suma((x) => x.cobro),
-        pago: suma((x) => x.pago ?? 0),
-        descuentoNannie: suma((x) => x.descuentoNannie),
-        comision: suma((x) => x.comision),
+        ingresos,
+        ingresosIndividuales: ingresoIndividuales,
+        ingresosPaquetes: ingresoPaquetes,
+        ajuste: totalAjuste,
+        comision: totalComisionServicio,
         comisionesPaquete: totalComisionesPaquete,
-        ajuste: suma((x) => x.ajuste),
+        pago: pagoNannies,
         bonos: totalBonos,
-        margen: margenBruto,
-        margenNeto: redondea2(margenBruto - totalBonos - totalComisionesPaquete),
+        margenNeto,
       },
-      pendientes: filas.filter((x) => x.pendiente).length,
+      pendientes: pagosPendientes,
     };
   }
 
@@ -600,13 +643,17 @@ export class FinanzasService {
         where: {
           servicio: {
             formato: 'INDIVIDUAL',
-            fecha: { gte, lte },
+            // INGRESO (Mario 2026-09-21): se reconoce cuando Paula CREÓ el servicio
+            // (`creadoEn`), sin importar que el servicio sea mucho después.
+            creadoEn: { gte, lte },
             // Desborde de paquete POR_DEFINIR = adeudo sin resolver: NO cuenta como
             // ingreso hasta que Paula/Jacky lo definan (Mario 2026-09-18).
             estadoCobro: { not: 'POR_DEFINIR' },
-            // Confirmados + cancelaciones que SÍ se cobraron (aviso <24h).
+            // Todo servicio creado y vivo (ofertado/aceptado/completado) cuenta
+            // como ingreso; + cancelaciones que SÍ se cobraron (aviso <24h). Los
+            // rechazados y cancelados-sin-cobro quedan fuera.
             OR: [
-              { estado: { in: [...CONFIRMADOS] } },
+              { estado: { in: ['OFERTADO', 'ACEPTADO', 'COMPLETADO'] } },
               { estado: 'CANCELADO', canceladaCobrada: true },
             ],
           },
@@ -616,6 +663,7 @@ export class FinanzasService {
             select: {
               tipoServicio: true,
               fecha: true,
+              creadoEn: true,
               duracionHoras: true,
               familia: { select: { nombreContacto: true } },
             },
@@ -640,7 +688,9 @@ export class FinanzasService {
       familia: f.servicio.familia.nombreContacto,
       tipoServicio: f.servicio.tipoServicio,
       monto: Number(f.cobroFamilia),
-      fecha: f.servicio.fecha.toISOString().slice(0, 10),
+      // `fecha` = cuándo se reconoce el ingreso (creación); `fechaServicio` = cuándo se da.
+      fecha: f.servicio.creadoEn.toISOString().slice(0, 10),
+      fechaServicio: f.servicio.fecha.toISOString().slice(0, 10),
     }));
 
     const totalPaquetes = listaPaquetes.reduce((s, x) => s + x.monto, 0);

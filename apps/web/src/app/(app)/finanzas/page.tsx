@@ -242,7 +242,7 @@ function VistaIngresos({
 
       <Seccion
         titulo="Servicios individuales"
-        nota="Servicios sueltos confirmados (aceptados o completados), con su cobro del menú."
+        nota="El ingreso se reconoce cuando Paula crea el servicio (aunque sea a futuro). La fecha mostrada es la de creación."
         count={individuales.length}
       >
         {individuales.length === 0 ? (
@@ -516,21 +516,30 @@ function VistaMargen({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tarjeta titulo="Cobro" monto={totales.cobro} />
-        <Tarjeta titulo="Pago" monto={totales.pago} />
+        <Tarjeta titulo="Ingresos" monto={totales.ingresos} />
+        <Tarjeta titulo="Pago a nannies" monto={totales.pago} />
         <Tarjeta titulo="Comisiones + bonos" monto={totales.comision + totales.comisionesPaquete + totales.bonos} />
         <Tarjeta titulo="Margen neto del mes" monto={totales.margenNeto} destacado />
       </div>
 
+      <p className="rounded-lg bg-marca-azul/10 px-3 py-2 text-xs text-[#0b6b7d]">
+        Estado mensual: el <strong>ingreso</strong> se reconoce cuando Paula crea el servicio y el{' '}
+        <strong>pago a la nannie</strong> cuando lo completa, así que pueden caer en meses distintos.
+        Margen = ingresos − ajustes − comisiones − pagos a nannies − bonos.
+      </p>
+
       {pendientes > 0 && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          {pendientes} servicio(s) con tarifa de pago pendiente: su margen no está incluido en el
-          total hasta que se confirme el tabulador.
+          {pendientes} servicio(s) completado(s) este mes con tarifa de pago pendiente: ese pago no
+          está descontado del margen hasta que se confirme el tabulador.
         </p>
       )}
 
+      <h2 className="pt-1 text-sm font-semibold text-texto-fuerte">
+        Servicios con ingreso este mes <span className="font-normal text-texto-suave">(para editar comisión/ajuste)</span>
+      </h2>
       {servicios.length === 0 ? (
-        <Aviso texto="No hay servicios completados este mes." />
+        <Aviso texto="No hay servicios con ingreso reconocido este mes." />
       ) : (
         <div className="space-y-2">
           {servicios.map((s) => (
@@ -705,19 +714,16 @@ function MargenFila({
             {TIPO_LABEL[s.tipoServicio]} · {s.familia}
           </p>
           <p className="text-xs text-texto-suave">
-            {s.nannie} · {fechaCorta(s.fecha)} · {s.zona}
+            {s.nannie} · servicio {fechaCorta(s.fecha)} · {s.zona}
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-[11px] text-texto-suave">Margen</p>
-          <p className={cn('text-sm font-bold', s.pendiente ? 'text-amber-700' : 'text-texto-fuerte')}>
-            {s.pendiente ? 'Pendiente' : money(s.margen ?? 0)}
-          </p>
+          <p className="text-[11px] text-texto-suave">Cobro</p>
+          <p className="text-sm font-bold text-texto-fuerte">{money(s.cobro)}</p>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Dato label="Cobro" valor={money(s.cobro)} />
-        <Dato label="Pago" valor={s.pago == null ? '—' : money(s.pago)} />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <Dato label="Pago nannie" valor={s.completado ? (s.pago == null ? 'pendiente' : money(s.pago)) : 'al completar'} />
         <label className="block">
           <span className="mb-0.5 block text-[11px] text-texto-suave">Comisión</span>
           <input
@@ -757,12 +763,6 @@ function MargenFila({
             ))}
           </select>
         </label>
-      )}
-      {s.descuentoNannie > 0 && (
-        <p className="mt-2 text-xs text-[#5B292D]">
-          Descuento por incidencia al pago: −{money(s.descuentoNannie)}
-          {s.pago != null && ` (pago neto ${money(s.pago - s.descuentoNannie)})`} — el margen ya lo refleja.
-        </p>
       )}
     </div>
   );
