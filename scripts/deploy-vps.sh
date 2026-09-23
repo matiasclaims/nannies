@@ -22,8 +22,12 @@ echo ">> Repo: $REPO_DIR"
 echo ">> Rama actual: $(git rev-parse --abbrev-ref HEAD)"
 
 echo ""
-echo ">> [1/6] Trayendo el codigo mas reciente (git pull origin main)..."
-git pull origin main
+echo ">> [1/6] Trayendo el codigo mas reciente (fetch + reset --hard a origin/main)..."
+# reset --hard deja el arbol IDENTICO a origin/main y descarta cualquier
+# cambio local en archivos versionados (p.ej. package-lock.json que npm
+# install pudo modificar). NO toca .env ni storage/ porque no estan en git.
+git fetch origin main
+git reset --hard origin/main
 
 echo ""
 echo ">> [2/6] Instalando dependencias (npm install en la raiz del monorepo)..."
