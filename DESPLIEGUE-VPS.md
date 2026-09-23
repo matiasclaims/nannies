@@ -55,6 +55,27 @@ El script hace, en orden y deteniéndose si algo falla:
 - La Web proxea `/api/*` a `http://localhost:3001/api` (default de `next.config.mjs`, correcto en el VPS).
 - Config sensible (`DATABASE_URL`, `STORAGE_DIR`, JWT, etc.) vive en el `.env` del VPS y el script **no** la modifica.
 
+## Respaldo automático de producción
+
+El script [`scripts/backup-prod.sh`](scripts/backup-prod.sh) hace un `pg_dump` comprimido de `nannies_prod`, lo guarda en `/var/backups/nannies/` y conserva los últimos **14 días** (rota solo). Se ejecuta a diario por cron (3:00 AM del servidor):
+
+```
+0 3 * * * bash /var/www/nannies/scripts/backup-prod.sh >> /var/log/nannies-backup.log 2>&1
+```
+
+**Restaurar** un respaldo:
+
+```bash
+sudo -u postgres pg_restore -d nannies_prod --clean --if-exists /var/backups/nannies/ARCHIVO.dump
+```
+
+Ver los respaldos y el log:
+
+```bash
+ls -lh /var/backups/nannies/
+tail /var/log/nannies-backup.log
+```
+
 ## Comandos útiles en el VPS
 
 ```bash
@@ -70,3 +91,4 @@ pm2 restart nannies-api       # reiniciar solo la API
 - [ ] Definir y cargar los **datos reales** (nannies, familias) en la BD del VPS.
 - [x] Firewall (`ufw`) activo — solo 22/80/443 abiertos; puertos internos (3000/3001/8080) cerrados al exterior.
 - [x] `pm2 startup` + `pm2 save` — los procesos reviven tras un reinicio del VPS.
+- [x] Respaldo automático diario de la BD (`scripts/backup-prod.sh` + cron, retención 14 días).
