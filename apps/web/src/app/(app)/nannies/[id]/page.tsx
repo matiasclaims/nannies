@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, UserMinus, Check, Camera, Pencil, Award, ClipboardCheck, X, ExternalLink } from 'lucide-react';
-import { api, ApiError, type NanniePerfil, type Plaza, type DocumentoNannie } from '@/lib/api';
+import { ArrowLeft, UserMinus, Check, Camera, Pencil, Award, ClipboardCheck, X, ExternalLink, KeyRound, Copy } from 'lucide-react';
+import { api, ApiError, type NanniePerfil, type Plaza, type DocumentoNannie, type AccesoRegeneradoResultado } from '@/lib/api';
 import { ZONAS_QRO } from '@/lib/queretaro';
 import { CATALOGO_DOCUMENTOS, CATALOGO_CURSOS, type ItemChecklist } from '@/lib/nannie-catalogos';
 import { COLORES_NANNIE, ESTADO_NANNIE, RANGO_LABEL, NIVEL_LABEL, UMBRALES_RANGO } from '@/lib/nannie-ui';
@@ -124,6 +124,8 @@ export default function NanniePerfilPage() {
         <ExpedienteChecklists perfil={perfil} onGuardado={cargar} />
       </Seccion>
 
+      <AccesoNannie nannieId={perfil.id} correoActual={perfil.correo} onCambio={cargar} />
+
       <ColoniasNannie nannieId={perfil.id} />
 
       <EvaluacionCoordNannie nannieId={perfil.id} />
@@ -165,6 +167,165 @@ export default function NanniePerfilPage() {
         />
       )}
     </div>
+  );
+}
+
+/** Acceso de la nannie: muestra su usuario de login y permite regenerar/crear
+ *  el acceso (fija usuario@nannies.mx + contraseña temporal para entregarle).
+ *  Sirve para las cuentas ya existentes (reset) y para nannies sin cuenta. */
+function AccesoNannie({
+  nannieId,
+  correoActual,
+  onCambio,
+}: {
+  nannieId: string;
+  correoActual: string | null;
+  onCambio: () => void;
+}) {
+  const sugerido = correoActual?.endsWith('@nannies.mx') ? correoActual.split('@')[0] : '';
+  const [abierto, setAbierto] = useState(false);
+  const [usuario, setUsuario] = useState(sugerido);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [resultado, setResultado] = useState<AccesoRegeneradoResultado | null>(null);
+  const [copiado, setCopiado] = useState(false);
+
+  function cerrar() {
+    setAbierto(false);
+    setResultado(null);
+    setError('');
+    setUsuario(sugerido);
+  }
+
+  async function regenerar() {
+    setError('');
+    const u = usuario.trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9._-]{1,40}$/.test(u)) {
+      setError('El usuario solo admite minúsculas, números, punto o guion (ej. vianney).');
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await api.regenerarAccesoNannie(nannieId, u);
+      setResultado(r);
+      onCambio();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'No se pudo regenerar el acceso.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copiar() {
+    if (!resultado) return;
+    try {
+      await navigator.clipboard.writeText(
+        `Usuario: ${resultado.correo}\nContraseña temporal: ${resultado.passwordTemporal}`,
+      );
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      /* el navegador puede bloquear el portapapeles; no es crítico */
+    }
+  }
+
+  return (
+    <Seccion icon={KeyRound} title="Acceso" subtitle="Usuario y contraseña" tint="azul" defaultOpen={false}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 text-sm">
+          <p className="text-xs text-texto-suave">Usuario de acceso</p>
+          <p className="truncate font-medium text-texto-fuerte">{correoActual ?? 'Sin cuenta'}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          className="shrink-0 rounded-lg border border-borde px-2.5 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
+        >
+          {correoActual ? 'Regenerar acceso' : 'Crear acceso'}
+        </button>
+      </div>
+
+      {abierto && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <button aria-label="Cerrar" className="absolute inset-0 bg-texto-fuerte/30 backdrop-blur-sm" onClick={cerrar} />
+          <div className="relative flex w-full max-w-md flex-col rounded-2xl bg-panel shadow-2xl">
+            <div className="flex items-center justify-between border-b border-borde p-4">
+              <h2 className="text-sm font-semibold text-texto-fuerte">
+                {correoActual ? 'Regenerar acceso' : 'Crear acceso'}
+              </h2>
+              <button onClick={cerrar} className="grid h-8 w-8 place-items-center rounded-full text-texto-suave hover:bg-fondo">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 p-4">
+              {!resultado ? (
+                <>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-texto-suave">Usuario de acceso</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={usuario}
+                        onChange={(e) => setUsuario(e.target.value)}
+                        className={input}
+                        placeholder="ej. vianney"
+                        autoFocus
+                      />
+                      <span className="shrink-0 text-sm text-texto-suave">@nannies.mx</span>
+                    </div>
+                  </label>
+                  <p className="text-xs text-texto-suave">
+                    Se generará una contraseña temporal para entregarle a la nannie; ella la cambia en su primer
+                    ingreso. El correo personal de contacto se edita en el perfil, no aquí.
+                  </p>
+                  {error && <p className="text-xs text-marca-rojo">{error}</p>}
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button onClick={cerrar} className="rounded-lg border border-borde px-3 py-1.5 text-sm text-texto-suave hover:bg-fondo">
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={regenerar}
+                      disabled={busy}
+                      className="rounded-lg bg-marca-azul px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {busy ? 'Generando…' : 'Generar acceso'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-texto-fuerte">
+                    Acceso listo. Entrégale estos datos a la nannie (no se muestran otra vez):
+                  </p>
+                  <div className="space-y-1 rounded-xl border border-borde bg-fondo p-3 text-sm">
+                    <p>
+                      <span className="text-texto-suave">Usuario:</span>{' '}
+                      <span className="font-medium text-texto-fuerte">{resultado.correo}</span>
+                    </p>
+                    <p>
+                      <span className="text-texto-suave">Contraseña temporal:</span>{' '}
+                      <span className="font-mono font-medium text-texto-fuerte">{resultado.passwordTemporal}</span>
+                    </p>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      onClick={copiar}
+                      className="flex items-center gap-1.5 rounded-lg border border-borde px-3 py-1.5 text-sm text-marca-azul hover:bg-fondo"
+                    >
+                      {copiado ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copiado ? 'Copiado' : 'Copiar'}
+                    </button>
+                    <button onClick={cerrar} className="rounded-lg bg-marca-azul px-3 py-1.5 text-sm font-medium text-white hover:opacity-90">
+                      Listo
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </Seccion>
   );
 }
 

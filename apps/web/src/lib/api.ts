@@ -154,6 +154,10 @@ export interface AltaNannieResultado {
   correoEnviado: boolean;
   passwordTemporal?: string;
 }
+export interface AccesoRegeneradoResultado {
+  correo: string; // login usuario@nannies.mx
+  passwordTemporal: string; // contraseña temporal a entregar a la nannie
+}
 
 /** Error con código HTTP; status = 0 si ni siquiera se pudo conectar. */
 export class ApiError extends Error {
@@ -1057,6 +1061,11 @@ export const api = {
   ) => req<{ ok: true }>(`/nannies/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   darDeBajaNannie: (id: string) =>
     req<{ ok: true }>(`/nannies/${id}/baja`, { method: 'POST' }),
+  regenerarAccesoNannie: (id: string, usuario: string) =>
+    req<AccesoRegeneradoResultado>(`/nannies/${id}/acceso`, {
+      method: 'POST',
+      body: JSON.stringify({ usuario }),
+    }),
   fotoNannie: (id: string, foto: string | null) =>
     req<{ ok: true; foto: string | null }>(`/nannies/${id}/foto`, {
       method: 'PATCH',

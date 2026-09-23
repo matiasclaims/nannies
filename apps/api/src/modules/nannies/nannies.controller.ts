@@ -9,6 +9,7 @@ import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { CrearNannieDto } from './dto/crear-nannie.dto';
 import { EditarNannieDto } from './dto/editar-nannie.dto';
 import { CambiarPasswordDto } from './dto/cambiar-password.dto';
+import { RegenerarAccesoDto } from './dto/regenerar-acceso.dto';
 import { ActualizarFotoDto } from '../../core/auth/dto/actualizar-foto.dto';
 import { AgregarNotaDto } from './dto/agregar-nota.dto';
 
@@ -82,6 +83,13 @@ export class NanniesController {
   @Post(':id/baja')
   darDeBaja(@Param('id') id: string) {
     return this.nannies.darDeBaja(id);
+  }
+
+  // Regenerar/crear el acceso de una nannie existente (login + contraseña temporal).
+  @RequiereAccion('nannie.gestionar')
+  @Post(':id/acceso')
+  regenerarAcceso(@Param('id') id: string, @Body() dto: RegenerarAccesoDto) {
+    return this.nannies.regenerarAcceso(id, dto);
   }
 
   // --- Bitácora de coordinación (Directora + Subdirectora) ---

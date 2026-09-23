@@ -13,6 +13,7 @@ import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { CrearNannieDto } from './dto/crear-nannie.dto';
 import { EditarNannieDto } from './dto/editar-nannie.dto';
 import { CambiarPasswordDto } from './dto/cambiar-password.dto';
+import { RegenerarAccesoDto } from './dto/regenerar-acceso.dto';
 import { CLAVES_DOCUMENTOS, CLAVES_CURSOS, soloClavesValidas } from './catalogos';
 
 const todas = (tiene: string[], catalogo: string[]) => catalogo.every((c) => tiene.includes(c));
@@ -145,6 +146,51 @@ export class NanniesService {
       // Respaldo cuando el correo no salió (Resend sin configurar): para relaearla a mano.
       passwordTemporal: correoEnviado ? undefined : temp,
     };
+  }
+
+  /**
+   * Regenera (o crea) el acceso de una nannie que YA existe en el expediente:
+   * fija su usuario de login (usuario@nannies.mx) y genera una contraseña
+   * temporal que se devuelve para que coordinación se la pase. Marca que debe
+   * cambiarla al entrar. Si la cuenta existía, la reestablece; si no, la crea.
+   * A diferencia de `crear`, NO da de alta un expediente nuevo.
+   */
+  async regenerarAcceso(id: string, dto: RegenerarAccesoDto) {
+    const nannie = await this.prisma.nannie.findUnique({
+      where: { id },
+      include: { usuario: true },
+    });
+    if (!nannie) throw new NotFoundException('Nannie no encontrada');
+
+    const correo = `${dto.usuario.trim().toLowerCase()}@${DOMINIO_CORREO}`;
+    // El login no puede chocar con la cuenta de OTRA persona.
+    const existe = await this.prisma.usuario.findUnique({ where: { email: correo } });
+    if (existe && existe.nannieId !== id) {
+      throw new BadRequestException(`Ya existe una cuenta con el usuario "${dto.usuario}".`);
+    }
+
+    const temp = passwordTemporal();
+    const passwordHash = await argon2.hash(temp, { type: argon2.argon2id });
+
+    if (nannie.usuario) {
+      await this.prisma.usuario.update({
+        where: { id: nannie.usuario.id },
+        data: { email: correo, passwordHash, debeCambiarPassword: true, activo: true },
+      });
+    } else {
+      await this.prisma.usuario.create({
+        data: {
+          nombre: nannie.nombre,
+          email: correo,
+          passwordHash,
+          rol: Rol.NANNIE,
+          nannieId: nannie.id,
+          debeCambiarPassword: true,
+        },
+      });
+    }
+
+    return { correo, passwordTemporal: temp };
   }
 
   /** Edita el expediente (datos, zonas, color, estado, cumplimiento). */
