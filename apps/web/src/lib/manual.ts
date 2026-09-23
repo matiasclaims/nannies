@@ -351,6 +351,18 @@ export const MANUAL: CapituloModulo[] = [
           nota: 'La foto de cada nannie se ve donde aparezca: lista, expediente, nómina, asignación y calendario. Su color hace un aro alrededor de su foto. "Dar de baja" desactiva su cuenta y conserva su historial.',
         },
         {
+          titulo: 'Regenerar o crear el acceso de una nannie',
+          intro:
+            'En el perfil de la nannie, la sección "Acceso" muestra su usuario de login y te deja fijar/restablecer su acceso sin tocar su expediente. Úsalo para darle acceso a una nannie que ya está en el sistema, para normalizar su usuario a usuario@nannies.mx o para restablecerle la contraseña si la olvidó.',
+          pasos: [
+            'Entra al perfil de la nannie › sección "Acceso".',
+            'Presiona "Regenerar acceso" (o "Crear acceso" si aún no tiene cuenta).',
+            'Escribe su usuario —solo la parte antes de la arroba, p. ej. "vianney"— y el sistema arma su login "vianney@nannies.mx".',
+            'Se genera una contraseña temporal: aparece en pantalla con un botón "Copiar" (usuario + contraseña). Pásasela a la nannie; ella la cambia en su primer ingreso.',
+          ],
+          nota: 'A diferencia de "Agregar nannie", esto NO crea un expediente nuevo: opera sobre la nannie que ya existe. El correo personal de contacto se edita aparte, con el botón "Editar" del perfil; el acceso es independiente.',
+        },
+        {
           titulo: 'Desempeño (todo automático)',
           intro:
             'La sección "Desempeño" muestra sus servicios de por vida, su rango de carrera y su nivel del mes. No se editan a mano: el sistema los calcula.',
