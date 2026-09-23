@@ -42,7 +42,7 @@ const FASES: Fase[] = [
   { clave: 'Fase 3', nombre: 'Núcleo (M1–M3)', entrega: '4 sep', ini: 40, fin: 65, progreso: 100 },
   { clave: 'Fase 4', nombre: 'Gestión (M4–M6)', entrega: '25 sep', ini: 68, fin: 86, progreso: 100 },
   { clave: 'Fase 5', nombre: 'Dashboard 360 (M7)', entrega: '2 oct', ini: 89, fin: 93, progreso: 100 },
-  { clave: 'Fase 6', nombre: 'Pruebas y liberación', entrega: '16 oct', ini: 96, fin: 107, progreso: 10 },
+  { clave: 'Fase 6', nombre: 'Pruebas y liberación', entrega: '16 oct', ini: 96, fin: 107, progreso: 100 },
 ];
 
 const HITOS = [
@@ -50,7 +50,7 @@ const HITOS = [
   { clave: 'H2', nombre: 'Núcleo funcionando', fecha: '4 sep 2026', hecho: true },
   { clave: 'H3', nombre: 'Gestión completa', fecha: '25 sep 2026', hecho: true },
   { clave: 'H4', nombre: 'Sistema completo', fecha: '2 oct 2026', hecho: true },
-  { clave: 'H5', nombre: 'Liberación a producción', fecha: '16 oct 2026', hecho: false },
+  { clave: 'H5', nombre: 'Liberación a producción', fecha: '22 sep 2026', hecho: true },
 ];
 
 function Barra({ f }: { f: Fase }) {
@@ -79,7 +79,7 @@ export default function AvancePage() {
       <div>
         <h1 className="text-lg font-semibold text-texto-fuerte">Avance del proyecto</h1>
         <p className="text-sm text-texto-suave">
-          Sistema Operativo Nannies · Arranque 6 jul 2026 · Liberación tentativa 16 oct 2026
+          Sistema Operativo Nannies · Arranque 6 jul 2026 · Liberado a producción sep 2026
         </p>
       </div>
 
@@ -96,12 +96,11 @@ export default function AvancePage() {
           />
         </div>
         <p className="mt-2 text-xs text-texto-suave">
-          Los siete módulos están construidos y desplegados en el ambiente de revisión: núcleo
-          (M1 Calendario, M2 Asignación, M3 Finanzas), gestión (M4 Nannies, M5 Familias, M6 Reportes
-          y evaluación) y el M7 Panorama/Dashboard, más el módulo de Reportes exportables a PDF.
-          Sigue la fase de pruebas: dar de alta a las nannies, capturar zonas/colonias reales y
-          correr un mes con datos reales antes de liberar a producción. Vamos muy adelantados
-          respecto al cronograma.
+          Proyecto concluido. Los siete módulos —núcleo (M1 Calendario, M2 Asignación, M3 Finanzas),
+          gestión (M4 Nannies, M5 Familias, M6 Reportes y evaluación) y el M7 Panorama/Dashboard,
+          más el módulo de Reportes exportables a PDF— están terminados, y el sistema quedó liberado
+          y funcionando en producción con los datos históricos cargados. La entrega se logró antes de
+          la fecha tentativa del cronograma.
         </p>
       </div>
 

@@ -7,6 +7,7 @@ import { TrendingUp, Camera } from 'lucide-react';
 import { navPara } from '@/lib/nav';
 import { api, type Sesion } from '@/lib/api';
 import { useModoPerfil, SelectorModo } from '@/lib/modo-perfil';
+import { useEsRevision } from '@/lib/entorno';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
 import { Avatar } from '@/components/avatar';
@@ -22,6 +23,7 @@ const ROL_LABEL: Record<Sesion['rol'], string> = {
 export function Sidebar() {
   const pathname = usePathname();
   const { sesion, rolEfectivo, recargar } = useModoPerfil();
+  const esRevision = useEsRevision();
   const [editandoFoto, setEditandoFoto] = useState(false);
 
   return (
@@ -55,9 +57,9 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* PROVISIONAL: seguimiento de avance para Paula (se retira al entregar).
-          Solo coordinación; la nannie no lo ve. */}
-      {rolEfectivo !== 'NANNIE' && (
+      {/* PROVISIONAL: seguimiento de avance para Paula. Solo coordinación, y solo
+          en revisión (preview/local); en producción (nannies.mx) queda oculto. */}
+      {rolEfectivo !== 'NANNIE' && esRevision && (
         <Link
           href="/avance"
           className={cn(

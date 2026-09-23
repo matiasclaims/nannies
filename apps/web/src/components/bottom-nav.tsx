@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { MoreHorizontal, TrendingUp, X } from 'lucide-react';
 import { navPara } from '@/lib/nav';
 import { useModoPerfil, SelectorModo } from '@/lib/modo-perfil';
+import { useEsRevision } from '@/lib/entorno';
 import { cn } from '@/lib/utils';
 
 /** Bottom nav de celular (los ítems `movil` visibles para el rol). Piel "Claro".
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils';
 export function BottomNav() {
   const pathname = usePathname();
   const { dual, rolEfectivo } = useModoPerfil();
+  const esRevision = useEsRevision();
   const [masAbierto, setMasAbierto] = useState(false);
 
   // Cierra el menú al navegar.
@@ -25,10 +27,11 @@ export function BottomNav() {
   const items = visibles.filter((i) => i.movil);
   const resto = visibles.filter((i) => !i.movil);
 
-  // Avance: provisional, solo coordinación (igual que el sidebar).
+  // Avance: provisional, solo coordinación y solo en revisión (preview/local);
+  // en producción (nannies.mx) queda oculto (igual que el sidebar).
   const extras = [
     ...resto.map((i) => ({ href: i.href, label: i.label, icon: i.icon })),
-    ...(rolEfectivo && rolEfectivo !== 'NANNIE'
+    ...(rolEfectivo && rolEfectivo !== 'NANNIE' && esRevision
       ? [{ href: '/avance', label: 'Avance del proyecto', icon: TrendingUp }]
       : []),
   ];
