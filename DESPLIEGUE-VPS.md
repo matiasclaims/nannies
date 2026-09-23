@@ -68,4 +68,5 @@ pm2 restart nannies-api       # reiniciar solo la API
 
 - [ ] Establecer las **contraseñas reales** de las cuentas (hoy hay temporales).
 - [ ] Definir y cargar los **datos reales** (nannies, familias) en la BD del VPS.
-- [ ] Parte 8 del setup: firewall (`ufw`) + `pm2 startup` para que reviva tras reinicio del VPS.
+- [x] Firewall (`ufw`) activo — solo 22/80/443 abiertos; puertos internos (3000/3001/8080) cerrados al exterior.
+- [x] `pm2 startup` + `pm2 save` — los procesos reviven tras un reinicio del VPS.
