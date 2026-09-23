@@ -10,6 +10,10 @@ function esCorreoReal(email?: string | null): email is string {
   return !!email && email.includes('@') && !email.toLowerCase().endsWith('@nannies.mx');
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Pausa entre envíos para no rebasar el límite de Resend (10 req/seg). */
+const PAUSA_ENVIO_MS = 150;
+
 @Injectable()
 export class RecordatoriosService {
   private readonly logger = new Logger(RecordatoriosService.name);
@@ -48,6 +52,7 @@ export class RecordatoriosService {
       const ok = await this.mail.recordatorioDisponibilidad(destino, n.nombre, `${WEB_URL}/login`);
       if (ok) enviados++;
       else fallidos++;
+      await sleep(PAUSA_ENVIO_MS); // no rebasar el límite de Resend (10/seg)
     }
 
     this.logger.log(
