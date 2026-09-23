@@ -189,6 +189,8 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
       !path.startsWith('/auth/login') &&
       window.location.pathname !== '/login'
     ) {
+      // Destino fijo y seguro (no controlado por el usuario): ir al login.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = '/login';
     }
     throw new ApiError(res.status, cuerpo.message ?? `Error ${res.status}`);
