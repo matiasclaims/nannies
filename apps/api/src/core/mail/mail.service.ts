@@ -61,6 +61,23 @@ export class MailService {
       </div>`;
     return this.enviar(to, 'Tu acceso a Nannies Child Care', html);
   }
+
+  /** Recordatorio semanal para que la nannie marque su disponibilidad. */
+  async recordatorioDisponibilidad(
+    to: string,
+    nombre: string,
+    urlLogin: string,
+  ): Promise<boolean> {
+    const html = `
+      <div style="font-family:Segoe UI,Arial,sans-serif;color:#0F172A;max-width:520px;margin:auto">
+        <h2 style="color:#0CC0DF">Hola, ${escapar(nombre)}</h2>
+        <p>Es momento de marcar tu <strong>disponibilidad de la próxima semana</strong> en el sistema.
+        Mantenerla al día es lo que permite que te asignen servicios.</p>
+        <p><a href="${escapar(urlLogin)}" style="background:#0CC0DF;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;display:inline-block">Marcar mi disponibilidad</a></p>
+        <p style="color:#64748B;font-size:12px">Entra a "Calendario" y usa "Marcar mi disponibilidad". Si ya la marcaste, ignora este correo.</p>
+      </div>`;
+    return this.enviar(to, 'Recordatorio: marca tu disponibilidad de la semana', html);
+  }
 }
 
 function escapar(s: string): string {
