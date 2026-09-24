@@ -4,6 +4,7 @@ import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ActualizarFotoDto } from './dto/actualizar-foto.dto';
+import { OlvidePasswordDto, RestablecerDto } from './dto/reset-password.dto';
 import { Publico } from './decorators/publico.decorator';
 import { UsuarioActual } from './decorators/usuario-actual.decorator';
 import type { UsuarioAutenticado } from './auth.types';
@@ -34,6 +35,25 @@ export class AuthController {
       path: '/',
     });
     return { rol: usuario.rol };
+  }
+
+  /** Olvidé mi contraseña: envía por correo el enlace de restablecimiento.
+   *  Siempre responde 200 (no revela si el correo existe). */
+  @Publico()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('olvide-password')
+  @HttpCode(200)
+  olvidePassword(@Body() dto: OlvidePasswordDto): Promise<{ ok: true }> {
+    return this.auth.solicitarReset(dto.correo);
+  }
+
+  /** Restablecer con el token del correo. */
+  @Publico()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('restablecer')
+  @HttpCode(200)
+  restablecer(@Body() dto: RestablecerDto): Promise<{ ok: true }> {
+    return this.auth.restablecer(dto.token, dto.nueva);
   }
 
   @Post('logout')

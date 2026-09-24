@@ -13,7 +13,9 @@ export function middleware(req: NextRequest) {
   // el avance del paquete y la encuesta de papás. La seguridad real es el
   // token del backend.
   const esPublica =
-    req.nextUrl.pathname.startsWith('/avance') || req.nextUrl.pathname.startsWith('/encuesta');
+    req.nextUrl.pathname.startsWith('/avance') ||
+    req.nextUrl.pathname.startsWith('/encuesta') ||
+    req.nextUrl.pathname.startsWith('/restablecer');
 
   if (!tieneSesion && !esLogin && !esPublica) {
     return NextResponse.redirect(new URL('/login', req.url));

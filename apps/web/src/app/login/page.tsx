@@ -11,6 +11,23 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [vista, setVista] = useState<'login' | 'olvide'>('login');
+  const [msg, setMsg] = useState('');
+
+  async function onOlvide(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    setCargando(true);
+    try {
+      await api.olvidePassword(email);
+    } catch {
+      /* mensaje genérico igual (no revela si el correo existe) */
+    } finally {
+      setCargando(false);
+      setMsg('Si el correo existe, te enviamos instrucciones para restablecer tu contraseña. Revisa tu bandeja (y la carpeta de spam).');
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,40 +75,85 @@ export default function LoginPage() {
           <p className="text-sm text-texto-suave">Bienvenida — ingresa a tu operación</p>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-texto-fuerte">Correo</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-borde bg-white/80 px-3 py-2.5 text-sm outline-none transition focus:border-marca-azul focus:ring-2 focus:ring-marca-azul/20"
-              placeholder="tu@correo.mx"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-texto-fuerte">Contraseña</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-borde bg-white/80 px-3 py-2.5 text-sm outline-none transition focus:border-marca-azul focus:ring-2 focus:ring-marca-azul/20"
-              placeholder="••••••••"
-            />
-          </div>
+        {vista === 'login' ? (
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-texto-fuerte">Correo</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border border-borde bg-white/80 px-3 py-2.5 text-sm outline-none transition focus:border-marca-azul focus:ring-2 focus:ring-marca-azul/20"
+                placeholder="tu@correo.mx"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-texto-fuerte">Contraseña</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-xl border border-borde bg-white/80 px-3 py-2.5 text-sm outline-none transition focus:border-marca-azul focus:ring-2 focus:ring-marca-azul/20"
+                placeholder="••••••••"
+              />
+            </div>
 
-          {error && <p className="text-sm text-marca-rojo">{error}</p>}
+            {error && <p className="text-sm text-marca-rojo">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={cargando}
-            className="w-full rounded-xl bg-gradient-to-r from-marca-azul to-marca-morado py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 active:scale-[0.99] disabled:opacity-60"
-          >
-            {cargando ? 'Entrando…' : 'Entrar'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={cargando}
+              className="w-full rounded-xl bg-gradient-to-r from-marca-azul to-marca-morado py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 active:scale-[0.99] disabled:opacity-60"
+            >
+              {cargando ? 'Entrando…' : 'Entrar'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setVista('olvide'); setError(''); setMsg(''); }}
+              className="block w-full text-center text-xs text-marca-azul hover:underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={onOlvide} className="space-y-4">
+            <p className="text-sm text-texto-suave">
+              Escribe tu correo de acceso y te enviaremos instrucciones para restablecer tu contraseña.
+            </p>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-texto-fuerte">Correo</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border border-borde bg-white/80 px-3 py-2.5 text-sm outline-none transition focus:border-marca-azul focus:ring-2 focus:ring-marca-azul/20"
+                placeholder="tu@correo.mx"
+              />
+            </div>
+
+            {msg && <p className="text-sm text-[#3b6d11]">{msg}</p>}
+
+            <button
+              type="submit"
+              disabled={cargando}
+              className="w-full rounded-xl bg-gradient-to-r from-marca-azul to-marca-morado py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 active:scale-[0.99] disabled:opacity-60"
+            >
+              {cargando ? 'Enviando…' : 'Enviar instrucciones'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setVista('login'); setMsg(''); }}
+              className="block w-full text-center text-xs text-marca-azul hover:underline"
+            >
+              Volver a iniciar sesión
+            </button>
+          </form>
+        )}
       </div>
 
       <div className="absolute bottom-5 text-center text-xs text-texto-suave">

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, TipoServicio, EstadoServicio, Plaza } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MailService } from '../../core/mail/mail.service';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { tramoPorHoras } from '../familias/paquetes.tarifa';
 import { CrearDisponibilidadDto } from './dto/crear-disponibilidad.dto';
@@ -42,7 +43,33 @@ interface RangoFechas {
 
 @Injectable()
 export class CalendarioService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mail: MailService,
+  ) {}
+
+  /**
+   * Notifica por correo a la nannie que se le puso un servicio (sin datos del
+   * servicio). Va a su correo personal; si no hay, cae al login cuando es real.
+   * No bloquea la asignación (fire-and-forget).
+   */
+  private async notificarAsignacion(nannieId: string | null | undefined) {
+    if (!nannieId) return;
+    const nannie = await this.prisma.nannie.findUnique({
+      where: { id: nannieId },
+      select: { nombre: true, email: true, usuario: { select: { email: true } } },
+    });
+    if (!nannie) return;
+    const esReal = (e?: string | null) =>
+      !!e && e.includes('@') && !e.toLowerCase().endsWith('@nannies.mx');
+    const destino = esReal(nannie.email)
+      ? nannie.email!
+      : esReal(nannie.usuario?.email)
+        ? nannie.usuario!.email
+        : null;
+    if (!destino) return;
+    await this.mail.servicioAsignado(destino, nannie.nombre);
+  }
 
   // ---------------- Disponibilidad ----------------
 
@@ -758,6 +785,7 @@ export class CalendarioService {
       where: { id: servicioId },
       data: { nannieId, estado: 'ACEPTADO' },
     });
+    void this.notificarAsignacion(nannieId).catch(() => undefined);
     return { ok: true };
   }
 
@@ -896,10 +924,12 @@ export class CalendarioService {
       servicio.id,
     );
 
-    return this.prisma.servicio.update({
+    const actualizado = await this.prisma.servicio.update({
       where: { id: dto.servicioId },
       data: { nannieId: dto.nannieId, estado: 'OFERTADO' },
     });
+    void this.notificarAsignacion(dto.nannieId).catch(() => undefined);
+    return actualizado;
   }
 
   /**

@@ -78,6 +78,31 @@ export class MailService {
       </div>`;
     return this.enviar(to, 'Recordatorio: marca tu disponibilidad de la semana', html);
   }
+
+  /** Aviso a la nannie de que se le asignó un servicio (sin datos del servicio). */
+  async servicioAsignado(to: string, nombre: string): Promise<boolean> {
+    const html = `
+      <div style="font-family:Segoe UI,Arial,sans-serif;color:#0F172A;max-width:520px;margin:auto">
+        <h2 style="color:#0CC0DF">Hola, ${escapar(nombre)}</h2>
+        <p>Se te ha asignado un servicio en <strong>Nannies Child Care</strong>.
+        Entra a tu calendario para ver los detalles y responder.</p>
+        <p><a href="https://nannies.mx/login" style="background:#0CC0DF;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;display:inline-block">Ver mi calendario</a></p>
+        <p style="color:#64748B;font-size:12px">Por privacidad, este correo no incluye los datos del servicio; los ves al iniciar sesión.</p>
+      </div>`;
+    return this.enviar(to, 'Se te asignó un servicio · Nannies Child Care', html);
+  }
+
+  /** Correo con el enlace para restablecer la contraseña (un solo uso, con caducidad). */
+  async recuperarPassword(to: string, nombre: string, urlReset: string): Promise<boolean> {
+    const html = `
+      <div style="font-family:Segoe UI,Arial,sans-serif;color:#0F172A;max-width:520px;margin:auto">
+        <h2 style="color:#0CC0DF">Restablecer tu contraseña</h2>
+        <p>Hola, ${escapar(nombre)}. Recibimos una solicitud para restablecer tu contraseña de Nannies Child Care.</p>
+        <p><a href="${escapar(urlReset)}" style="background:#0CC0DF;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;display:inline-block">Crear una nueva contraseña</a></p>
+        <p style="color:#64748B;font-size:12px">El enlace vence en 1 hora y solo sirve una vez. Si tú no lo solicitaste, ignora este correo; tu contraseña no cambia.</p>
+      </div>`;
+    return this.enviar(to, 'Restablece tu contraseña · Nannies Child Care', html);
+  }
 }
 
 function escapar(s: string): string {

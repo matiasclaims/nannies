@@ -1,14 +1,21 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
+import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 import type { UsuarioAutenticado } from './auth.types';
+
+const WEB_URL = process.env.WEB_URL ?? 'https://nannies.mx';
+const RESET_TTL_MS = 60 * 60 * 1000; // 1 hora
+const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly mail: MailService,
   ) {}
 
   /**
@@ -75,6 +82,62 @@ export class AuthService {
       await this.prisma.usuario.update({ where: { id: user.sub }, data: { foto: valor } });
     }
     return { ok: true, foto: valor };
+  }
+
+  /**
+   * Solicitud de restablecimiento: genera un token de un solo uso (guarda su
+   * sha256 + caducidad) y envía por correo el enlace. El correo va al buzón de
+   * CONTACTO (personal de la nannie, o el login si es un correo real), NO al
+   * login usuario@nannies.mx. Siempre responde igual (no revela si existe).
+   */
+  async solicitarReset(correo: string): Promise<{ ok: true }> {
+    const email = correo.trim().toLowerCase();
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { email },
+      select: { id: true, nombre: true, email: true, activo: true, nannie: { select: { email: true } } },
+    });
+    if (usuario && usuario.activo) {
+      const esReal = (e?: string | null) =>
+        !!e && e.includes('@') && !e.toLowerCase().endsWith('@nannies.mx');
+      const destino = esReal(usuario.nannie?.email)
+        ? usuario.nannie!.email!
+        : esReal(usuario.email)
+          ? usuario.email
+          : null;
+      if (destino) {
+        const token = randomBytes(32).toString('base64url');
+        await this.prisma.usuario.update({
+          where: { id: usuario.id },
+          data: { resetTokenHash: sha256(token), resetTokenExp: new Date(Date.now() + RESET_TTL_MS) },
+        });
+        await this.mail.recuperarPassword(destino, usuario.nombre, `${WEB_URL}/restablecer?token=${token}`);
+      }
+    }
+    return { ok: true };
+  }
+
+  /** Restablece la contraseña con un token válido (un solo uso, no vencido). */
+  async restablecer(token: string, nueva: string): Promise<{ ok: true }> {
+    if (!token || nueva.length < 8) {
+      throw new BadRequestException('La nueva contraseña debe tener al menos 8 caracteres.');
+    }
+    const usuario = await this.prisma.usuario.findFirst({
+      where: { resetTokenHash: sha256(token), resetTokenExp: { gt: new Date() } },
+      select: { id: true },
+    });
+    if (!usuario) {
+      throw new BadRequestException('El enlace no es válido o ya venció. Solicita uno nuevo.');
+    }
+    await this.prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        passwordHash: await AuthService.hashPassword(nueva),
+        debeCambiarPassword: false,
+        resetTokenHash: null,
+        resetTokenExp: null,
+      },
+    });
+    return { ok: true };
   }
 
   static async hashPassword(plano: string): Promise<string> {

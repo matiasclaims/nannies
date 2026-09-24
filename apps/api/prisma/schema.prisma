@@ -144,6 +144,10 @@ model Usuario {
 
   // Contraseña temporal al alta (M4): fuerza el cambio en el primer ingreso.
   debeCambiarPassword Boolean @default(false)
+  // Restablecimiento de contraseña por correo: se guarda el sha256 del token
+  // (no el token en claro) y su caducidad. Un solo uso.
+  resetTokenHash String?
+  resetTokenExp  DateTime?
   // Si rol = NANNIE, enlaza con su ficha. La pertenencia (token.nannieId
   // == recurso) se verifica en cada consulta de nannie (SEGURIDAD §4).
   nannieId     String?  @unique

@@ -886,6 +886,10 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   logout: () => req<{ ok: true }>('/auth/logout', { method: 'POST' }),
+  olvidePassword: (correo: string) =>
+    req<{ ok: true }>('/auth/olvide-password', { method: 'POST', body: JSON.stringify({ correo }) }),
+  restablecerPassword: (token: string, nueva: string) =>
+    req<{ ok: true }>('/auth/restablecer', { method: 'POST', body: JSON.stringify({ token, nueva }) }),
   me: () => req<Sesion>('/auth/me'),
   // Foto de perfil propia (barra lateral).
   miFoto: (foto: string | null) =>
