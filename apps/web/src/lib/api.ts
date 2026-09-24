@@ -269,6 +269,13 @@ export interface NuevaDisponibilidad {
   fechaReintegro?: string;
   semanas?: number; // repetir el bloque N semanas seguidas (1 = solo esa fecha)
 }
+export interface NuevaDisponibilidadMultiple {
+  fechas: string[];
+  horaInicio: string;
+  horaFin: string;
+  estado?: EstadoDisponibilidad;
+  fechaReintegro?: string;
+}
 
 export type RespuestaOferta = 'ACEPTO' | 'RECHAZO';
 
@@ -905,6 +912,11 @@ export const api = {
     req<Disponibilidad[]>(`/calendario/disponibilidad${qs(f)}`),
   crearDisponibilidad: (body: NuevaDisponibilidad) =>
     req<{ creados: number }>('/calendario/disponibilidad', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  crearDisponibilidadVarias: (body: NuevaDisponibilidadMultiple) =>
+    req<{ creados: number; omitidas: string[] }>('/calendario/disponibilidad/multiple', {
       method: 'POST',
       body: JSON.stringify(body),
     }),

@@ -4,6 +4,7 @@ import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decor
 import { UsuarioActual } from '../../core/auth/decorators/usuario-actual.decorator';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { CrearDisponibilidadDto } from './dto/crear-disponibilidad.dto';
+import { CrearDisponibilidadMultipleDto } from './dto/crear-disponibilidad-multiple.dto';
 import { EditarDisponibilidadDto } from './dto/editar-disponibilidad.dto';
 import { CrearServicioDto } from './dto/crear-servicio.dto';
 import { EditarHorarioDto } from './dto/editar-horario.dto';
@@ -38,6 +39,16 @@ export class CalendarioController {
     @Body() dto: CrearDisponibilidadDto,
   ) {
     return this.calendario.crearDisponibilidad(user, dto);
+  }
+
+  // Marca varios días de un jalón (mismo horario/estado).
+  @RequiereAccion('disponibilidad.propia.editar')
+  @Post('disponibilidad/multiple')
+  crearDisponibilidadVarias(
+    @UsuarioActual() user: UsuarioAutenticado,
+    @Body() dto: CrearDisponibilidadMultipleDto,
+  ) {
+    return this.calendario.crearDisponibilidadVarias(user, dto);
   }
 
   // Editar un bloque propio (corregir captura).

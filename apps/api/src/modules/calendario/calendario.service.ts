@@ -10,6 +10,7 @@ import { MailService } from '../../core/mail/mail.service';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { tramoPorHoras } from '../familias/paquetes.tarifa';
 import { CrearDisponibilidadDto } from './dto/crear-disponibilidad.dto';
+import { CrearDisponibilidadMultipleDto } from './dto/crear-disponibilidad-multiple.dto';
 import { EditarDisponibilidadDto } from './dto/editar-disponibilidad.dto';
 import { CrearServicioDto } from './dto/crear-servicio.dto';
 import { OfertarDto } from './dto/ofertar.dto';
@@ -143,6 +144,57 @@ export class CalendarioService {
 
     await this.prisma.$transaction(bloques.map((data) => this.prisma.disponibilidad.create({ data })));
     return { creados: bloques.length };
+  }
+
+  /**
+   * Marca disponibilidad en VARIAS fechas de un solo paso (mismo horario/estado).
+   * Salta las que se traslapen con algo que la nannie ya tiene (no falla todo) y
+   * reporta cuántas se omitieron. Usado por el marcado "varios días a la vez".
+   */
+  async crearDisponibilidadVarias(user: UsuarioAutenticado, dto: CrearDisponibilidadMultipleDto) {
+    if (!user.nannieId) {
+      throw new ForbiddenException(
+        'Solo puedes registrar tu propia disponibilidad (tu cuenta no está ligada a una ficha de nannie).',
+      );
+    }
+    const nannieId = user.nannieId;
+    if (dto.estado === 'TEMPORAL' && !dto.fechaReintegro) {
+      throw new BadRequestException('Un bloqueo TEMPORAL requiere fechaReintegro');
+    }
+    if ((dto.horaFin === '00:00' ? 24 * 60 : aMin(dto.horaFin)) <= aMin(dto.horaInicio)) {
+      throw new BadRequestException('horaFin debe ser posterior a horaInicio');
+    }
+
+    const fechas = [...new Set(dto.fechas)]
+      .map((f) => fecha(f)!)
+      .sort((a, b) => a.getTime() - b.getTime());
+    const existentes = await this.prisma.disponibilidad.findMany({
+      where: { nannieId, fecha: { in: fechas } },
+    });
+
+    const aCrear: Prisma.DisponibilidadCreateManyInput[] = [];
+    const omitidas: string[] = [];
+    for (const f of fechas) {
+      const choque = existentes.find(
+        (e) => mismoDiaUTC(e.fecha, f) && seTraslapan(dto.horaInicio, dto.horaFin, e.horaInicio, e.horaFin),
+      );
+      if (choque) {
+        omitidas.push(f.toISOString().slice(0, 10));
+      } else {
+        aCrear.push({
+          nannieId,
+          fecha: f,
+          horaInicio: dto.horaInicio,
+          horaFin: dto.horaFin,
+          estado: dto.estado ?? 'DISPONIBLE',
+          fechaReintegro: fecha(dto.fechaReintegro),
+        });
+      }
+    }
+    if (aCrear.length) {
+      await this.prisma.disponibilidad.createMany({ data: aCrear });
+    }
+    return { creados: aCrear.length, omitidas };
   }
 
   /** Editar un bloque de disponibilidad propio (corregir un error de captura). */
