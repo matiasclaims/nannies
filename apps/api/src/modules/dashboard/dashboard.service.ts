@@ -38,6 +38,7 @@ export class DashboardService {
         nannieId: true,
         fecha: true,
         horaInicio: true,
+        duracionHoras: true,
         canceladaCobrada: true,
         nannie: { select: { id: true, nombre: true, color: true } },
         familia: { select: { id: true, nombreContacto: true } },
@@ -106,7 +107,7 @@ export class DashboardService {
       fecha: s.fecha.toISOString().slice(0, 10),
     }));
 
-    // --- Servicios del mes que lleva cada nannie (dona, separada por plaza) ---
+    // --- HORAS del mes que lleva cada nannie (dona, separada por plaza) ---
     const porNannieServ = new Map<string, { nannieId: string; nombre: string; color: string | null; plaza: string; total: number }>();
     for (const s of relevantes) {
       if (!s.nannie) continue;
@@ -117,7 +118,7 @@ export class DashboardService {
         plaza: s.plaza,
         total: 0,
       };
-      g.total++;
+      g.total += s.duracionHoras; // horas, no número de servicios
       porNannieServ.set(s.nannie.id, g);
     }
     const serviciosPorNannie = [...porNannieServ.values()].sort((a, b) => b.total - a.total);

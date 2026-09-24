@@ -63,10 +63,10 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
         <AccionRapida href="/reportes" icon={FileText} label="Reportes" />
       </section>
 
-      {/* Servicios del mes por nannie, separado por ciudad (chiquitas, expandibles) */}
+      {/* Horas del mes por nannie, separado por ciudad (chiquitas, expandibles) */}
       <section className="grid gap-4 sm:grid-cols-2">
-        <PanelDona titulo="Servicios · Toluca" datos={nanniesTol} cargando={!d} onExpandir={() => setExpandir({ titulo: 'Servicios del mes · Toluca', datos: nanniesTol })} />
-        <PanelDona titulo="Servicios · Querétaro" datos={nanniesQro} cargando={!d} onExpandir={() => setExpandir({ titulo: 'Servicios del mes · Querétaro', datos: nanniesQro })} />
+        <PanelDona titulo="Horas · Toluca" datos={nanniesTol} cargando={!d} onExpandir={() => setExpandir({ titulo: 'Horas del mes · Toluca', datos: nanniesTol })} />
+        <PanelDona titulo="Horas · Querétaro" datos={nanniesQro} cargando={!d} onExpandir={() => setExpandir({ titulo: 'Horas del mes · Querétaro', datos: nanniesQro })} />
       </section>
 
       {/* Anillos: aceptación, cobertura, horas */}
@@ -502,7 +502,7 @@ function DonutPorNannie({ datos, grande }: { datos: Dashboard['serviciosPorNanni
       <div className={`relative ${grande ? 'h-44 w-44' : 'h-28 w-28'} shrink-0 rounded-full`} style={{ background: total ? `conic-gradient(${stops})` : '#E6EDF5' }}>
         <div className="absolute inset-[22%] flex flex-col items-center justify-center rounded-full bg-panel">
           <span className={`${grande ? 'text-3xl' : 'text-2xl'} font-bold text-texto-fuerte`}>{total}</span>
-          <span className="text-[10px] text-texto-suave">servicios</span>
+          <span className="text-[10px] text-texto-suave">horas</span>
         </div>
       </div>
       <div className={`grid w-full flex-1 grid-cols-1 gap-0.5 ${grande ? '' : 'sm:grid-cols-2'}`}>
@@ -510,12 +510,12 @@ function DonutPorNannie({ datos, grande }: { datos: Dashboard['serviciosPorNanni
           <Interactivo
             key={x.nannieId}
             href={`/nannies/${x.nannieId}`}
-            tip={`${x.nombre}: ${x.total} ${x.total === 1 ? 'servicio' : 'servicios'} este mes. Clic para su ficha.`}
+            tip={`${x.nombre}: ${x.total} ${x.total === 1 ? 'hora' : 'horas'} este mes. Clic para su ficha.`}
             className="flex items-center gap-2 rounded-lg px-1.5 py-1 text-sm hover:bg-fondo"
           >
             <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: x.c }} />
             <span className="min-w-0 flex-1 truncate text-texto-fuerte">{x.nombre}</span>
-            <span className="shrink-0 text-xs font-semibold text-texto-suave">{x.total}</span>
+            <span className="shrink-0 text-xs font-semibold text-texto-suave">{x.total} h</span>
           </Interactivo>
         ))}
       </div>
