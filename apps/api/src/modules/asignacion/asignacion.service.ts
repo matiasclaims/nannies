@@ -273,7 +273,7 @@ export class AsignacionService {
             formato: 'PAQUETE',
             paquete: { connect: { id: paquete.id } },
             numNinos: dto.numNinos,
-            requierePlaneacion: true, // los paquetes siempre requieren planeación (Paula)
+            requierePlaneacion: dto.requierePlaneacion ?? true, // Paula elige; por defecto sí
             fecha: f,
             horaInicio: dto.horaInicio,
             horaFin: dto.horaFin,

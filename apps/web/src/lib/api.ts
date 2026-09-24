@@ -1047,6 +1047,7 @@ export const api = {
     coloniaId?: string;
     direccion?: string;
     nannieId?: string;
+    requierePlaneacion?: boolean;
   }) =>
     req<{ creados: number; fechas: string[]; omitidas: string[]; horasConsumidas: number; restantes: number }>(
       '/asignacion/programar-paquete',

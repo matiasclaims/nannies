@@ -219,6 +219,7 @@ function ProgramarPaquete({
   const [direccion, setDireccion] = useState('');
   const [catalogo, setCatalogo] = useState<ColoniaCat[]>([]);
   const [nannieId, setNannieId] = useState('');
+  const [requierePlaneacion, setRequierePlaneacion] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [resultado, setResultado] = useState<{ creados: number; horasConsumidas: number; omitidas: string[] } | null>(null);
@@ -273,6 +274,7 @@ function ProgramarPaquete({
         coloniaId: esToluca && coloniaId ? coloniaId : undefined,
         direccion: direccion.trim() || undefined,
         nannieId: nannieId || undefined,
+        requierePlaneacion,
       });
       setResultado({ creados: r.creados, horasConsumidas: r.horasConsumidas, omitidas: r.omitidas });
     } catch (e) {
@@ -384,6 +386,15 @@ function ProgramarPaquete({
             </option>
           ))}
         </select>
+      </label>
+      <label className="flex items-center gap-2 text-texto-fuerte">
+        <input
+          type="checkbox"
+          checked={requierePlaneacion}
+          onChange={(e) => setRequierePlaneacion(e.target.checked)}
+          className="h-4 w-4"
+        />
+        Requiere planeación de la nannie
       </label>
       <p className={cn('text-texto-suave', excede && 'text-marca-rojo')}>
         {fechas.length} fecha{fechas.length === 1 ? '' : 's'} · {horasPedidas} h de {paquete.horasRestantes} h disponibles

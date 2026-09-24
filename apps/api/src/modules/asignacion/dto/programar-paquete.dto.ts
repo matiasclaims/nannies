@@ -1,6 +1,7 @@
 import {
   ArrayNotEmpty,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -63,4 +64,9 @@ export class ProgramarPaqueteDto {
   @IsOptional()
   @IsString()
   nannieId?: string;
+
+  // Si estas sesiones requieren planeación de la nannie (Paula puede elegir).
+  @IsOptional()
+  @IsBoolean()
+  requierePlaneacion?: boolean;
 }
