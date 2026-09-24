@@ -338,7 +338,6 @@ function AccionesServicio({
   onClose: () => void;
   onGuardado: () => Promise<void>;
 }) {
-  const [modo, setModo] = useState<'horario' | 'reasignar' | 'reprogramar' | 'cancelar'>('horario');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const inputCls =
@@ -432,17 +431,10 @@ function AccionesServicio({
     );
   };
 
-  const tabs = [
-    { id: 'horario', label: 'Horario' },
-    { id: 'reasignar', label: 'Reasignar' },
-    { id: 'reprogramar', label: 'Reprogramar' },
-    { id: 'cancelar', label: 'Cancelar' },
-  ] as const;
-
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-texto-fuerte/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-2xl border border-borde bg-panel p-4 shadow-2xl">
+      <div className="relative flex max-h-[90vh] w-full max-w-md flex-col rounded-2xl border border-borde bg-panel p-4 shadow-2xl">
         <h3 className="text-sm font-semibold text-texto-fuerte">
           {servicio.familia ?? 'Servicio'}
         </h3>
@@ -457,26 +449,9 @@ function AccionesServicio({
           {nombreActual && <> · {nombreActual}</>}
         </p>
 
-        <div className="mt-3 flex rounded-xl border border-borde p-0.5 text-xs">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => { setModo(t.id); setError(''); }}
-              className={cn(
-                'flex-1 rounded-lg px-2 py-1 font-medium transition',
-                modo === t.id
-                  ? t.id === 'cancelar' ? 'bg-marca-rojo text-white' : 'bg-marca-azul text-white'
-                  : 'text-texto-suave hover:bg-fondo',
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {modo === 'horario' && (
-          <div className="mt-3">
+        <div className="mt-3 max-h-[66vh] space-y-3 overflow-y-auto pr-1">
+          <section className="rounded-xl border border-borde p-3">
+            <p className="mb-2 text-xs font-semibold text-texto-fuerte">Extender / cambiar horario</p>
             <label className="block text-xs font-medium text-texto-suave">Nueva hora fin</label>
             <HoraSelect value={horaFin} onChange={(v) => { setHoraFin(v); setDesborde(false); }} className={inputCls} />
             {nuevaDur != null && !invalida && (
@@ -524,11 +499,15 @@ function AccionesServicio({
                 )}
               </div>
             )}
-          </div>
-        )}
+            <div className="mt-2 flex justify-end">
+              <button type="button" onClick={guardarHorario} disabled={busy || invalida || (cruzaNoche && tarifaNoche < TARIFA_NOCHE_MIN)} className="rounded-lg bg-marca-azul px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                {busy ? 'Guardando…' : desborde ? 'Confirmar' : 'Guardar horario'}
+              </button>
+            </div>
+          </section>
 
-        {modo === 'reasignar' && (
-          <div className="mt-3">
+          <section className="rounded-xl border border-borde p-3">
+            <p className="mb-2 text-xs font-semibold text-texto-fuerte">Reasignar a otra nannie</p>
             <p className="text-xs text-texto-suave">Pasa este servicio a otra nannie (queda asignado directo).</p>
             <label className="mt-2 block text-xs font-medium text-texto-suave">Nueva nannie</label>
             <select value={nannieSel} onChange={(e) => setNannieSel(e.target.value)} className={inputCls}>
@@ -537,11 +516,15 @@ function AccionesServicio({
                 <option key={n.id} value={n.id}>{n.nombre}</option>
               ))}
             </select>
-          </div>
-        )}
+            <div className="mt-2 flex justify-end">
+              <button type="button" onClick={reasignar} disabled={busy || !nannieSel} className="rounded-lg bg-marca-azul px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                {busy ? 'Reasignando…' : 'Reasignar'}
+              </button>
+            </div>
+          </section>
 
-        {modo === 'reprogramar' && (
-          <div className="mt-3">
+          <section className="rounded-xl border border-borde p-3">
+            <p className="mb-2 text-xs font-semibold text-texto-fuerte">Reprogramar (otra fecha)</p>
             <p className="text-xs text-texto-suave">Mueve el servicio a otra fecha (conserva nannie, duración y cobro).</p>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <div>
@@ -564,11 +547,15 @@ function AccionesServicio({
                 </p>
               )
             )}
-          </div>
-        )}
+            <div className="mt-2 flex justify-end">
+              <button type="button" onClick={reprogramar} disabled={busy || excede7 || sinCambioReprog} className="rounded-lg bg-marca-azul px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                {busy ? 'Reprogramando…' : 'Reprogramar'}
+              </button>
+            </div>
+          </section>
 
-        {modo === 'cancelar' && (
-          <div className="mt-3">
+          <section className="rounded-xl border border-marca-rojo/30 p-3">
+            <p className="mb-2 text-xs font-semibold text-marca-rojo">Cancelar servicio</p>
             <p className={cn('rounded-lg px-3 py-2 text-xs', menos24 ? 'bg-amber-50 text-amber-800' : 'bg-marca-verde/15 text-[#3b6d11]')}>
               {horasHasta >= 0
                 ? <>Faltan <strong>{Math.round(horasHasta)} h</strong> para el servicio. Por la regla de 24 h, {menos24 ? <>se <strong>cobra</strong> la hora.</> : <>no se cobra.</>}</>
@@ -583,35 +570,20 @@ function AccionesServicio({
             </p>
             <label className="mt-2 block text-xs font-medium text-texto-suave">Motivo (opcional)</label>
             <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2} className={cn(inputCls, 'resize-none')} placeholder="Ej. el niño está enfermo" />
-          </div>
-        )}
+            <div className="mt-2 flex justify-end">
+              <button type="button" onClick={cancelar} disabled={busy} className="rounded-lg bg-marca-rojo px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+                {busy ? 'Cancelando…' : 'Cancelar servicio'}
+              </button>
+            </div>
+          </section>
+        </div>
 
         {error && <p className="mt-2 text-xs text-marca-rojo">{error}</p>}
 
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-3 flex justify-end">
           <button type="button" onClick={onClose} className="rounded-lg border border-borde px-3 py-1.5 text-sm text-texto-suave hover:bg-fondo">
             Cerrar
           </button>
-          {modo === 'horario' && (
-            <button type="button" onClick={guardarHorario} disabled={busy || invalida || (cruzaNoche && tarifaNoche < TARIFA_NOCHE_MIN)} className="rounded-lg bg-marca-azul px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
-              {busy ? 'Guardando…' : desborde ? 'Confirmar' : 'Guardar'}
-            </button>
-          )}
-          {modo === 'reasignar' && (
-            <button type="button" onClick={reasignar} disabled={busy || !nannieSel} className="rounded-lg bg-marca-azul px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
-              {busy ? 'Reasignando…' : 'Reasignar'}
-            </button>
-          )}
-          {modo === 'reprogramar' && (
-            <button type="button" onClick={reprogramar} disabled={busy || excede7 || sinCambioReprog} className="rounded-lg bg-marca-azul px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
-              {busy ? 'Reprogramando…' : 'Reprogramar'}
-            </button>
-          )}
-          {modo === 'cancelar' && (
-            <button type="button" onClick={cancelar} disabled={busy} className="rounded-lg bg-marca-rojo px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
-              {busy ? 'Cancelando…' : 'Cancelar servicio'}
-            </button>
-          )}
         </div>
       </div>
     </div>
