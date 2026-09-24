@@ -23,7 +23,11 @@ export class AuthService {
    * "no existe" y "contraseña incorrecta" (no revela qué correos existen).
    */
   async validar(email: string, password: string): Promise<UsuarioAutenticado> {
-    const usuario = await this.prisma.usuario.findUnique({ where: { email } });
+    // Normaliza el correo: minúsculas + sin espacios. Evita el fallo típico del
+    // celular que capitaliza la primera letra o agrega un espacio al teclear.
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
     const credencialesInvalidas = new UnauthorizedException('Credenciales inválidas');
 
     if (!usuario || !usuario.activo) {

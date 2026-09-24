@@ -86,6 +86,10 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-xl border border-borde bg-white/80 px-3 py-2.5 text-sm outline-none transition focus:border-marca-azul focus:ring-2 focus:ring-marca-azul/20"
                 placeholder="tu@correo.mx"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="email"
               />
             </div>
             <div>
@@ -132,6 +136,10 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-xl border border-borde bg-white/80 px-3 py-2.5 text-sm outline-none transition focus:border-marca-azul focus:ring-2 focus:ring-marca-azul/20"
                 placeholder="tu@correo.mx"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="email"
               />
             </div>
 
