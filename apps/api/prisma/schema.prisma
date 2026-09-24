@@ -199,6 +199,7 @@ model Nannie {
   evaluaciones    EvaluacionNannie[]
   evaluacionesCoord EvaluacionCoordServicio[]
   documentos      DocumentoNannie[]
+  referencias     ReferenciaNannie[]
   coloniasTrabajo NannieColonia[]
 
   @@map("nannies")
@@ -220,6 +221,35 @@ model DocumentoNannie {
   @@unique([nannieId, clave])
   @@index([nannieId])
   @@map("documentos_nannie")
+}
+
+// Referencia (laboral o personal) capturada por la nannie en su expediente
+// (antes eran documentos a subir; ahora son datos estructurados). Dos por tipo
+// (orden 1 y 2). Campos según tipo: laboral usa empresa/puesto; personal usa
+// parentesco. Coordinación las ve en el expediente.
+enum TipoReferencia {
+  LABORAL
+  PERSONAL
+}
+
+model ReferenciaNannie {
+  id            String         @id @default(cuid())
+  nannieId      String
+  nannie        Nannie         @relation(fields: [nannieId], references: [id], onDelete: Cascade)
+  tipo          TipoReferencia
+  orden         Int // 1 o 2 (dos referencias por tipo)
+  nombre        String?
+  telefono      String?
+  aniosConocer  Int? // años de conocer a la referencia
+  empresa       String? // solo laboral
+  puesto        String? // solo laboral
+  parentesco    String? // solo personal
+  creadoEn      DateTime       @default(now())
+  actualizadoEn DateTime       @updatedAt
+
+  @@unique([nannieId, tipo, orden])
+  @@index([nannieId])
+  @@map("referencias_nannie")
 }
 
 // Evaluación de desempeño de la nannie (M4, punto G). La registra coordinación

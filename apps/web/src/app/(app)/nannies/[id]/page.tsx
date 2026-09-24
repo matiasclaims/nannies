@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, UserMinus, Check, Camera, Pencil, Award, ClipboardCheck, X, ExternalLink, KeyRound, Copy } from 'lucide-react';
-import { api, ApiError, type NanniePerfil, type Plaza, type DocumentoNannie, type AccesoRegeneradoResultado } from '@/lib/api';
+import { api, ApiError, type NanniePerfil, type Plaza, type DocumentoNannie, type ReferenciaNannie, type AccesoRegeneradoResultado } from '@/lib/api';
 import { ZONAS_QRO } from '@/lib/queretaro';
 import { CATALOGO_DOCUMENTOS, CATALOGO_CURSOS, type ItemChecklist } from '@/lib/nannie-catalogos';
 import { COLORES_NANNIE, ESTADO_NANNIE, RANGO_LABEL, NIVEL_LABEL, UMBRALES_RANGO } from '@/lib/nannie-ui';
@@ -542,13 +542,16 @@ function ExpedienteChecklists({ perfil, onGuardado }: { perfil: NanniePerfil; on
   const [docsEntregados, setDocsEntregados] = useState<string[]>(perfil.documentosEntregados);
   const [cursos, setCursos] = useState<string[]>(perfil.cursosCompletados);
   const [subidos, setSubidos] = useState<DocumentoNannie[]>([]);
+  const [referencias, setReferencias] = useState<ReferenciaNannie[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
     api.documentosDeNannie(perfil.id).then(setSubidos).catch(() => setSubidos([]));
+    api.referenciasDeNannie(perfil.id).then(setReferencias).catch(() => setReferencias([]));
   }, [perfil.id]);
   const archivos = new Map(subidos.map((d) => [d.clave, d]));
+  const refsConDatos = referencias.filter((r) => r.nombre || r.telefono || r.empresa || r.parentesco);
 
   async function guardar() {
     setBusy(true);
@@ -582,6 +585,37 @@ function ExpedienteChecklists({ perfil, onGuardado }: { perfil: NanniePerfil; on
           onToggle={(k) => setCursos((t) => (t.includes(k) ? t.filter((x) => x !== k) : [...t, k]))}
         />
       </div>
+
+      {/* Referencias capturadas por la nannie (solo lectura para coordinación). */}
+      <div>
+        <p className="mb-1 text-xs font-semibold text-texto-suave">Referencias (capturadas por la nannie)</p>
+        {refsConDatos.length === 0 ? (
+          <p className="text-xs text-texto-suave">La nannie aún no captura sus referencias.</p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {refsConDatos.map((r) => (
+              <div key={`${r.tipo}${r.orden}`} className="rounded-lg border border-borde p-2 text-xs">
+                <p className="font-semibold text-texto-fuerte">
+                  {r.tipo === 'LABORAL' ? 'Laboral' : 'Personal'} {r.orden}
+                  {r.nombre ? ` · ${r.nombre}` : ''}
+                </p>
+                <p className="text-texto-suave">
+                  {[
+                    r.telefono,
+                    r.tipo === 'LABORAL'
+                      ? [r.empresa, r.puesto].filter(Boolean).join(' / ')
+                      : r.parentesco,
+                    r.aniosConocer != null ? `${r.aniosConocer} años de conocerle` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || '—'}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-end gap-2">
         {msg && <span className="text-xs text-texto-suave">{msg}</span>}
         <button

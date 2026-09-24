@@ -14,8 +14,7 @@ export const CATALOGO_DOCUMENTOS: ItemChecklist[] = [
   { clave: 'cv', nombre: 'CV' },
   { clave: 'comprobante_domicilio', nombre: 'Comprobante de domicilio' },
   { clave: 'comprobante_estudios', nombre: 'Comprobante de estudios' },
-  { clave: 'referencias_laborales', nombre: '2 referencias laborales' },
-  { clave: 'referencias_personales', nombre: '2 referencias personales' },
+  // Las referencias ya no son documentos: se capturan como datos (ver más abajo).
   { clave: 'antecedentes_no_penales', nombre: 'Carta de antecedentes no penales' },
   { clave: 'convenio_colaboracion', nombre: 'Convenio de colaboración laboral' },
   { clave: 'formato_zonas', nombre: 'Formato de zonas' },

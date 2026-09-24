@@ -54,6 +54,17 @@ export interface DocumentoNannie {
   subidoEn: string;
   url: string | null;
 }
+export type TipoReferencia = 'LABORAL' | 'PERSONAL';
+export interface ReferenciaNannie {
+  tipo: TipoReferencia;
+  orden: number;
+  nombre: string | null;
+  telefono: string | null;
+  aniosConocer: number | null;
+  empresa: string | null; // solo laboral
+  puesto: string | null; // solo laboral
+  parentesco: string | null; // solo personal
+}
 // M5 · Colonias de trabajo (Toluca)
 export interface ColoniaCat {
   id: string;
@@ -1084,6 +1095,14 @@ export const api = {
   // Documentos del expediente
   documentosDeNannie: (id: string) => req<DocumentoNannie[]>(`/nannies/${id}/documentos`),
   misDocumentos: () => req<DocumentoNannie[]>('/mis-documentos'),
+  // Referencias (datos capturados, no archivos)
+  misReferencias: () => req<ReferenciaNannie[]>('/mis-documentos/referencias'),
+  guardarMisReferencias: (referencias: ReferenciaNannie[]) =>
+    req<ReferenciaNannie[]>('/mis-documentos/referencias', {
+      method: 'PUT',
+      body: JSON.stringify({ referencias }),
+    }),
+  referenciasDeNannie: (id: string) => req<ReferenciaNannie[]>(`/nannies/${id}/referencias`),
   // M5 · Colonias de trabajo
   catalogoColonias: () => req<ColoniaCat[]>('/colonias-toluca'),
   misColonias: () => req<ColoniasNannie>('/mis-colonias'),

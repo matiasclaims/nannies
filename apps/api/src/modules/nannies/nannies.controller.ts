@@ -28,6 +28,13 @@ export class NanniesController {
     return this.documentos.listar(id);
   }
 
+  // Referencias (laborales/personales) capturadas por la nannie.
+  @RequiereAccion('nannie.gestionar')
+  @Get(':id/referencias')
+  referenciasDe(@Param('id') id: string) {
+    return this.documentos.listarReferencias(id);
+  }
+
   // Colonias de trabajo de la nannie (coordinación las ve y edita, y puede
   // fijar/levantar el candado que impide que la nannie las cambie sola).
   @RequiereAccion('nannie.gestionar')
