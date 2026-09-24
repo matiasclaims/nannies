@@ -601,6 +601,7 @@ export interface FichaFamilia {
   areasATrabajar?: string[];
   autorizacionAudiovisual?: string | null;
   ninos: NinoPerfil[];
+  notas?: NotaFamilia[];
 }
 export interface NinoInput {
   nombre?: string;

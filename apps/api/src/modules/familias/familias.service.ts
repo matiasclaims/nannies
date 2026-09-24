@@ -447,7 +447,10 @@ export class FamiliasService {
 
     const familia = await this.prisma.familia.findUnique({
       where: { id: familiaId },
-      include: { ninos: { orderBy: { creadoEn: 'asc' } } },
+      include: {
+        ninos: { orderBy: { creadoEn: 'asc' } },
+        notas: { orderBy: { creadoEn: 'desc' } },
+      },
     });
     if (!familia) throw new NotFoundException('Familia no encontrada');
 
@@ -473,6 +476,13 @@ export class FamiliasService {
       id: familia.id,
       ...campos,
       ninos: familia.ninos.map((n) => filtrarCampos(user.rol, 'nino', n)),
+      // Bitácora de la familia: conocimiento compartido entre nannies y coordinación.
+      notas: familia.notas.map((n) => ({
+        id: n.id,
+        texto: n.texto,
+        autor: n.autorNombre,
+        fecha: n.creadoEn.toISOString(),
+      })),
     };
   }
 
@@ -497,6 +507,22 @@ export class FamiliasService {
   async crearNota(familiaId: string, dto: CrearNotaDto, user: UsuarioAutenticado) {
     const familia = await this.prisma.familia.findUnique({ where: { id: familiaId } });
     if (!familia) throw new NotFoundException('Familia no encontrada');
+    // La nannie solo aporta a la bitácora de familias con un servicio suyo confirmado.
+    if (user.rol === 'NANNIE') {
+      const comprometido = await this.prisma.servicio.findFirst({
+        where: {
+          familiaId,
+          nannieId: user.nannieId ?? '__none__',
+          estado: { in: ['ACEPTADO', 'COMPLETADO'] },
+        },
+        select: { id: true },
+      });
+      if (!comprometido) {
+        throw new ForbiddenException(
+          'Solo puedes aportar a la bitácora de familias con un servicio tuyo confirmado.',
+        );
+      }
+    }
     return this.prisma.notaFamilia.create({
       data: { familiaId, texto: dto.texto, autorNombre: user.nombre },
     });

@@ -9,6 +9,7 @@ import {
   type RespuestaOferta,
   type FichaFamilia,
   type NinoPerfil,
+  type NotaFamilia,
   type MiResumenEval,
 } from '@/lib/api';
 import { ANIMOS } from '@/lib/dominio';
@@ -396,9 +397,13 @@ function FichaFamiliaModal({ servicio, onCerrar }: { servicio: Servicio; onCerra
   const [ficha, setFicha] = useState<FichaFamilia | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
     api.fichaFamilia(servicio.familiaId).then(setFicha).catch(() => setError('No se pudo cargar la ficha.'));
   }, [servicio.familiaId]);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
 
   const adulto = ficha?.adultoResponsablePresente;
   // Dirección EFECTIVA: la del servicio si se capturó (ubicación distinta al
@@ -470,11 +475,89 @@ function FichaFamiliaModal({ servicio, onCerrar }: { servicio: Servicio; onCerra
               </div>
             </div>
 
+            <BitacoraFichaFamilia familiaId={servicio.familiaId} notas={ficha.notas ?? []} onCambio={cargar} />
+
             <p className="border-t border-borde pt-2 text-[11px] text-texto-suave">
               Vista operativa: por privacidad no se muestran apellidos ni contactos de la familia.
             </p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Bitácora de la familia dentro de la ficha: la nannie ve todas las notas del
+ *  equipo y puede aportar las suyas (no puede borrar). */
+function BitacoraFichaFamilia({
+  familiaId,
+  notas,
+  onCambio,
+}: {
+  familiaId: string;
+  notas: NotaFamilia[];
+  onCambio: () => void;
+}) {
+  const [texto, setTexto] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function agregar() {
+    const t = texto.trim();
+    if (!t) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.crearNota(familiaId, t);
+      setTexto('');
+      onCambio();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo agregar la nota.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="border-t border-borde pt-3">
+      <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-texto-fuerte">
+        <NotebookPen className="h-3.5 w-3.5" /> Bitácora de la familia
+      </p>
+      <p className="mb-2 text-[11px] text-texto-suave">
+        Observaciones útiles para las demás nannies y coordinación. No se pueden borrar.
+      </p>
+      <div className="space-y-2">
+        {notas.length === 0 ? (
+          <p className="text-xs text-texto-suave">Aún no hay notas.</p>
+        ) : (
+          notas.map((n) => (
+            <div key={n.id} className="rounded-lg bg-fondo px-2.5 py-1.5">
+              <p className="whitespace-pre-wrap text-xs text-texto-fuerte">{n.texto}</p>
+              <p className="mt-0.5 text-[10px] text-texto-suave">
+                {n.autor ?? 'Anónimo'} · {new Date(n.fecha).toLocaleDateString('es-MX')}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="mt-2">
+        <textarea
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          rows={2}
+          placeholder="Agrega una observación para el equipo…"
+          className="w-full rounded-xl border border-borde bg-white px-3 py-2 text-xs outline-none focus:border-marca-azul"
+        />
+        {error && <p className="mt-1 text-xs text-marca-rojo">{error}</p>}
+        <div className="mt-1 flex justify-end">
+          <button
+            onClick={agregar}
+            disabled={busy || !texto.trim()}
+            className="rounded-lg bg-marca-azul px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? 'Agregando…' : 'Agregar'}
+          </button>
+        </div>
       </div>
     </div>
   );

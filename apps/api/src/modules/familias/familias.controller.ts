@@ -107,7 +107,8 @@ export class FamiliasController {
   }
 
   // --- M5 · Bitácora (notas) ---
-  @RequiereAccion('familia.gestionar')
+  // Aportar: coordinación y la nannie asignada (pertenencia validada en el servicio).
+  @RequiereAccion('familia.bitacora.aportar')
   @Post(':id/notas')
   crearNota(
     @Param('id') id: string,
