@@ -528,14 +528,21 @@ function BloqueDispon({ b, onCambio }: { b: Disponibilidad; onCambio: () => Prom
   const [ini, setIni] = useState(b.horaInicio);
   const [fin, setFin] = useState(b.horaFin);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   async function guardar() {
     if (fin <= ini) return;
     setBusy(true);
-    await api.editarDisponibilidad(b.id, { horaInicio: ini, horaFin: fin }).catch(() => undefined);
-    setEditando(false);
-    await onCambio();
-    setBusy(false);
+    setError('');
+    try {
+      await api.editarDisponibilidad(b.id, { horaInicio: ini, horaFin: fin });
+      setEditando(false);
+      await onCambio();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function eliminar() {
@@ -551,16 +558,19 @@ function BloqueDispon({ b, onCambio }: { b: Disponibilidad; onCambio: () => Prom
 
   if (editando) {
     return (
-      <div className="flex items-center gap-1.5 text-xs">
-        <HoraSelect value={ini} onChange={setIni} className={inputCls} />
-        <span className="text-texto-suave">–</span>
-        <HoraSelect value={fin} onChange={setFin} className={inputCls} />
-        <button onClick={guardar} disabled={busy} className="text-marca-verde disabled:opacity-50" title="Guardar">
-          <Check className="h-4 w-4" />
-        </button>
-        <button onClick={() => setEditando(false)} className="text-texto-suave" title="Cancelar">
-          <X className="h-4 w-4" />
-        </button>
+      <div className="text-xs">
+        <div className="flex items-center gap-1.5">
+          <HoraSelect value={ini} onChange={setIni} className={inputCls} />
+          <span className="text-texto-suave">–</span>
+          <HoraSelect value={fin} onChange={setFin} className={inputCls} />
+          <button onClick={guardar} disabled={busy} className="text-marca-verde disabled:opacity-50" title="Guardar">
+            <Check className="h-4 w-4" />
+          </button>
+          <button onClick={() => { setEditando(false); setError(''); }} className="text-texto-suave" title="Cancelar">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        {error && <p className="mt-1 text-marca-rojo">{error}</p>}
       </div>
     );
   }

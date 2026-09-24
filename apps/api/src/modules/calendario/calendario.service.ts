@@ -96,6 +96,24 @@ export class CalendarioService {
       };
     });
 
+    // No permitir traslapar ni repetir horarios con lo que la nannie ya tiene
+    // ese día (aplica a disponibles y bloqueos por igual).
+    const fechas = bloques.map((b) => b.fecha);
+    const existentes = await this.prisma.disponibilidad.findMany({
+      where: { nannieId, fecha: { in: fechas } },
+    });
+    for (const b of bloques) {
+      const choque = existentes.find(
+        (e) => mismoDiaUTC(e.fecha, b.fecha) && seTraslapan(b.horaInicio, b.horaFin, e.horaInicio, e.horaFin),
+      );
+      if (choque) {
+        const dia = b.fecha.toISOString().slice(0, 10);
+        throw new BadRequestException(
+          `Ese horario se encima con otro bloque que ya tienes el ${dia} (${choque.horaInicio}–${choque.horaFin}). Ajusta la hora o elimina el bloque anterior.`,
+        );
+      }
+    }
+
     await this.prisma.$transaction(bloques.map((data) => this.prisma.disponibilidad.create({ data })));
     return { creados: bloques.length };
   }
@@ -111,6 +129,16 @@ export class CalendarioService {
     const horaFin = dto.horaFin ?? bloque.horaFin;
     if ((horaFin === '00:00' ? 24 * 60 : aMin(horaFin)) <= aMin(horaInicio)) {
       throw new BadRequestException('horaFin debe ser posterior a horaInicio');
+    }
+    // No permitir que el nuevo horario se encime con otro bloque del mismo día.
+    const otros = await this.prisma.disponibilidad.findMany({
+      where: { nannieId: bloque.nannieId, fecha: bloque.fecha, id: { not: id } },
+    });
+    const choque = otros.find((e) => seTraslapan(horaInicio, horaFin, e.horaInicio, e.horaFin));
+    if (choque) {
+      throw new BadRequestException(
+        `Ese horario se encima con otro bloque tuyo ese día (${choque.horaInicio}–${choque.horaFin}). Ajusta la hora.`,
+      );
     }
     return this.prisma.disponibilidad.update({
       where: { id },
@@ -1023,4 +1051,14 @@ function finMin(inicio: string, fin: string): number {
   const i = aMin(inicio);
   const f = aMin(fin);
   return f > i ? f : f + 1440;
+}
+
+/** ¿Dos rangos de horario se traslapan? (maneja el cruce de medianoche). */
+function seTraslapan(aIni: string, aFin: string, bIni: string, bFin: string): boolean {
+  return aMin(aIni) < finMin(bIni, bFin) && aMin(bIni) < finMin(aIni, aFin);
+}
+
+/** ¿Dos fechas caen el mismo día? (comparación por YYYY-MM-DD en UTC). */
+function mismoDiaUTC(a: Date, b: Date): boolean {
+  return a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
 }
