@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { TrendingUp, Camera } from 'lucide-react';
+import { TrendingUp, Camera, KeyRound } from 'lucide-react';
 import { navPara } from '@/lib/nav';
 import { api, type Sesion } from '@/lib/api';
 import { useModoPerfil, SelectorModo } from '@/lib/modo-perfil';
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
 import { Avatar } from '@/components/avatar';
 import { FotoModal } from '@/components/foto-modal';
+import { CambiarPasswordModal } from '@/components/cambiar-password-modal';
 
 const ROL_LABEL: Record<Sesion['rol'], string> = {
   DIRECTORA: 'Directora',
@@ -25,6 +26,7 @@ export function Sidebar() {
   const { sesion, rolEfectivo, recargar } = useModoPerfil();
   const esRevision = useEsRevision();
   const [editandoFoto, setEditandoFoto] = useState(false);
+  const [cambiandoPass, setCambiandoPass] = useState(false);
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-borde bg-panel px-3 py-5 md:flex">
@@ -95,6 +97,15 @@ export function Sidebar() {
             <p className="text-xs text-texto-suave">{sesion ? ROL_LABEL[sesion.rol] : ''}</p>
           </div>
         </button>
+        <button
+          type="button"
+          disabled={!sesion}
+          onClick={() => setCambiandoPass(true)}
+          className="mt-1 flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left text-xs text-texto-suave transition hover:bg-fondo hover:text-texto-fuerte disabled:cursor-default"
+        >
+          <KeyRound className="h-4 w-4" />
+          Cambiar contraseña
+        </button>
       </div>
 
       {editandoFoto && sesion && (
@@ -109,6 +120,8 @@ export function Sidebar() {
           onClose={() => setEditandoFoto(false)}
         />
       )}
+
+      {cambiandoPass && <CambiarPasswordModal onClose={() => setCambiandoPass(false)} />}
     </aside>
   );
 }

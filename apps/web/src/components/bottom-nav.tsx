@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MoreHorizontal, TrendingUp, X } from 'lucide-react';
+import { MoreHorizontal, TrendingUp, X, KeyRound } from 'lucide-react';
 import { navPara } from '@/lib/nav';
 import { useModoPerfil, SelectorModo } from '@/lib/modo-perfil';
 import { useEsRevision } from '@/lib/entorno';
+import { CambiarPasswordModal } from '@/components/cambiar-password-modal';
 import { cn } from '@/lib/utils';
 
 /** Bottom nav de celular (los ítems `movil` visibles para el rol). Piel "Claro".
@@ -17,6 +18,7 @@ export function BottomNav() {
   const { dual, rolEfectivo } = useModoPerfil();
   const esRevision = useEsRevision();
   const [masAbierto, setMasAbierto] = useState(false);
+  const [cambiandoPass, setCambiandoPass] = useState(false);
 
   // Cierra el menú al navegar.
   useEffect(() => {
@@ -82,10 +84,23 @@ export function BottomNav() {
                   </Link>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => {
+                  setMasAbierto(false);
+                  setCambiandoPass(true);
+                }}
+                className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-texto-suave transition hover:bg-fondo hover:text-texto-fuerte"
+              >
+                <KeyRound className="h-[18px] w-[18px]" />
+                Cambiar contraseña
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      {cambiandoPass && <CambiarPasswordModal onClose={() => setCambiandoPass(false)} />}
 
       <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-borde bg-panel/95 backdrop-blur md:hidden">
         {items.map((item) => {
@@ -106,7 +121,7 @@ export function BottomNav() {
           );
         })}
 
-        {(extras.length > 0 || dual) && (
+        {(
           <button
             type="button"
             onClick={() => setMasAbierto((v) => !v)}
