@@ -19,10 +19,13 @@ export default function NanniesPage() {
   const [lista, setLista] = useState<NannieExpediente[] | null>(null);
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'prohibido' | 'error'>('cargando');
   const [ciudad, setCiudad] = useState<Plaza>('TOLUCA');
+  const [mostrarBajas, setMostrarBajas] = useState(false);
   const [alta, setAlta] = useState(false);
 
-  const filtradas = lista?.filter((n) => n.plaza === ciudad) ?? [];
+  const visible = (n: NannieExpediente) => mostrarBajas || n.estado !== 'BAJA';
+  const filtradas = lista?.filter((n) => n.plaza === ciudad && visible(n)) ?? [];
   const ciudadLabel = CIUDADES.find((c) => c.id === ciudad)?.label ?? '';
+  const bajasOcultas = (lista?.filter((n) => n.estado === 'BAJA').length ?? 0) > 0;
 
   const cargar = () => {
     setEstado('cargando');
@@ -66,7 +69,7 @@ export default function NanniesPage() {
           {/* Pestañas por ciudad */}
           <div className="flex gap-2">
             {CIUDADES.map((c) => {
-              const cuenta = lista?.filter((n) => n.plaza === c.id).length ?? 0;
+              const cuenta = lista?.filter((n) => n.plaza === c.id && visible(n)).length ?? 0;
               const activa = ciudad === c.id;
               return (
                 <button
@@ -93,6 +96,19 @@ export default function NanniesPage() {
               );
             })}
           </div>
+
+          {/* Mostrar/ocultar nannies dadas de baja */}
+          {bajasOcultas && (
+            <label className="flex items-center justify-end gap-2 text-xs text-texto-suave">
+              <input
+                type="checkbox"
+                checked={mostrarBajas}
+                onChange={(e) => setMostrarBajas(e.target.checked)}
+                className="h-4 w-4 rounded border-borde accent-marca-azul"
+              />
+              Mostrar bajas
+            </label>
+          )}
 
           {/* Nannies de la ciudad seleccionada */}
           {filtradas.length === 0 ? (
