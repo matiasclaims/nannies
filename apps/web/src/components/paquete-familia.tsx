@@ -71,7 +71,7 @@ export function PaqueteFamilia({
       <div>
         <div className="mb-1 flex items-center justify-between text-sm">
           <span className="font-medium text-texto-fuerte">
-            Paquete activo
+            {p.estado === 'CONSUMIDO' ? 'Paquete · horas agotadas' : 'Paquete activo'}
             {p.asignacionManual && (
               <span className="ml-1 rounded-full bg-marca-morado/15 px-1.5 py-0.5 text-[10px] font-semibold text-marca-morado">
                 manual

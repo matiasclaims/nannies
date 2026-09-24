@@ -313,7 +313,14 @@ export class FamiliasService {
           take: 50,
         },
         notas: { orderBy: { creadoEn: 'desc' } },
-        paquetes: { where: { estado: 'ACTIVO' }, take: 1 },
+        // Se incluye también el CONSUMIDO (horas agotadas) para que la proyección
+        // y el enlace de avance sigan visibles tras asignar todas las horas.
+        // Prefiere el ACTIVO si la familia renovó (estado asc: ACTIVO antes que CONSUMIDO).
+        paquetes: {
+          where: { estado: { in: ['ACTIVO', 'CONSUMIDO'] } },
+          orderBy: [{ estado: 'asc' }, { fechaContratacion: 'desc' }],
+          take: 1,
+        },
       },
     });
     if (!familia) throw new NotFoundException('Familia no encontrada');
@@ -413,6 +420,7 @@ export class FamiliasService {
       paqueteActivo: p
         ? {
             id: p.id,
+            estado: p.estado,
             horasTotales: p.horasTotales,
             horasConsumidas: p.horasConsumidas,
             horasRestantes: p.horasTotales - p.horasConsumidas,

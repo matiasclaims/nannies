@@ -310,6 +310,7 @@ export interface AvancePaquete {
 
 export interface PaqueteActivo {
   id: string;
+  estado?: 'ACTIVO' | 'CONSUMIDO' | 'CANCELADO';
   horasTotales: number;
   horasConsumidas: number;
   horasRestantes: number;
