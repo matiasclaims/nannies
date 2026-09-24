@@ -422,6 +422,12 @@ function FichaFamiliaModal({ servicio, onCerrar }: { servicio: Servicio; onCerra
           <div className="h-32 animate-pulse rounded-xl bg-fondo" />
         ) : (
           <div className="space-y-3 text-sm">
+            {ficha.nombreContacto && (
+              <div>
+                <p className="text-[11px] text-texto-suave">Familia</p>
+                <p className="font-semibold text-texto-fuerte">{ficha.nombreContacto}</p>
+              </div>
+            )}
             {direccion && (
               <div>
                 <p className="flex items-center gap-1.5 text-[11px] text-texto-suave">
@@ -478,7 +484,8 @@ function NinoOperativo({ nino, idx }: { nino: NinoPerfil; idx: number }) {
   return (
     <div className="rounded-xl border border-borde p-3">
       <p className="mb-1 text-xs font-semibold text-texto-fuerte">
-        Peque {idx + 1}{edadLabel(nino.edad, nino.edadMeses) ? ` · ${edadLabel(nino.edad, nino.edadMeses)}` : ''}
+        {nino.nombre?.trim() || `Peque ${idx + 1}`}
+        {edadLabel(nino.edad, nino.edadMeses) ? ` · ${edadLabel(nino.edad, nino.edadMeses)}` : ''}
       </p>
       {nino.salud && (
         <p className="mb-1 flex items-start gap-1.5 rounded-lg bg-[#5B292D]/10 px-2 py-1 text-xs text-[#5B292D]">
