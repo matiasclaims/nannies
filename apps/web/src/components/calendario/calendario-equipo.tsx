@@ -52,6 +52,8 @@ function detalleServicio(s: Servicio, nannie: string): string {
 // Colores estilo Google Calendar (ver dominio.ts).
 const CLASE_DISPONIBLE = 'bg-amber-100 border border-amber-300 text-amber-800';
 const CLASE_BLOQUEADO = 'bg-slate-200 border border-slate-300 text-slate-600';
+// Servicio creado sin nannie (por asignar): morado punteado para que resalte.
+const CLASE_SIN_ASIGNAR = 'bg-marca-morado/15 border border-dashed border-marca-morado/60 text-marca-morado';
 function claseServicio(estado: Servicio['estado']): string {
   if (estado === 'OFERTADO') return 'bg-marca-azul/20 border border-marca-azul/40 text-marca-azul';
   if (estado === 'ACEPTADO' || estado === 'COMPLETADO')
@@ -129,17 +131,22 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
         etiqueta: primerNombre(x.nannieId),
       }));
     const servs = servicios
-      .filter((s) => s.nannieId && (s.estado === 'OFERTADO' || s.estado === 'ACEPTADO') && enDia(s.fecha, dia))
-      .map<Bloque>((s) => ({
-        id: 's' + s.id,
-        ini: s.horaInicio,
-        fin: s.horaFin,
-        clase: claseServicio(s.estado),
-        etiqueta: primerNombre(s.nannieId!),
-        sub: s.familia ?? TIPO_LABEL[s.tipoServicio],
-        detalle: detalleServicio(s, primerNombre(s.nannieId!)),
-        paquete: s.formato === 'PAQUETE',
-      }));
+      // Incluye también los servicios SIN nannie (por asignar): así aparecen en
+      // la cuadrícula y se pueden abrir para asignar/cancelar/reprogramar.
+      .filter((s) => (s.estado === 'OFERTADO' || s.estado === 'ACEPTADO') && enDia(s.fecha, dia))
+      .map<Bloque>((s) => {
+        const quien = s.nannieId ? primerNombre(s.nannieId) : 'Sin asignar';
+        return {
+          id: 's' + s.id,
+          ini: s.horaInicio,
+          fin: s.horaFin,
+          clase: s.nannieId ? claseServicio(s.estado) : CLASE_SIN_ASIGNAR,
+          etiqueta: quien,
+          sub: s.familia ?? TIPO_LABEL[s.tipoServicio],
+          detalle: detalleServicio(s, quien),
+          paquete: s.formato === 'PAQUETE',
+        };
+      });
     return [...disp, ...servs];
   };
 
@@ -238,7 +245,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
             />
             {esCoord && (
               <p className="mt-1 text-[11px] text-texto-suave">
-                Toca un servicio para editar su hora fin (merodeo).
+                Toca un servicio para modificarlo (asignar, extender, reprogramar o cancelar). Los morados punteados están sin nannie.
               </p>
             )}
             <Leyenda modo={modo} />
@@ -507,8 +514,14 @@ function AccionesServicio({
           </section>
 
           <section className="rounded-xl border border-borde p-3">
-            <p className="mb-2 text-xs font-semibold text-texto-fuerte">Reasignar a otra nannie</p>
-            <p className="text-xs text-texto-suave">Pasa este servicio a otra nannie (queda asignado directo).</p>
+            <p className="mb-2 text-xs font-semibold text-texto-fuerte">
+              {servicio.nannieId ? 'Reasignar a otra nannie' : 'Asignar nannie'}
+            </p>
+            <p className="text-xs text-texto-suave">
+              {servicio.nannieId
+                ? 'Pasa este servicio a otra nannie (queda asignado directo).'
+                : 'Asigna una nannie a este servicio (queda asignado directo).'}
+            </p>
             <label className="mt-2 block text-xs font-medium text-texto-suave">Nueva nannie</label>
             <select value={nannieSel} onChange={(e) => setNannieSel(e.target.value)} className={inputCls}>
               <option value="">Elige…</option>
