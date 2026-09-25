@@ -29,6 +29,7 @@ const HORA_MAX = 24;
 const HORAS = Array.from({ length: HORA_MAX - HORA_MIN }, (_, i) => HORA_MIN + i);
 const ROW = 40; // px por hora
 const HEADER = 28; // px del encabezado de día
+const MAX_CARRILES = 4; // máx. barras lado a lado; el resto se resume en "+N"
 
 interface Bloque {
   id: string;
@@ -703,34 +704,74 @@ function Rejilla({
                   backgroundImage: `repeating-linear-gradient(to bottom, #ffffff, #ffffff ${ROW - 1}px, #eef2f7 ${ROW - 1}px, #eef2f7 ${ROW}px)`,
                 }}
               >
-                {carriles(bloques(d.fecha)).map((b) => {
-                  const clickable = !!onBloqueClick && b.id.startsWith('s');
+                {(() => {
+                  // Límite de carriles: cuando en una franja se traslapan muchos
+                  // servicios, en vez de decenas de barras finísimas se muestran
+                  // hasta MAX_CARRILES; el resto se resume en un chip "+N" que
+                  // lleva al detalle del día (Mario 2026-09-25).
+                  const colocados = carriles(bloques(d.fecha));
+                  const total = colocados[0]?.carriles ?? 1;
+                  const hayOverflow = total > MAX_CARRILES;
+                  const cols = Math.min(total, MAX_CARRILES);
+                  const carrilesReales = hayOverflow ? MAX_CARRILES - 1 : cols;
+                  const visibles = colocados.filter((b) => b.carril < carrilesReales);
+                  const ocultos = colocados.filter((b) => b.carril >= carrilesReales);
+                  const chip = ocultos.length
+                    ? {
+                        n: ocultos.length,
+                        ini: Math.min(...ocultos.map((b) => offset(b.ini))),
+                        fin: Math.max(...ocultos.map((b) => offset(b.fin))),
+                      }
+                    : null;
                   return (
-                    <div
-                      key={b.id}
-                      title={`${b.detalle ?? b.etiqueta}${b.paquete ? ' · Paquete de horas' : ''}`}
-                      onClick={clickable ? () => onBloqueClick!(b.id) : undefined}
-                      style={{
-                        position: 'absolute',
-                        top: offset(b.ini) * ROW,
-                        height: Math.max(offset(b.fin) - offset(b.ini), 0.5) * ROW - 2,
-                        left: `calc(${(b.carril / b.carriles) * 100}% + 1px)`,
-                        width: `calc(${100 / b.carriles}% - 2px)`,
-                      }}
-                      className={cn(
-                        'overflow-hidden rounded-md px-1 py-0.5 text-[10px] font-medium leading-tight',
-                        b.clase,
-                        clickable && 'cursor-pointer hover:brightness-95',
+                    <>
+                      {visibles.map((b) => {
+                        const clickable = !!onBloqueClick && b.id.startsWith('s');
+                        return (
+                          <div
+                            key={b.id}
+                            title={`${b.detalle ?? b.etiqueta}${b.paquete ? ' · Paquete de horas' : ''}`}
+                            onClick={clickable ? () => onBloqueClick!(b.id) : undefined}
+                            style={{
+                              position: 'absolute',
+                              top: offset(b.ini) * ROW,
+                              height: Math.max(offset(b.fin) - offset(b.ini), 0.5) * ROW - 2,
+                              left: `calc(${(b.carril / cols) * 100}% + 1px)`,
+                              width: `calc(${100 / cols}% - 2px)`,
+                            }}
+                            className={cn(
+                              'overflow-hidden rounded-md px-1 py-0.5 text-[10px] font-medium leading-tight',
+                              b.clase,
+                              clickable && 'cursor-pointer hover:brightness-95',
+                            )}
+                          >
+                            <span className="block truncate font-semibold">
+                              {b.paquete && <Package className="mr-0.5 inline h-2.5 w-2.5 shrink-0 align-[-1px]" aria-label="Paquete" />}
+                              {b.etiqueta}
+                            </span>
+                            {b.sub && <span className="block truncate font-normal opacity-80">{b.sub}</span>}
+                          </div>
+                        );
+                      })}
+                      {chip && (
+                        <Link
+                          href={`/dia/${d.fecha}`}
+                          title={`Ver los ${chip.n} servicios restantes de este día`}
+                          style={{
+                            position: 'absolute',
+                            top: chip.ini * ROW,
+                            height: Math.max(chip.fin - chip.ini, 0.5) * ROW - 2,
+                            left: `calc(${((cols - 1) / cols) * 100}% + 1px)`,
+                            width: `calc(${100 / cols}% - 2px)`,
+                          }}
+                          className="flex items-center justify-center rounded-md border border-dashed border-borde bg-fondo text-[10px] font-semibold text-texto-suave transition hover:bg-panel hover:text-marca-azul"
+                        >
+                          +{chip.n}
+                        </Link>
                       )}
-                    >
-                      <span className="block truncate font-semibold">
-                        {b.paquete && <Package className="mr-0.5 inline h-2.5 w-2.5 shrink-0 align-[-1px]" aria-label="Paquete" />}
-                        {b.etiqueta}
-                      </span>
-                      {b.sub && <span className="block truncate font-normal opacity-80">{b.sub}</span>}
-                    </div>
+                    </>
                   );
-                })}
+                })()}
               </div>
             </div>
           ))}
