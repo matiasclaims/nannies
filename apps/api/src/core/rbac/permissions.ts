@@ -100,12 +100,12 @@ export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
 export const FIELD_ACCESS: Record<string, Record<string, readonly Rol[]>> = {
   // PII de menores — SEGURIDAD §2 (máxima protección)
   nino: {
-    // Nombre de pila: visible también a la nannie asignada (Paula, 2026-09-24).
-    // Apellidos, edad y género siguen restringidos a coordinación.
+    // Nombre de pila y edad: visibles también a la nannie asignada (Paula,
+    // 2026-09-24 / 2026-09-25). Apellidos y género siguen restringidos a coordinación.
     nombre: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
     apellidos: ['DIRECTORA', 'SUBDIRECTORA'],
-    edad: ['DIRECTORA', 'SUBDIRECTORA'],
-    edadMeses: ['DIRECTORA', 'SUBDIRECTORA'],
+    edad: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
+    edadMeses: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
     genero: ['DIRECTORA', 'SUBDIRECTORA'],
     // Operativo: coordinación + la nannie asignada (vista operativa).
     rutinas: ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
