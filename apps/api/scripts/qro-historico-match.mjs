@@ -77,18 +77,22 @@ function tokensCasan(as, bs) {
 }
 
 async function main() {
+  // Se busca en TODAS las plazas: algunas familias de Querétaro pueden estar
+  // mal clasificadas en Toluca (p.ej. Paulina/Marcelo), y hay que encontrarlas
+  // para ligarlas y corregir su plaza.
   const familias = await prisma.familia.findMany({
-    where: { plaza: 'QUERETARO' },
     select: {
       id: true,
       nombreContacto: true,
       apellido: true,
+      plaza: true,
       ninos: { select: { nombre: true } },
     },
     orderBy: { nombreContacto: 'asc' },
   });
 
-  console.log(`\nFamilias de Querétaro en la base (en vivo): ${familias.length}`);
+  const qro = familias.filter((f) => f.plaza === 'QUERETARO').length;
+  console.log(`\nFamilias en la base: ${familias.length} (Querétaro: ${qro}, otras plazas: ${familias.length - qro})`);
   console.log('='.repeat(70));
 
   let ligar = 0;
@@ -123,8 +127,9 @@ async function main() {
       const fuerza = c.nombreCasa && c.ninoCasa ? 'FUERTE (nombre+niño)' : c.nombreCasa ? 'nombre' : 'niño';
       const marca = c.nombreCasa && c.ninoCasa ? '[LIGAR]' : '[REVISAR]';
       const apellido = c.f.apellido ? ` ${c.f.apellido}` : '';
+      const avisoPlaza = c.f.plaza !== 'QUERETARO' ? `  ⚠ está en ${c.f.plaza} → corregir plaza a QUERÉTARO` : '';
       console.log(
-        `    → coincidencia ${fuerza}: "${c.f.nombreContacto}${apellido}" (niños: ${ninosF}) id=${c.f.id}  ${marca}`,
+        `    → coincidencia ${fuerza}: "${c.f.nombreContacto}${apellido}" (plaza ${c.f.plaza}, niños: ${ninosF}) id=${c.f.id}  ${marca}${avisoPlaza}`,
       );
     }
     if (candidatos[0].nombreCasa && candidatos[0].ninoCasa) ligar++;

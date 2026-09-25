@@ -525,15 +525,17 @@ function EditarFamiliaModal({
     consentimientoConfidencialidad: familia.consentimientoConfidencialidad,
   });
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }) as typeof p);
   const toggleArea = (a: string) => setAreas((p) => (p.includes(a) ? p.filter((x) => x !== a) : [...p, a]));
 
   async function guardar() {
     setBusy(true);
+    setError('');
     const t = (s: string) => s.trim() || undefined;
-    await api
-      .editarFamilia(familia.id, {
+    try {
+      await api.editarFamilia(familia.id, {
         nombreContacto: t(f.nombreContacto),
         apellido: t(f.apellido),
         plaza: f.plaza,
@@ -550,10 +552,13 @@ function EditarFamiliaModal({
         autorizacionAudiovisual: t(f.autorizacionAudiovisual),
         ...cons,
         estado: f.estado,
-      })
-      .catch(() => undefined);
-    setBusy(false);
-    await onGuardado();
+      });
+      // Solo cierra y recarga si el guardado fue exitoso.
+      await onGuardado();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudieron guardar los cambios.');
+      setBusy(false);
+    }
   }
 
   const adultoVal = f.adultoResponsablePresente == null ? '' : f.adultoResponsablePresente ? 'si' : 'no';
@@ -633,6 +638,11 @@ function EditarFamiliaModal({
           </div>
         </div>
 
+        {error && (
+          <p className="mt-3 rounded-lg border border-marca-rojo/30 bg-marca-rojo/5 px-3 py-2 text-sm text-marca-rojo">
+            {error}
+          </p>
+        )}
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={onCerrar} className="rounded-lg border border-borde px-3 py-1.5 text-sm text-texto-suave hover:bg-fondo">Cancelar</button>
           <button onClick={guardar} disabled={busy} className="rounded-lg bg-marca-azul px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50">
