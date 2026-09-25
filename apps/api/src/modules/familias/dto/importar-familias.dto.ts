@@ -92,7 +92,7 @@ export class FamiliaImportDto {
   @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(60, { each: true })
   areasATrabajar?: string[];
 
-  @IsOptional() @IsString() @MaxLength(200)
+  @IsOptional() @IsString() @MaxLength(2000)
   autorizacionAudiovisual?: string;
 
   @IsOptional() @IsBoolean() consentimientoReglamento?: boolean;

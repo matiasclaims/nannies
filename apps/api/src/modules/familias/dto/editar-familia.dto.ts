@@ -80,7 +80,7 @@ export class EditarFamiliaDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(200)
+  @MaxLength(2000)
   autorizacionAudiovisual?: string;
 
   @IsOptional()
