@@ -39,6 +39,35 @@ export function PaqueteFamilia({
   const [borrando, setBorrando] = useState(false);
   const [errorBorrar, setErrorBorrar] = useState('');
 
+  // Alta de paquete: se usa en la familia sin paquete Y para renovar cuando el
+  // paquete quedó CONSUMIDO (horas agotadas), donde la vista del paquete sigue
+  // mostrando la proyección pero también deja registrar uno nuevo.
+  const formRegistrar = (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={horas} onChange={(e) => setHoras(Number(e.target.value))} className={inputCls}>
+          {TRAMOS.map((h) => (
+            <option key={h} value={h}>
+              {h} horas
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={registrar}
+          disabled={guardando}
+          className="rounded-lg bg-marca-azul px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+        >
+          {guardando ? '…' : 'Registrar paquete'}
+        </button>
+        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-texto-suave">
+          <input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked)} />
+          Asignación manual (la familia no dio fechas)
+        </label>
+      </div>
+      {error && <p className="mt-1 text-xs text-marca-rojo">{error}</p>}
+    </>
+  );
+
   if (paquete) {
     const p = paquete;
     const pct = Math.round((p.horasConsumidas / p.horasTotales) * 100);
@@ -146,6 +175,15 @@ export function PaqueteFamilia({
             )}
           </>
         ) : null}
+
+        {/* Horas agotadas: la proyección sigue arriba, pero además se puede
+            registrar un paquete nuevo (renovación). */}
+        {p.estado === 'CONSUMIDO' && (
+          <div className="mt-3 border-t border-borde pt-3">
+            <p className="mb-2 text-xs text-texto-suave">Las horas de este paquete se agotaron. Registra uno nuevo:</p>
+            {formRegistrar}
+          </div>
+        )}
       </div>
     );
   }
@@ -166,27 +204,7 @@ export function PaqueteFamilia({
   return (
     <div>
       <p className="mb-2 text-xs text-texto-suave">Esta familia no tiene un paquete de horas activo. Regístrale uno:</p>
-      <div className="flex flex-wrap items-center gap-2">
-        <select value={horas} onChange={(e) => setHoras(Number(e.target.value))} className={inputCls}>
-          {TRAMOS.map((h) => (
-            <option key={h} value={h}>
-              {h} horas
-            </option>
-          ))}
-        </select>
-        <button
-          onClick={registrar}
-          disabled={guardando}
-          className="rounded-lg bg-marca-azul px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-        >
-          {guardando ? '…' : 'Registrar paquete'}
-        </button>
-        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-texto-suave">
-          <input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked)} />
-          Asignación manual (la familia no dio fechas)
-        </label>
-      </div>
-      {error && <p className="mt-1 text-xs text-marca-rojo">{error}</p>}
+      {formRegistrar}
     </div>
   );
 }
