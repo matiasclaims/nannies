@@ -167,13 +167,16 @@ export class DashboardService {
       comparativoAnual.push({ anio: y - dy, horas: svs.reduce((s, x) => s + x.duracionHoras, 0) });
     }
 
-    // --- Comparativo mensual por año (Paula 2026-09-21): horas CUBIERTAS
-    //     (COMPLETADO) por mes, una serie por año, últimos 3 años, separable por
-    //     plaza. Para la gráfica de líneas superpuestas ("onditas") del Panorama. ---
+    // --- Comparativo mensual por año: horas por mes, una serie por año, últimos 3
+    //     años, separable por plaza. Cuenta TODOS los servicios relevantes (no
+    //     cancelados/rechazados), no solo COMPLETADO, para que el MES EN CURSO
+    //     —cuyos servicios están OFERTADO/ACEPTADO— sí sume sus horas programadas
+    //     (Mario 2026-09-25), igual que el comparativo anual. Para la gráfica de
+    //     líneas superpuestas ("onditas") del Panorama. ---
     const aniosComp = [y - 2, y - 1, y];
     const inicioComp = new Date(Date.UTC(y - 2, 0, 1)); // 1-ene de hace 2 años
     const completadosComp = await this.prisma.servicio.findMany({
-      where: { estado: 'COMPLETADO', fecha: { gte: inicioComp, lt: finMesExcl } },
+      where: { estado: { notIn: ['CANCELADO', 'RECHAZADO'] }, fecha: { gte: inicioComp, lt: finMesExcl } },
       select: { fecha: true, duracionHoras: true, plaza: true },
     });
     const ceros = () => aniosComp.map(() => Array(12).fill(0) as number[]);
