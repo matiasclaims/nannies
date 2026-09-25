@@ -498,7 +498,7 @@ function DonutPorNannie({ datos, grande }: { datos: Dashboard['serviciosPorNanni
         .join(', ')
     : '';
   return (
-    <div className="flex flex-col items-center gap-5 sm:flex-row">
+    <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
       <div className={`relative ${grande ? 'h-44 w-44' : 'h-28 w-28'} shrink-0 rounded-full`} style={{ background: total ? `conic-gradient(${stops})` : '#E6EDF5' }}>
         <div className="absolute inset-[22%] flex flex-col items-center justify-center rounded-full bg-panel">
           <span className={`${grande ? 'text-3xl' : 'text-2xl'} font-bold text-texto-fuerte`}>{total}</span>

@@ -134,6 +134,17 @@ export class FamiliasService {
     const familia = await this.prisma.familia.findUnique({ where: { id: familiaId } });
     if (!familia) throw new NotFoundException('Familia no encontrada');
     await this.prisma.familia.update({ where: { id: familiaId }, data: { ...dto } });
+    // Si cambió la PLAZA, re-alinear los servicios NO históricos de la familia:
+    // un servicio copia la plaza/zona de la familia al crearse, así que sin esto
+    // los servicios ya creados se quedan en la plaza anterior y desaparecen de las
+    // estadísticas de la plaza correcta (dona del Panorama, reportes por plaza).
+    // La zona solo se re-alinea si en esta misma edición se cambió (dto.zona).
+    if (dto.plaza && dto.plaza !== familia.plaza) {
+      await this.prisma.servicio.updateMany({
+        where: { familiaId, esHistorico: false },
+        data: { plaza: dto.plaza, ...(dto.zona ? { zona: dto.zona } : {}) },
+      });
+    }
     return { ok: true };
   }
 
