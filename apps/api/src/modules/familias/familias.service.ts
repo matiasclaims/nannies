@@ -213,15 +213,30 @@ export class FamiliasService {
   async eliminarPaquete(paqueteId: string) {
     const paquete = await this.prisma.paquete.findUnique({
       where: { id: paqueteId },
-      include: { _count: { select: { servicios: true } } },
+      include: { servicios: { select: { id: true, estado: true } } },
     });
     if (!paquete) throw new NotFoundException('Paquete no encontrado');
-    if (paquete._count.servicios > 0 || paquete.horasConsumidas > 0) {
+    // Solo bloquean las sesiones VIVAS (no canceladas/rechazadas) o las horas
+    // realmente consumidas. Las sesiones canceladas ya devolvieron su saldo y no
+    // deben impedir borrar: se eliminan junto con el paquete (si no, la llave
+    // foránea servicio.paqueteId bloquea el delete).
+    const CERRADOS = ['CANCELADO', 'RECHAZADO'];
+    const vivos = paquete.servicios.filter((s) => !CERRADOS.includes(s.estado));
+    if (vivos.length > 0 || paquete.horasConsumidas > 0) {
       throw new BadRequestException(
         'No se puede eliminar: el paquete ya tiene horas asignadas o servicios otorgados.',
       );
     }
-    await this.prisma.paquete.delete({ where: { id: paqueteId } });
+    const ids = paquete.servicios.map((s) => s.id); // aquí solo hay cancelados/rechazados
+    await this.prisma.$transaction([
+      this.prisma.finanzaServicio.deleteMany({ where: { servicioId: { in: ids } } }),
+      this.prisma.ofertaRespuesta.deleteMany({ where: { servicioId: { in: ids } } }),
+      this.prisma.reporteServicio.deleteMany({ where: { servicioId: { in: ids } } }),
+      this.prisma.evaluacionServicio.deleteMany({ where: { servicioId: { in: ids } } }),
+      this.prisma.evaluacionCoordServicio.deleteMany({ where: { servicioId: { in: ids } } }),
+      this.prisma.servicio.deleteMany({ where: { id: { in: ids } } }),
+      this.prisma.paquete.delete({ where: { id: paqueteId } }),
+    ]);
     return { ok: true as const };
   }
 
