@@ -37,10 +37,23 @@ export class NanniesService {
 
   /** Lista de expedientes (con su correo y estado). */
   async listar() {
-    const nannies = await this.prisma.nannie.findMany({
-      orderBy: [{ nombre: 'asc' }],
-      include: { usuario: { select: { email: true, activo: true } } },
-    });
+    const [nannies, subidos] = await Promise.all([
+      this.prisma.nannie.findMany({
+        orderBy: [{ nombre: 'asc' }],
+        include: { usuario: { select: { email: true, activo: true } } },
+      }),
+      this.prisma.documentoNannie.findMany({ select: { nannieId: true, clave: true } }),
+    ]);
+    // Documentación/capacitación = lo que la nannie SUBIÓ (fuente de verdad),
+    // ya no un marcado manual (Mario 2026-09-25).
+    const infoPorNannie = new Map<string, { docs: string[]; cursos: string[] }>();
+    for (const d of subidos) {
+      const it = infoPorNannie.get(d.nannieId) ?? { docs: [], cursos: [] };
+      if (CLAVES_DOCUMENTOS.includes(d.clave)) it.docs.push(d.clave);
+      else if (CLAVES_CURSOS.includes(d.clave)) it.cursos.push(d.clave);
+      infoPorNannie.set(d.nannieId, it);
+    }
+    const info = (id: string) => infoPorNannie.get(id) ?? { docs: [], cursos: [] };
     return nannies.map((n) => ({
       id: n.id,
       nombre: n.nombre,
@@ -53,10 +66,10 @@ export class NanniesService {
       color: n.color,
       rango: n.rangoPermanente,
       estado: n.estado,
-      documentacionCompleta: todas(n.documentosEntregados, CLAVES_DOCUMENTOS),
-      capacitacionCompleta: todas(n.cursosCompletados, CLAVES_CURSOS),
-      documentosEntregados: n.documentosEntregados,
-      cursosCompletados: n.cursosCompletados,
+      documentacionCompleta: todas(info(n.id).docs, CLAVES_DOCUMENTOS),
+      capacitacionCompleta: todas(info(n.id).cursos, CLAVES_CURSOS),
+      documentosEntregados: info(n.id).docs,
+      cursosCompletados: info(n.id).cursos,
       serviciosAcumulados: n.serviciosAcumulados,
       tieneCuenta: !!n.usuario,
     }));
@@ -69,6 +82,12 @@ export class NanniesService {
       include: { usuario: { select: { email: true, activo: true } } },
     });
     if (!n) throw new NotFoundException('Nannie no encontrada');
+    // Documentación/capacitación = lo que la nannie subió (fuente de verdad).
+    const claves = (
+      await this.prisma.documentoNannie.findMany({ where: { nannieId: id }, select: { clave: true } })
+    ).map((d) => d.clave);
+    const docs = claves.filter((c) => CLAVES_DOCUMENTOS.includes(c));
+    const cursos = claves.filter((c) => CLAVES_CURSOS.includes(c));
     return {
       id: n.id,
       nombre: n.nombre,
@@ -83,10 +102,10 @@ export class NanniesService {
       rango: n.rangoPermanente,
       nivelActual: n.nivelTarifaMesActual,
       estado: n.estado,
-      documentacionCompleta: todas(n.documentosEntregados, CLAVES_DOCUMENTOS),
-      capacitacionCompleta: todas(n.cursosCompletados, CLAVES_CURSOS),
-      documentosEntregados: n.documentosEntregados,
-      cursosCompletados: n.cursosCompletados,
+      documentacionCompleta: todas(docs, CLAVES_DOCUMENTOS),
+      capacitacionCompleta: todas(cursos, CLAVES_CURSOS),
+      documentosEntregados: docs,
+      cursosCompletados: cursos,
       serviciosAcumulados: n.serviciosAcumulados,
       tieneCuenta: !!n.usuario,
     };

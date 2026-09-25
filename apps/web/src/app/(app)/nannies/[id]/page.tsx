@@ -121,7 +121,7 @@ export default function NanniePerfilPage() {
 
       {/* Expediente: solo documentación y capacitación */}
       <Seccion icon={ClipboardCheck} title="Expediente" subtitle="Documentación y capacitación" tint="verde" defaultOpen={false}>
-        <ExpedienteChecklists perfil={perfil} onGuardado={cargar} />
+        <ExpedienteChecklists perfil={perfil} />
       </Seccion>
 
       <AccesoNannie nannieId={perfil.id} correoActual={perfil.correo} onCambio={cargar} />
@@ -538,52 +538,27 @@ function EditarPerfilModal({
 }
 
 /** Solo los checklists de documentación y capacitación (van en el Expediente). */
-function ExpedienteChecklists({ perfil, onGuardado }: { perfil: NanniePerfil; onGuardado: () => void }) {
-  const [docsEntregados, setDocsEntregados] = useState<string[]>(perfil.documentosEntregados);
-  const [cursos, setCursos] = useState<string[]>(perfil.cursosCompletados);
+function ExpedienteChecklists({ perfil }: { perfil: NanniePerfil }) {
   const [subidos, setSubidos] = useState<DocumentoNannie[]>([]);
   const [referencias, setReferencias] = useState<ReferenciaNannie[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
 
   useEffect(() => {
     api.documentosDeNannie(perfil.id).then(setSubidos).catch(() => setSubidos([]));
     api.referenciasDeNannie(perfil.id).then(setReferencias).catch(() => setReferencias([]));
   }, [perfil.id]);
   const archivos = new Map(subidos.map((d) => [d.clave, d]));
+  // La palomita se llena SOLA con lo que la nannie subió (fuente de verdad).
+  const clavesSubidas = [...archivos.keys()];
   const refsConDatos = referencias.filter((r) => r.nombre || r.telefono || r.empresa || r.parentesco);
-
-  async function guardar() {
-    setBusy(true);
-    setMsg('');
-    try {
-      await api.editarNannie(perfil.id, { documentosEntregados: docsEntregados, cursosCompletados: cursos });
-      setMsg('Guardado.');
-      onGuardado();
-    } catch (e) {
-      setMsg(e instanceof ApiError ? e.message : 'No se pudo guardar.');
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <div className="space-y-3">
+      <p className="text-xs text-texto-suave">
+        Se marca automáticamente cuando la nannie sube cada archivo desde su perfil; usa el ícono para verlo.
+      </p>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Checklist
-          titulo="Documentación"
-          items={CATALOGO_DOCUMENTOS}
-          marcadas={docsEntregados}
-          archivos={archivos}
-          onToggle={(k) => setDocsEntregados((t) => (t.includes(k) ? t.filter((x) => x !== k) : [...t, k]))}
-        />
-        <Checklist
-          titulo="Capacitación (cursos)"
-          items={CATALOGO_CURSOS}
-          marcadas={cursos}
-          archivos={archivos}
-          onToggle={(k) => setCursos((t) => (t.includes(k) ? t.filter((x) => x !== k) : [...t, k]))}
-        />
+        <Checklist titulo="Documentación" items={CATALOGO_DOCUMENTOS} marcadas={clavesSubidas} archivos={archivos} />
+        <Checklist titulo="Capacitación (cursos)" items={CATALOGO_CURSOS} marcadas={clavesSubidas} archivos={archivos} />
       </div>
 
       {/* Referencias capturadas por la nannie (solo lectura para coordinación). */}
@@ -616,16 +591,6 @@ function ExpedienteChecklists({ perfil, onGuardado }: { perfil: NanniePerfil; on
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-2">
-        {msg && <span className="text-xs text-texto-suave">{msg}</span>}
-        <button
-          onClick={guardar}
-          disabled={busy}
-          className="rounded-lg bg-marca-azul px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          {busy ? 'Guardando…' : 'Guardar'}
-        </button>
-      </div>
     </div>
   );
 }
@@ -644,13 +609,11 @@ function Checklist({
   items,
   marcadas,
   archivos,
-  onToggle,
 }: {
   titulo: string;
   items: ItemChecklist[];
   marcadas: string[];
   archivos: Map<string, DocumentoNannie>;
-  onToggle: (clave: string) => void;
 }) {
   const hechas = items.filter((i) => marcadas.includes(i.clave)).length;
   const completo = hechas === items.length;
@@ -673,7 +636,7 @@ function Checklist({
           const archivo = archivos.get(it.clave);
           return (
             <div key={it.clave} className="flex items-start gap-2">
-              <button type="button" onClick={() => onToggle(it.clave)} className="flex min-w-0 flex-1 items-start gap-2 text-left">
+              <div className="flex min-w-0 flex-1 items-start gap-2">
                 <span
                   className={cn(
                     'mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border transition',
@@ -690,7 +653,7 @@ function Checklist({
                     it.fuente && <span className="block text-[10px] text-texto-suave">{it.fuente}</span>
                   )}
                 </span>
-              </button>
+              </div>
               {archivo?.url && (
                 <a
                   href={archivo.url}
