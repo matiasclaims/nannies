@@ -366,7 +366,11 @@ function AccionesServicio({
 
   // --- Reasignar ---
   const [nannieSel, setNannieSel] = useState('');
+  const [confirmoPlaza, setConfirmoPlaza] = useState(false);
   const nombreActual = nannies.find((n) => n.id === servicio.nannieId)?.nombre;
+  // Advertencia confirmable: la nannie elegida es de otra plaza que el servicio.
+  const nannieReasig = nannies.find((n) => n.id === nannieSel);
+  const cruzaPlaza = !!nannieReasig && nannieReasig.plaza !== servicio.plaza;
 
   // --- Reprogramar (política 16c: individual pagado, tope 7 días) ---
   const [nuevaFecha, setNuevaFecha] = useState(servicio.fecha);
@@ -523,14 +527,32 @@ function AccionesServicio({
                 : 'Asigna una nannie a este servicio (queda asignado directo).'}
             </p>
             <label className="mt-2 block text-xs font-medium text-texto-suave">Nueva nannie</label>
-            <select value={nannieSel} onChange={(e) => setNannieSel(e.target.value)} className={inputCls}>
+            <select
+              value={nannieSel}
+              onChange={(e) => { setNannieSel(e.target.value); setConfirmoPlaza(false); }}
+              className={inputCls}
+            >
               <option value="">Elige…</option>
               {nannies.filter((n) => n.id !== servicio.nannieId).map((n) => (
                 <option key={n.id} value={n.id}>{n.nombre}</option>
               ))}
             </select>
+            {cruzaPlaza && (
+              <label className="mt-2 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+                <input
+                  type="checkbox"
+                  checked={confirmoPlaza}
+                  onChange={(e) => setConfirmoPlaza(e.target.checked)}
+                  className="mt-0.5 h-4 w-4"
+                />
+                <span>
+                  {nannieReasig?.nombre} es de {nannieReasig?.plaza === 'QUERETARO' ? 'Querétaro' : 'Toluca'} y este servicio
+                  es de {servicio.plaza === 'QUERETARO' ? 'Querétaro' : 'Toluca'}. Marca la casilla para asignarla de todas formas.
+                </span>
+              </label>
+            )}
             <div className="mt-2 flex justify-end">
-              <button type="button" onClick={reasignar} disabled={busy || !nannieSel} className="rounded-lg bg-marca-azul px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+              <button type="button" onClick={reasignar} disabled={busy || !nannieSel || (cruzaPlaza && !confirmoPlaza)} className="rounded-lg bg-marca-azul px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
                 {busy ? 'Reasignando…' : 'Reasignar'}
               </button>
             </div>
@@ -757,7 +779,11 @@ function TarjetaOfertar({
   rechazadoPor?: string;
 }) {
   const [nannieId, setNannieId] = useState('');
+  const [confirmoPlaza, setConfirmoPlaza] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  // Advertencia confirmable: la nannie elegida es de otra plaza que el servicio.
+  const nannieSel = nannies.find((n) => n.id === nannieId);
+  const cruzaPlaza = !!nannieSel && nannieSel.plaza !== servicio.plaza;
 
   async function ofertar() {
     if (!nannieId) return;
@@ -791,7 +817,7 @@ function TarjetaOfertar({
       <div className="flex gap-1.5">
         <select
           value={nannieId}
-          onChange={(e) => setNannieId(e.target.value)}
+          onChange={(e) => { setNannieId(e.target.value); setConfirmoPlaza(false); }}
           className="min-w-0 flex-1 rounded-lg border border-borde bg-white px-2 py-1 text-xs outline-none focus:border-marca-azul"
         >
           <option value="">Elegir nannie…</option>
@@ -803,12 +829,26 @@ function TarjetaOfertar({
         </select>
         <button
           onClick={ofertar}
-          disabled={!nannieId || enviando}
+          disabled={!nannieId || enviando || (cruzaPlaza && !confirmoPlaza)}
           className="shrink-0 rounded-lg bg-marca-azul px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-50"
         >
           Ofertar
         </button>
       </div>
+      {cruzaPlaza && (
+        <label className="mt-2 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-800">
+          <input
+            type="checkbox"
+            checked={confirmoPlaza}
+            onChange={(e) => setConfirmoPlaza(e.target.checked)}
+            className="mt-0.5 h-3.5 w-3.5"
+          />
+          <span>
+            {nannieSel?.nombre} es de {nannieSel?.plaza === 'QUERETARO' ? 'Querétaro' : 'Toluca'} y este servicio es de{' '}
+            {servicio.plaza === 'QUERETARO' ? 'Querétaro' : 'Toluca'}. Marca la casilla para ofertar de todas formas.
+          </span>
+        </label>
+      )}
     </div>
   );
 }

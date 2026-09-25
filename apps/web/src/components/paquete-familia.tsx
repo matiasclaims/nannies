@@ -237,6 +237,7 @@ function ProgramarPaquete({
   const [direccion, setDireccion] = useState('');
   const [catalogo, setCatalogo] = useState<ColoniaCat[]>([]);
   const [nannieId, setNannieId] = useState('');
+  const [confirmoPlaza, setConfirmoPlaza] = useState(false);
   const [requierePlaneacion, setRequierePlaneacion] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -269,6 +270,10 @@ function ProgramarPaquete({
   const dur = horasEntre(horaInicio, horaFin) ?? 0;
   const horasPedidas = fechas.length * dur;
   const excede = horasPedidas > paquete.horasRestantes;
+  // Advertencia confirmable: la nannie elegida es de otra plaza que la del
+  // servicio (el sistema no lo bloquea, solo pide confirmar).
+  const nannieSel = nannies.find((n) => n.id === nannieId);
+  const cruzaPlaza = !!nannieSel && nannieSel.plaza !== plaza;
 
   function toggleFecha(iso: string) {
     setFechas((f) => (f.includes(iso) ? f.filter((x) => x !== iso) : [...f, iso]));
@@ -396,7 +401,11 @@ function ProgramarPaquete({
       </label>
       <label className="block">
         <span className="mb-0.5 block text-texto-suave">Nannie (opcional)</span>
-        <select value={nannieId} onChange={(e) => setNannieId(e.target.value)} className={cn(chico, 'w-full')}>
+        <select
+          value={nannieId}
+          onChange={(e) => { setNannieId(e.target.value); setConfirmoPlaza(false); }}
+          className={cn(chico, 'w-full')}
+        >
           <option value="">Sin asignar (por asignar)</option>
           {nannies.map((n) => (
             <option key={n.id} value={n.id}>
@@ -405,6 +414,20 @@ function ProgramarPaquete({
           ))}
         </select>
       </label>
+      {cruzaPlaza && (
+        <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-amber-800">
+          <input
+            type="checkbox"
+            checked={confirmoPlaza}
+            onChange={(e) => setConfirmoPlaza(e.target.checked)}
+            className="mt-0.5 h-4 w-4"
+          />
+          <span>
+            {nannieSel?.nombre} es de {nannieSel?.plaza === 'QUERETARO' ? 'Querétaro' : 'Toluca'} y este servicio es de{' '}
+            {plaza === 'QUERETARO' ? 'Querétaro' : 'Toluca'}. Marca la casilla para asignarla de todas formas.
+          </span>
+        </label>
+      )}
       <label className="flex items-center gap-2 text-texto-fuerte">
         <input
           type="checkbox"
@@ -420,7 +443,7 @@ function ProgramarPaquete({
       {error && <p className="text-marca-rojo">{error}</p>}
       <button
         onClick={programar}
-        disabled={busy || !fechas.length || excede}
+        disabled={busy || !fechas.length || excede || (cruzaPlaza && !confirmoPlaza)}
         className="w-full rounded-lg bg-marca-azul py-1.5 font-semibold text-white disabled:opacity-50"
       >
         {busy
