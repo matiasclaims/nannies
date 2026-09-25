@@ -444,7 +444,7 @@ export interface ReporteGeneral {
   desde: string;
   hasta: string;
   totales: { servicios: number; horas: number; incidencias: number; encuestasPendientes: number };
-  encuestasPendientes: { familia: string; nannie: string; fecha: string }[];
+  encuestasPendientes: { servicioId: string; familia: string; nannie: string; fecha: string }[];
   nannies: {
     nannieId: string;
     nombre: string;

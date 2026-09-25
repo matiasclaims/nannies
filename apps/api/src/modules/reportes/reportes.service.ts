@@ -85,6 +85,7 @@ export class ReportesService {
       this.prisma.servicio.findMany({
         where: { estado: 'COMPLETADO', nannieId: { not: null }, fecha: { gte, lt } },
         select: {
+          id: true,
           fecha: true,
           familia: { select: { nombreContacto: true } },
           nannie: { select: { nombre: true } },
@@ -99,6 +100,7 @@ export class ReportesService {
     const encuestasPendientes = completados
       .filter((s) => !s.evaluacion || s.evaluacion.respondidoEn == null)
       .map((s) => ({
+        servicioId: s.id,
         familia: s.familia.nombreContacto,
         nannie: s.nannie?.nombre ?? '—',
         fecha: s.fecha.toISOString().slice(0, 10),

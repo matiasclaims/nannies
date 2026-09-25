@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, AlertTriangle, MailWarning } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, AlertTriangle, MailWarning, QrCode } from 'lucide-react';
 import { api, type ReporteGeneral } from '@/lib/api';
+import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -19,6 +20,7 @@ export default function ReportesPage() {
   const [m, setM] = useState(hoy.getMonth());
   const [data, setData] = useState<ReporteGeneral | null>(null);
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'error'>('cargando');
+  const [encuestaServ, setEncuestaServ] = useState<string | null>(null);
 
   const { desde, hasta } = rangoMes(y, m);
 
@@ -174,11 +176,21 @@ export default function ReportesPage() {
           {data.encuestasPendientes.length > 0 && (
             <ul className="mt-2 max-h-60 divide-y divide-borde overflow-y-auto text-sm">
               {data.encuestasPendientes.map((e, i) => (
-                <li key={i} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
-                  <span className="font-medium text-texto-fuerte">{e.familia}</span>
-                  <span className="text-xs text-texto-suave">
-                    {e.nannie} · {e.fecha}
-                  </span>
+                <li key={i}>
+                  <button
+                    type="button"
+                    onClick={() => setEncuestaServ(e.servicioId)}
+                    title="Ver el QR/enlace de la encuesta de esta familia"
+                    className="flex w-full flex-wrap items-baseline justify-between gap-2 rounded-lg px-2 py-2 text-left transition hover:bg-fondo"
+                  >
+                    <span className="flex items-center gap-1.5 font-medium text-texto-fuerte">
+                      <QrCode className="h-3.5 w-3.5 shrink-0 text-marca-azul" />
+                      {e.familia}
+                    </span>
+                    <span className="text-xs text-texto-suave">
+                      {e.nannie} · {e.fecha}
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -189,6 +201,8 @@ export default function ReportesPage() {
       <p className="text-center text-[11px] text-texto-suave">
         Papás = promedio de la encuesta de papás (nº de opiniones). Agencia = evaluación semanal de coordinación.
       </p>
+
+      {encuestaServ && <EncuestaLinkModal servicioId={encuestaServ} onCerrar={() => setEncuestaServ(null)} />}
     </div>
   );
 }
