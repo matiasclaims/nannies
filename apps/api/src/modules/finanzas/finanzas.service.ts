@@ -69,7 +69,7 @@ export class FinanzasService {
         },
         paquete: { select: { horasTotales: true } },
         familia: { select: { nombreContacto: true } },
-        finanza: { select: { descuentoNannie: true } },
+        finanza: { select: { descuentoNannie: true, pagoNannie: true } },
       },
       orderBy: { fecha: 'asc' },
     });
@@ -104,12 +104,16 @@ export class FinanzasService {
 
     for (const s of servicios) {
       const n = s.nannie!;
-      const pago = pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, n.nivelTarifaMesActual, {
-        paqueteHoras: s.paquete?.horasTotales,
-        ludotecaMontaje: s.ludotecaMontaje,
-        plaza: s.plaza,
-        zona: s.zona,
-      });
+      // Histórico (Qro 2023-2025): usa el pago GUARDADO (su zona/tipo son legados
+      // y el motor no los tarifa); el resto se tarifa con el tabulador vigente.
+      const pago = s.esHistorico
+        ? { monto: s.finanza?.pagoNannie != null ? Number(s.finanza.pagoNannie) : null, motivo: undefined as string | undefined }
+        : pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, n.nivelTarifaMesActual, {
+            paqueteHoras: s.paquete?.horasTotales,
+            ludotecaMontaje: s.ludotecaMontaje,
+            plaza: s.plaza,
+            zona: s.zona,
+          });
       let grupo = porNannie.get(n.id);
       if (!grupo) {
         grupo = {
@@ -351,8 +355,11 @@ export class FinanzasService {
       const ajuste = s.finanza?.ajuste ? Number(s.finanza.ajuste) : 0;
       // Pago SOLO informativo (se reconoce cuando se complete). Se muestra si ya
       // se completó; si no, queda en null (aún no es egreso de este mes).
-      const pago =
-        s.estado === 'COMPLETADO' && s.nannie
+      const pago = s.esHistorico
+        ? s.finanza?.pagoNannie != null
+          ? Number(s.finanza.pagoNannie)
+          : null
+        : s.estado === 'COMPLETADO' && s.nannie
           ? pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
               paqueteHoras: s.paquete?.horasTotales,
               ludotecaMontaje: s.ludotecaMontaje,
@@ -400,21 +407,24 @@ export class FinanzasService {
       where: { estado: 'COMPLETADO', completadoEn: { gte, lte }, estadoCobro: { not: 'POR_DEFINIR' } },
       include: {
         nannie: { select: { nivelTarifaMesActual: true } },
-        finanza: { select: { descuentoNannie: true } },
+        finanza: { select: { descuentoNannie: true, pagoNannie: true } },
         paquete: { select: { horasTotales: true } },
       },
     });
     let pagoNannies = 0;
     let pagosPendientes = 0;
     for (const s of serviciosPago) {
-      const pago = s.nannie
-        ? pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
-            paqueteHoras: s.paquete?.horasTotales,
-            ludotecaMontaje: s.ludotecaMontaje,
-            plaza: s.plaza,
-            zona: s.zona,
-          }).monto
-        : null;
+      // Histórico: pago guardado (aunque no tenga nannie ligada, es costo real).
+      const pago = s.esHistorico
+        ? (s.finanza?.pagoNannie != null ? Number(s.finanza.pagoNannie) : null)
+        : s.nannie
+          ? pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
+              paqueteHoras: s.paquete?.horasTotales,
+              ludotecaMontaje: s.ludotecaMontaje,
+              plaza: s.plaza,
+              zona: s.zona,
+            }).monto
+          : null;
       if (pago == null) {
         pagosPendientes++;
         continue;
@@ -747,7 +757,7 @@ export class FinanzasService {
 
     const servicios = await this.prisma.servicio.findMany({
       where: { nannieId, estado: 'COMPLETADO', fecha: { gte: rangoGte } },
-      include: { paquete: { select: { horasTotales: true } } },
+      include: { paquete: { select: { horasTotales: true } }, finanza: { select: { pagoNannie: true } } },
     });
 
     let horasMes = 0;
@@ -757,18 +767,14 @@ export class FinanzasService {
       if (s.fecha < mesGte || s.fecha > mesLte) continue;
       horasMes += s.duracionHoras;
       serviciosMes += 1;
-      const pago = pagoDeServicio(
-        s.tipoServicio,
-        s.duracionHoras,
-        s.formato,
-        nannie.nivelTarifaMesActual,
-        {
-          paqueteHoras: s.paquete?.horasTotales,
-          ludotecaMontaje: s.ludotecaMontaje,
-          plaza: s.plaza,
-          zona: s.zona,
-        },
-      );
+      const pago = s.esHistorico
+        ? { monto: s.finanza?.pagoNannie != null ? Number(s.finanza.pagoNannie) : null }
+        : pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, nannie.nivelTarifaMesActual, {
+            paqueteHoras: s.paquete?.horasTotales,
+            ludotecaMontaje: s.ludotecaMontaje,
+            plaza: s.plaza,
+            zona: s.zona,
+          });
       if (pago.monto != null) ganadoMes += pago.monto;
     }
 

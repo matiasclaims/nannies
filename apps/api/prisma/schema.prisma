@@ -515,6 +515,13 @@ model Servicio {
   // de facturar (adeudo). esDesborde marca que el servicio nació de un desborde.
   estadoCobro  EstadoCobro    @default(DEFINIDO)
   esDesborde   Boolean        @default(false)
+  // Servicio HISTÓRICO importado (Querétaro 2023-2025). Sus montos ya están
+  // cerrados: el pago se LEE de FinanzaServicio (no se recalcula con el motor de
+  // precios, porque la zona/tipo son legados). notaHistorica guarda el detalle
+  // original (tipo/zona sin catálogo, "Grupo Burbuja", y el nombre de la nannie
+  // cuando no existe en el sistema).
+  esHistorico   Boolean       @default(false)
+  notaHistorica String?
   requierePlaneacion Boolean @default(false) // coordinación marca si la nannie debe preparar planeación
   // Cancelación (M4/§15-16): motivo y si se cobró la hora igual (aviso <24h).
   // Si se cobró, cuenta en ingresos aunque esté CANCELADO; en paquete la hora
