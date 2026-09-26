@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, LogOut, HelpCircle } from 'lucide-react';
+import { LogOut, HelpCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Logo } from '@/components/logo';
 
-/** Top bar: búsqueda (escritorio) + salir. En celular muestra la marca. */
+/** Top bar: marca (celular) + manual + salir. */
 export function Topbar() {
   const router = useRouter();
 
@@ -20,14 +20,6 @@ export function Topbar() {
     <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-borde bg-panel/95 px-4 py-3 backdrop-blur">
       <div className="flex items-center md:hidden">
         <Logo className="h-8 w-auto" />
-      </div>
-
-      <div className="relative hidden flex-1 md:block">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-texto-suave" />
-        <input
-          placeholder="Buscar nannie, familia o zona…"
-          className="w-full max-w-md rounded-xl border border-borde bg-fondo px-9 py-2 text-sm outline-none focus:border-marca-azul"
-        />
       </div>
 
       <Link
