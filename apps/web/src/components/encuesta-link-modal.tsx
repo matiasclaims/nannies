@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import QRCode from 'qrcode';
-import { X, Copy, Check } from 'lucide-react';
+import { X, Copy, Check, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api';
 
 /** M6 · 6.2 — Muestra el link + QR de la encuesta de papás de un servicio.
@@ -14,7 +14,9 @@ export function EncuestaLinkModal({ servicioId, onCerrar }: { servicioId: string
   const [error, setError] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
+    setError(null);
+    setQr(null);
     api
       .linkEncuesta(servicioId)
       .then(async ({ token }) => {
@@ -22,8 +24,12 @@ export function EncuestaLinkModal({ servicioId, onCerrar }: { servicioId: string
         setUrl(u);
         setQr(await QRCode.toDataURL(u, { width: 220, margin: 1 }));
       })
-      .catch(() => setError('No se pudo generar la encuesta.'));
+      .catch((e) => setError(e instanceof Error ? e.message : 'No se pudo generar la encuesta.'));
   }, [servicioId]);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
 
   async function copiar() {
     if (!url) return;
@@ -42,7 +48,15 @@ export function EncuestaLinkModal({ servicioId, onCerrar }: { servicioId: string
           </button>
         </div>
         {error ? (
-          <p className="py-6 text-center text-sm text-marca-rojo">{error}</p>
+          <div className="flex flex-col items-center gap-3 py-6">
+            <p className="text-center text-sm text-marca-rojo">{error}</p>
+            <button
+              onClick={cargar}
+              className="flex items-center gap-1.5 rounded-lg bg-marca-azul px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Reintentar
+            </button>
+          </div>
         ) : !qr ? (
           <p className="py-8 text-center text-sm text-texto-suave">Generando…</p>
         ) : (

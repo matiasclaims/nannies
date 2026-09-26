@@ -181,15 +181,25 @@ export class ApiError extends Error {
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
+  // Timeout de red: sin esto, una petición estancada (ej. API de Render
+  // despertando o conexión colgada) deja la UI "pensando" para siempre.
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 45_000);
   try {
     res = await fetch(`${API_URL}${path}`, {
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
       ...init,
+      headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+      signal: ctrl.signal,
     });
   } catch {
-    // Falla de red / servidor inalcanzable (ej. API despertando).
-    throw new ApiError(0, 'No se pudo conectar con el servidor.');
+    // Falla de red / servidor inalcanzable / timeout (ej. API despertando).
+    throw new ApiError(
+      0,
+      ctrl.signal.aborted ? 'La conexión tardó demasiado. Intenta de nuevo.' : 'No se pudo conectar con el servidor.',
+    );
+  } finally {
+    clearTimeout(t);
   }
   if (!res.ok) {
     const cuerpo = (await res.json().catch(() => ({}))) as { message?: string };
