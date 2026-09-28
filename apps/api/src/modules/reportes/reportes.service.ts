@@ -3,6 +3,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { GuardarReporteDto } from './dto/guardar-reporte.dto';
 import { reglaPorNumero } from '../nannies/incidencias.catalogo';
+import { pagoDeServicio } from '../finanzas/pago-servicio';
+
+const redondea2 = (n: number) => Math.round(n * 100) / 100;
 
 /** M6 · 6.1 — Reporte de servicio. La nannie deja UN reporte por servicio
  *  (actividades, ánimo del niño, incidentes, notas); coordinación lo lee. */
@@ -342,6 +345,115 @@ export class ReportesService {
             autor: s.reporte.autorNombre,
           }
         : null,
+    };
+  }
+
+  /** Conciliación de un mes: cada servicio con su ORIGEN (migrado vs agregado
+   *  después del corte), datos operativos, de paquete, financieros y de
+   *  seguimiento (reporte/encuesta/evaluación), más las incidencias del mes.
+   *  Para cruzar el sistema contra los controles externos de Paula. */
+  async conciliacion(desde: string, hasta: string, corte: string) {
+    const gte = new Date(`${desde}T00:00:00.000Z`);
+    const lt = new Date(new Date(`${hasta}T00:00:00.000Z`).getTime() + 86_400_000);
+    // "Creado hasta el fin del día de corte" = ya estaba al migrar.
+    const corteDt = new Date(`${corte}T23:59:59.999Z`);
+
+    const servicios = await this.prisma.servicio.findMany({
+      where: { fecha: { gte, lt } },
+      include: {
+        familia: { select: { nombreContacto: true } },
+        nannie: { select: { nombre: true, nivelTarifaMesActual: true } },
+        paquete: { select: { horasTotales: true, horasConsumidas: true, asignacionManual: true } },
+        finanza: { select: { cobroFamilia: true, comision: true, descuentoNannie: true, pagoNannie: true } },
+        reporte: { select: { id: true } },
+        evaluacion: { select: { calificacion: true, respondidoEn: true, volveriaContratar: true } },
+        evaluacionCoord: { select: { calificacion: true } },
+      },
+      orderBy: [{ fecha: 'asc' }, { horaInicio: 'asc' }],
+    });
+
+    const filas = servicios.map((s) => {
+      const cobro = s.finanza ? Number(s.finanza.cobroFamilia) : 0;
+      const descuento = s.finanza?.descuentoNannie ? Number(s.finanza.descuentoNannie) : 0;
+      const comision = s.finanza?.comision ? Number(s.finanza.comision) : 0;
+      // Histórico usa el pago guardado; el resto lo tarifa el motor.
+      const bruto = s.esHistorico
+        ? s.finanza?.pagoNannie != null
+          ? Number(s.finanza.pagoNannie)
+          : null
+        : s.nannie
+          ? pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
+              paqueteHoras: s.paquete?.horasTotales,
+              ludotecaMontaje: s.ludotecaMontaje,
+              plaza: s.plaza,
+              zona: s.zona,
+            }).monto
+          : null;
+      const pago = bruto == null ? null : redondea2(bruto - descuento);
+      const margen = pago == null ? null : redondea2(cobro - pago);
+      return {
+        origen: s.creadoEn <= corteDt ? 'Migrado' : 'Nuevo',
+        creadoEn: s.creadoEn.toISOString(),
+        fecha: s.fecha.toISOString().slice(0, 10),
+        tipoServicio: s.tipoServicio,
+        formato: s.formato,
+        familia: s.familia?.nombreContacto ?? '—',
+        nannie: s.nannie?.nombre ?? 'Por asignar',
+        plaza: s.plaza,
+        zona: s.zona,
+        direccionEspecifica: s.direccion ?? '',
+        duracionHoras: s.duracionHoras,
+        estado: s.estado,
+        esPaquete: s.formato === 'PAQUETE',
+        paqueteHorasTotales: s.paquete?.horasTotales ?? null,
+        paqueteHorasConsumidas: s.paquete?.horasConsumidas ?? null,
+        paqueteHorasRestantes: s.paquete ? s.paquete.horasTotales - s.paquete.horasConsumidas : null,
+        paqueteManual: s.paquete?.asignacionManual ?? null,
+        motivoCancelacion: s.motivoCancelacion ?? '',
+        canceladaCobrada: s.canceladaCobrada,
+        tieneReporte: !!s.reporte,
+        encuestaCalificacion: s.evaluacion?.respondidoEn ? s.evaluacion.calificacion : null,
+        volveriaContratar: s.evaluacion?.respondidoEn ? s.evaluacion.volveriaContratar : null,
+        evalCoordCalificacion: s.evaluacionCoord ? Number(s.evaluacionCoord.calificacion) : null,
+        cobro,
+        pago,
+        margen,
+        comision,
+      };
+    });
+
+    // Incidencias del mes (por nannie; no van ligadas a un servicio).
+    const incidenciasRaw = await this.prisma.incidencia.findMany({
+      where: { fecha: { gte, lt } },
+      include: { nannie: { select: { nombre: true } } },
+      orderBy: { fecha: 'asc' },
+    });
+    const incidencias = incidenciasRaw.map((i) => ({
+      fecha: i.fecha.toISOString().slice(0, 10),
+      nannie: i.nannie.nombre,
+      regla: i.regla,
+      situacion: reglaPorNumero(i.regla)?.situacion ?? '',
+      estado: i.estado,
+      registradaPor: i.registradaPor,
+      nota: i.nota ?? '',
+    }));
+
+    const resumen = (o: 'Migrado' | 'Nuevo') => {
+      const f = filas.filter((x) => x.origen === o);
+      return {
+        servicios: f.length,
+        horas: f.reduce((a, x) => a + x.duracionHoras, 0),
+        cobro: redondea2(f.reduce((a, x) => a + x.cobro, 0)),
+        pago: redondea2(f.reduce((a, x) => a + (x.pago ?? 0), 0)),
+        margen: redondea2(f.reduce((a, x) => a + (x.margen ?? 0), 0)),
+      };
+    };
+
+    return {
+      corte,
+      totales: { migrado: resumen('Migrado'), nuevo: resumen('Nuevo') },
+      servicios: filas,
+      incidencias,
     };
   }
 }
