@@ -52,9 +52,6 @@ export default function ReportesPage() {
         <div>
           <h1 className="text-lg font-bold text-texto-fuerte">Reportes</h1>
           <p className="text-xs text-texto-suave">Actividad de cada nannie en el mes. Clic en una para su reporte detallado; o descárgalo en PDF.</p>
-          <a href="/reportes/conciliacion" className="mt-1 inline-block text-xs font-medium text-marca-azul hover:underline">
-            Conciliación del mes (migrado vs nuevo, con financiero) →
-          </a>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-xl bg-panel px-2 py-1 shadow-card">

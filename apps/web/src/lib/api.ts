@@ -468,50 +468,6 @@ export interface ReporteGeneral {
     incidencias: number;
   }[];
 }
-/** Conciliación de un mes: servicios con origen (migrado/nuevo) + financiero. */
-export interface ConciliacionServicio {
-  origen: string;
-  creadoEn: string;
-  fecha: string;
-  tipoServicio: TipoServicio;
-  formato: Formato;
-  familia: string;
-  nannie: string;
-  plaza: Plaza;
-  zona: string;
-  direccionEspecifica: string;
-  duracionHoras: number;
-  estado: EstadoServicio;
-  esPaquete: boolean;
-  paqueteHorasTotales: number | null;
-  paqueteHorasConsumidas: number | null;
-  paqueteHorasRestantes: number | null;
-  paqueteManual: boolean | null;
-  motivoCancelacion: string;
-  canceladaCobrada: boolean;
-  tieneReporte: boolean;
-  encuestaCalificacion: number | null;
-  volveriaContratar: boolean | null;
-  evalCoordCalificacion: number | null;
-  cobro: number;
-  pago: number | null;
-  margen: number | null;
-  comision: number;
-}
-export interface ConciliacionResumen {
-  servicios: number;
-  horas: number;
-  cobro: number;
-  pago: number;
-  margen: number;
-}
-export interface ConciliacionMes {
-  corte: string;
-  totales: { migrado: ConciliacionResumen; nuevo: ConciliacionResumen };
-  servicios: ConciliacionServicio[];
-  incidencias: { fecha: string; nannie: string; regla: number; situacion: string; estado: string; registradaPor: string; nota: string }[];
-}
-
 /** Reporte detallado de una nannie en el periodo (M6 · Bloque 2). */
 export interface ReporteNannie {
   desde: string;
@@ -1002,8 +958,6 @@ export const api = {
   reporteNannie: (nannieId: string, desde: string, hasta: string) =>
     req<ReporteNannie>(`/reportes/nannie/${nannieId}?desde=${desde}&hasta=${hasta}`),
   reportesDelDia: (fecha: string) => req<ReporteDiaItem[]>(`/reportes/dia?fecha=${fecha}`),
-  conciliacionMes: (desde: string, hasta: string, corte: string) =>
-    req<ConciliacionMes>(`/reportes/conciliacion?desde=${desde}&hasta=${hasta}&corte=${corte}`),
   hojaReporte: (servicioId: string) => req<HojaReporte>(`/reportes/servicio/${servicioId}/hoja`),
   resumenEvalNannie: (nannieId: string) =>
     req<ResumenEvalNannie>(`/evaluaciones/nannie/${nannieId}/resumen`),

@@ -17,18 +17,6 @@ export class ReportesController {
     return this.reportes.general(desde, hasta);
   }
 
-  // Conciliación de un mes (con financiero): origen migrado/nuevo por corte.
-  // Solo Directora (incluye margen).
-  @RequiereAccion('finanzas.margen.ver')
-  @Get('conciliacion')
-  conciliacion(
-    @Query('desde') desde: string,
-    @Query('hasta') hasta: string,
-    @Query('corte') corte: string,
-  ) {
-    return this.reportes.conciliacion(desde, hasta, corte);
-  }
-
   // Reporte detallado de una nannie en el periodo. Coordinación.
   @RequiereAccion('reporte.gestionar')
   @Get('nannie/:nannieId')
