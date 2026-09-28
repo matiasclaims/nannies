@@ -25,14 +25,14 @@ const APLICAR = process.argv.includes('apply');
 
 // Servicios objetivo: clave de match + acción.
 const T = [
-  { fila: 15, fecha: '2026-09-03', tipo: 'ACOMPANAMIENTO_EVENTO', estado: 'COMPLETADO', nannie: 'Ivette', cobro: 380, dur: 4, creado: '2026-09-17 18:39', accion: 'repoint', familia: 'Karina Salazar' },
+  { fila: 15, fecha: '2026-09-03', tipo: 'ACOMPANAMIENTO_EVENTO', estado: 'COMPLETADO', nannie: 'Ivette', cobro: 380, dur: 4, creado: '2026-09-17 18:39', accion: 'repoint', familiaId: 'cmt8vb8i40137uys8jj0h1arm' },
   { fila: 17, fecha: '2026-09-03', tipo: 'ACOMPANAMIENTO_EVENTO', estado: 'CANCELADO', nannie: 'Ivette', cobro: 500, dur: 4, creado: '2026-09-17 18:32', accion: 'delete' },
   { fila: 26, fecha: '2026-09-04', tipo: 'DAYCARE', estado: 'COMPLETADO', nannie: 'Aide', cobro: 285, dur: 3, creado: '2026-09-17 18:37', accion: 'delete' },
   { fila: 38, fecha: '2026-09-05', tipo: 'NANNIE_EXPRESS', estado: 'CANCELADO', nannie: 'Vianney', cobro: 475, dur: 6, creado: '2026-09-18 18:26', accion: 'delete' },
   { fila: 41, fecha: '2026-09-05', tipo: 'NANNIE_EXPRESS', estado: 'ACEPTADO', nannie: 'Stephanie', cobro: 380, dur: 4, creado: '2026-09-17 18:50', accion: 'delete' },
-  { fila: 54, fecha: '2026-09-08', tipo: 'NANNIE_FIESTA_PLAYDATE', estado: 'COMPLETADO', nannie: 'Vianney', cobro: 500, dur: 2, creado: '2026-09-22 00:23', accion: 'repoint', familia: 'Doctor Pepe', bono: 260 },
-  { fila: 55, fecha: '2026-09-08', tipo: 'LUDOTECA_MOVIL', estado: 'COMPLETADO', nannie: 'Vianney', cobro: 820, dur: 2, creado: '2026-09-21 18:48', accion: 'repoint', familia: 'Doctor Pepe', descuento: 130 },
-  { fila: 58, fecha: '2026-09-09', tipo: 'DAYCARE', estado: 'COMPLETADO', nannie: 'Fabiola', cobro: 610, dur: 5, creado: '2026-09-22 00:23', accion: 'repoint', familia: 'Elissa Prendes Viruega' },
+  { fila: 54, fecha: '2026-09-08', tipo: 'NANNIE_FIESTA_PLAYDATE', estado: 'COMPLETADO', nannie: 'Vianney', cobro: 500, dur: 2, creado: '2026-09-22 00:23', accion: 'repoint', familiaId: 'cmullkakj015ll91bmt3soxbo', bono: 260 },
+  { fila: 55, fecha: '2026-09-08', tipo: 'LUDOTECA_MOVIL', estado: 'COMPLETADO', nannie: 'Vianney', cobro: 820, dur: 2, creado: '2026-09-21 18:48', accion: 'repoint', familiaId: 'cmullkakj015ll91bmt3soxbo', descuento: 130 },
+  { fila: 58, fecha: '2026-09-09', tipo: 'DAYCARE', estado: 'COMPLETADO', nannie: 'Fabiola', cobro: 610, dur: 5, creado: '2026-09-22 00:23', accion: 'repoint', familiaId: 'cmulmex6f015ml91bd10718tt' },
 ];
 
 const norm = (s) => (s ?? '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -75,21 +75,23 @@ async function main() {
       console.log(`${et}\n   -> BORRAR servicio y sus registros ligados.`);
       ops.push({ tipo: 'delete', id: s.id });
     } else if (t.accion === 'repoint') {
-      const fam = await familiaPorNombre(t.familia);
-      if (fam.length !== 1) {
-        console.log(`${et}\n   ⚠ familia destino "${t.familia}": ${fam.length} coincidencias — NO se toca.`);
+      const dest = t.familiaId
+        ? await prisma.familia.findUnique({ where: { id: t.familiaId }, select: { id: true, nombreContacto: true, plaza: true } })
+        : (await familiaPorNombre(t.familia))[0];
+      if (!dest) {
+        console.log(`${et}\n   ⚠ familia destino no encontrada (${t.familiaId ?? t.familia}) — NO se toca.`);
         continue;
       }
-      const aviso = fam[0].plaza !== s.plaza ? `  ⚠ (destino es ${fam[0].plaza}, servicio es ${s.plaza})` : '';
-      console.log(`${et}\n   -> FAMILIA a "${fam[0].nombreContacto}" (${fam[0].id})${aviso}`);
-      ops.push({ tipo: 'repoint', id: s.id, familiaId: fam[0].id });
+      const aviso = dest.plaza !== s.plaza ? `  ⚠ (destino es ${dest.plaza}, servicio es ${s.plaza})` : '';
+      console.log(`${et}\n   -> FAMILIA a "${dest.nombreContacto}" (${dest.id})${aviso}`);
+      ops.push({ tipo: 'repoint', id: s.id, familiaId: dest.id });
       if (t.descuento) {
         console.log(`   -> descuentoNannie = $${t.descuento} (pago neto baja a $260)`);
         ops.push({ tipo: 'descuento', id: s.id, monto: t.descuento });
       }
       if (t.bono) {
         console.log(`   -> BONO $${t.bono} a ${s.nannie?.nombre} (fecha ${t.fecha}) por pago especial`);
-        ops.push({ tipo: 'bono', nannieId: s.nannie.id, monto: t.bono, fecha: t.fecha, motivo: `Ajuste pago fiesta ${t.fecha} (familia ${t.familia}, tarifa especial)` });
+        ops.push({ tipo: 'bono', nannieId: s.nannie.id, monto: t.bono, fecha: t.fecha, motivo: `Ajuste pago fiesta ${t.fecha} (familia ${dest.nombreContacto}, tarifa especial)` });
       }
     }
   }
