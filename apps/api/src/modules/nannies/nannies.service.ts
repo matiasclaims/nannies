@@ -88,6 +88,13 @@ export class NanniesService {
     ).map((d) => d.clave);
     const docs = claves.filter((c) => CLAVES_DOCUMENTOS.includes(c));
     const cursos = claves.filter((c) => CLAVES_CURSOS.includes(c));
+    // Calificaciones: papás = encuestas respondidas de sus servicios; agencia =
+    // evaluaciones de coordinación por servicio/paquete. Promedio de TODAS.
+    const [evalPapas, evalAgencia] = await Promise.all([
+      this.prisma.evaluacionServicio.findMany({ where: { respondidoEn: { not: null }, servicio: { nannieId: id } }, select: { calificacion: true } }),
+      this.prisma.evaluacionCoordServicio.findMany({ where: { nannieId: id }, select: { calificacion: true } }),
+    ]);
+    const prom = (ns: number[]) => (ns.length ? Math.round((ns.reduce((s, x) => s + x, 0) / ns.length) * 10) / 10 : null);
     return {
       id: n.id,
       nombre: n.nombre,
@@ -108,6 +115,8 @@ export class NanniesService {
       cursosCompletados: cursos,
       serviciosAcumulados: n.serviciosAcumulados,
       tieneCuenta: !!n.usuario,
+      calificacionPapas: { promedio: prom(evalPapas.map((e) => e.calificacion ?? 0)), total: evalPapas.length },
+      calificacionAgencia: { promedio: prom(evalAgencia.map((e) => Number(e.calificacion))), total: evalAgencia.length },
     };
   }
 

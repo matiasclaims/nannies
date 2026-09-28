@@ -40,6 +40,8 @@ export interface NannieExpediente {
 }
 export interface NanniePerfil extends NannieExpediente {
   nivelActual: string;
+  calificacionPapas: { promedio: number | null; total: number };
+  calificacionAgencia: { promedio: number | null; total: number };
 }
 export interface NotaNannie {
   id: string;

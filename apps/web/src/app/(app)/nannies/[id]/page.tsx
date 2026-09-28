@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, UserMinus, Check, Camera, Pencil, Award, ClipboardCheck, X, ExternalLink, KeyRound, Copy } from 'lucide-react';
+import { ArrowLeft, UserMinus, Check, Camera, Pencil, Award, ClipboardCheck, X, ExternalLink, KeyRound, Copy, Star } from 'lucide-react';
 import { api, ApiError, type NanniePerfil, type Plaza, type DocumentoNannie, type ReferenciaNannie, type AccesoRegeneradoResultado } from '@/lib/api';
 import { ZONAS_QRO } from '@/lib/queretaro';
 import { CATALOGO_DOCUMENTOS, CATALOGO_CURSOS, type ItemChecklist } from '@/lib/nannie-catalogos';
@@ -83,6 +83,19 @@ export default function NanniePerfilPage() {
           ) : (
             <p className="mt-1 text-xs italic text-texto-suave">Sin especialidad — agrégala en Editar</p>
           )}
+          {/* Calificaciones: promedio de encuestas de papás y de evaluaciones de coordinación. */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+              <Star className="h-3.5 w-3.5" fill="currentColor" />
+              {perfil.calificacionPapas.promedio ?? '—'} Papás
+              <span className="font-normal text-amber-700/70">({perfil.calificacionPapas.total})</span>
+            </span>
+            <span className="flex items-center gap-1 rounded-lg bg-marca-azul/10 px-2 py-0.5 text-xs font-semibold text-marca-azul">
+              <Star className="h-3.5 w-3.5" fill="currentColor" />
+              {perfil.calificacionAgencia.promedio ?? '—'} Agencia
+              <span className="font-normal text-marca-azul/60">({perfil.calificacionAgencia.total})</span>
+            </span>
+          </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', ESTADO_NANNIE[perfil.estado].clase)}>
