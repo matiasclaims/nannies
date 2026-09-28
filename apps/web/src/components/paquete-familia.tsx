@@ -40,6 +40,24 @@ export function PaqueteFamilia({
   const [confirmBorrar, setConfirmBorrar] = useState(false);
   const [borrando, setBorrando] = useState(false);
   const [errorBorrar, setErrorBorrar] = useState('');
+  // Borrado de un paquete EN ESPERA: se confirma por id (cuál está en confirmación).
+  const [esperaConfirm, setEsperaConfirm] = useState<string | null>(null);
+  const [esperaBorrando, setEsperaBorrando] = useState(false);
+  const [esperaError, setEsperaError] = useState('');
+
+  const eliminarEspera = async (id: string) => {
+    setEsperaError('');
+    setEsperaBorrando(true);
+    try {
+      await api.eliminarPaquete(id);
+      setEsperaConfirm(null);
+      await onCambio();
+    } catch (e) {
+      setEsperaError(e instanceof Error ? e.message : 'No se pudo eliminar el paquete.');
+    } finally {
+      setEsperaBorrando(false);
+    }
+  };
 
   // Alta de paquete: se usa en la familia sin paquete Y para renovar cuando el
   // paquete quedó CONSUMIDO (horas agotadas), donde la vista del paquete sigue
@@ -101,6 +119,31 @@ export function PaqueteFamilia({
           <p className="mt-1 text-[10px] text-texto-suave">
             Se activará automáticamente cuando se agote el paquete actual.
           </p>
+          <div className="mt-1.5 text-[11px]">
+            {esperaConfirm !== q.id ? (
+              <button
+                onClick={() => { setEsperaError(''); setEsperaConfirm(q.id); }}
+                className="font-medium text-marca-rojo hover:underline"
+              >
+                Eliminar paquete
+              </button>
+            ) : (
+              <span className="inline-flex flex-wrap items-center gap-2">
+                <span className="text-texto-fuerte">¿Eliminar este paquete en espera?</span>
+                <button
+                  onClick={() => eliminarEspera(q.id)}
+                  disabled={esperaBorrando}
+                  className="rounded bg-marca-rojo px-2 py-0.5 font-semibold text-white disabled:opacity-50"
+                >
+                  {esperaBorrando ? 'Eliminando…' : 'Sí, eliminar'}
+                </button>
+                <button onClick={() => setEsperaConfirm(null)} className="text-texto-suave hover:underline">
+                  Cancelar
+                </button>
+              </span>
+            )}
+            {esperaConfirm === q.id && esperaError && <p className="mt-1 text-marca-rojo">{esperaError}</p>}
+          </div>
         </div>
       ))}
     </div>
