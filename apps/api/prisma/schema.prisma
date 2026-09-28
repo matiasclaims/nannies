@@ -189,6 +189,12 @@ model Nannie {
   // Colonias de trabajo (M5 · Toluca): la nannie las define al inicio; luego
   // quedan bloqueadas para ella (un cambio lo autoriza coordinación).
   coloniasBloqueadas  Boolean         @default(false)
+  // Expediente (la nannie los captura): contacto a quién avisar en una
+  // emergencia y consideraciones de salud que la empresa debe conocer.
+  emergenciaNombre     String? // a quién avisar en caso de emergencia
+  emergenciaTelefono   String? // su teléfono
+  emergenciaParentesco String? // relación con la nannie (mamá, esposo, etc.)
+  consideracionSalud   String? // condición/alergia/consideración de salud relevante
   creadoEn            DateTime        @default(now())
   actualizadoEn       DateTime        @updatedAt
 

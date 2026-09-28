@@ -42,6 +42,17 @@ export interface NanniePerfil extends NannieExpediente {
   nivelActual: string;
   calificacionPapas: { promedio: number | null; total: number };
   calificacionAgencia: { promedio: number | null; total: number };
+  emergenciaNombre: string | null;
+  emergenciaTelefono: string | null;
+  emergenciaParentesco: string | null;
+  consideracionSalud: string | null;
+}
+/** Datos del expediente que captura la nannie (contacto de emergencia + salud). */
+export interface FichaPersonalNannie {
+  emergenciaNombre: string | null;
+  emergenciaTelefono: string | null;
+  emergenciaParentesco: string | null;
+  consideracionSalud: string | null;
 }
 export interface NotaNannie {
   id: string;
@@ -1135,6 +1146,13 @@ export const api = {
       body: JSON.stringify({ referencias }),
     }),
   referenciasDeNannie: (id: string) => req<ReferenciaNannie[]>(`/nannies/${id}/referencias`),
+  // Ficha personal (contacto de emergencia + consideraciones de salud)
+  miFichaPersonal: () => req<FichaPersonalNannie>('/mis-documentos/ficha'),
+  guardarMiFichaPersonal: (datos: FichaPersonalNannie) =>
+    req<FichaPersonalNannie>('/mis-documentos/ficha', {
+      method: 'PUT',
+      body: JSON.stringify(datos),
+    }),
   // M5 · Colonias de trabajo
   catalogoColonias: () => req<ColoniaCat[]>('/colonias-toluca'),
   misColonias: () => req<ColoniasNannie>('/mis-colonias'),

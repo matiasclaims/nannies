@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Upload, FileText, Check, Trash2, ExternalLink, Users } from 'lucide-react';
-import { api, ApiError, type DocumentoNannie, type ReferenciaNannie, type TipoReferencia } from '@/lib/api';
+import { Upload, FileText, Check, Trash2, ExternalLink, Users, HeartPulse } from 'lucide-react';
+import { api, ApiError, type DocumentoNannie, type ReferenciaNannie, type TipoReferencia, type FichaPersonalNannie } from '@/lib/api';
 import { CATALOGO_DOCUMENTOS, CATALOGO_CURSOS, type ItemChecklist } from '@/lib/nannie-catalogos';
 import { cn } from '@/lib/utils';
 
@@ -29,8 +29,8 @@ export default function MisDocumentosPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div>
-        <h1 className="text-lg font-semibold text-texto-fuerte">Mis documentos</h1>
-        <p className="text-sm text-texto-suave">Sube tus documentos y constancias (PDF o foto, máx {MAX_MB} MB).</p>
+        <h1 className="text-lg font-semibold text-texto-fuerte">Mi expediente</h1>
+        <p className="text-sm text-texto-suave">Completa tus datos, sube tus documentos y constancias (PDF o foto, máx {MAX_MB} MB).</p>
       </div>
 
       {error && <p className="rounded-xl bg-marca-rojo/10 px-3 py-2 text-sm text-marca-rojo">{error}</p>}
@@ -43,6 +43,7 @@ export default function MisDocumentosPage() {
         <div className="h-40 animate-pulse rounded-2xl bg-panel" />
       ) : (
         <>
+          <FichaPersonalPanel onError={setError} />
           <Grupo titulo="Documentos" items={CATALOGO_DOCUMENTOS} porClave={porClave} onCambio={cargar} onError={setError} />
           <ReferenciasPanel onError={setError} />
           <Grupo titulo="Cursos (constancias)" items={CATALOGO_CURSOS} porClave={porClave} onCambio={cargar} onError={setError} />
@@ -197,6 +198,89 @@ const vacio = (tipo: TipoReferencia, orden: number): SlotRef => ({
 });
 const inputCls =
   'w-full rounded-lg border border-borde bg-white px-2.5 py-1.5 text-sm outline-none focus:border-marca-azul';
+
+/** Contacto de emergencia y consideraciones de salud: los captura la nannie
+ *  para que la empresa los conozca. Todos los campos son opcionales. */
+function FichaPersonalPanel({ onError }: { onError: (m: string) => void }) {
+  const [ficha, setFicha] = useState<FichaPersonalNannie>({
+    emergenciaNombre: '',
+    emergenciaTelefono: '',
+    emergenciaParentesco: '',
+    consideracionSalud: '',
+  });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    api
+      .miFichaPersonal()
+      .then((f) =>
+        setFicha({
+          emergenciaNombre: f.emergenciaNombre ?? '',
+          emergenciaTelefono: f.emergenciaTelefono ?? '',
+          emergenciaParentesco: f.emergenciaParentesco ?? '',
+          consideracionSalud: f.consideracionSalud ?? '',
+        }),
+      )
+      .catch(() => undefined);
+  }, []);
+
+  const set = (campo: keyof FichaPersonalNannie, val: string) =>
+    setFicha((prev) => ({ ...prev, [campo]: val }));
+
+  async function guardar() {
+    setBusy(true);
+    setMsg('');
+    onError('');
+    try {
+      await api.guardarMiFichaPersonal(ficha);
+      setMsg('Datos guardados.');
+    } catch (err) {
+      onError(err instanceof ApiError ? err.message : 'No se pudieron guardar los datos.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl bg-panel p-4 shadow-card">
+      <div className="mb-1 flex items-center gap-2">
+        <HeartPulse className="h-4 w-4 text-marca-azul" />
+        <h2 className="text-sm font-semibold text-texto-fuerte">Contacto de emergencia y salud</h2>
+      </div>
+      <p className="mb-3 text-[11px] text-texto-suave">
+        A quién avisar en caso de emergencia y cualquier consideración de salud que la empresa deba conocer.
+      </p>
+
+      <p className="mb-1 text-xs font-semibold text-texto-suave">Contacto de emergencia</p>
+      <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <input className={inputCls} placeholder="Nombre" value={ficha.emergenciaNombre ?? ''} onChange={(e) => set('emergenciaNombre', e.target.value)} />
+        <input className={inputCls} placeholder="Teléfono" inputMode="tel" value={ficha.emergenciaTelefono ?? ''} onChange={(e) => set('emergenciaTelefono', e.target.value)} />
+        <input className={inputCls} placeholder="Parentesco / relación" value={ficha.emergenciaParentesco ?? ''} onChange={(e) => set('emergenciaParentesco', e.target.value)} />
+      </div>
+
+      <p className="mb-1 text-xs font-semibold text-texto-suave">Consideraciones de salud</p>
+      <textarea
+        className={cn(inputCls, 'min-h-20 resize-y')}
+        placeholder="Alergias, condiciones médicas, medicamentos u otra consideración relevante. Déjalo en blanco si no aplica."
+        value={ficha.consideracionSalud ?? ''}
+        onChange={(e) => set('consideracionSalud', e.target.value)}
+        maxLength={500}
+      />
+
+      <div className="mt-3 flex items-center justify-end gap-3">
+        {msg && <span className="text-xs text-[#3b6d11]">{msg}</span>}
+        <button
+          onClick={guardar}
+          disabled={busy}
+          className="rounded-lg bg-marca-azul px-3.5 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {busy ? 'Guardando…' : 'Guardar datos'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /** Referencias laborales/personales: datos capturados por la nannie (2 de cada). */
 function ReferenciasPanel({ onError }: { onError: (m: string) => void }) {

@@ -110,6 +110,50 @@ export class DocumentosService {
     return { ok: true };
   }
 
+  /** Datos del expediente que captura la nannie: contacto de emergencia y
+   *  consideraciones de salud. */
+  async obtenerFichaPersonal(nannieId: string) {
+    const n = await this.prisma.nannie.findUnique({
+      where: { id: nannieId },
+      select: {
+        emergenciaNombre: true,
+        emergenciaTelefono: true,
+        emergenciaParentesco: true,
+        consideracionSalud: true,
+      },
+    });
+    if (!n) throw new NotFoundException('Nannie no encontrada');
+    return n;
+  }
+
+  async guardarFichaPersonal(
+    nannieId: string,
+    dto: {
+      emergenciaNombre?: string;
+      emergenciaTelefono?: string;
+      emergenciaParentesco?: string;
+      consideracionSalud?: string;
+    },
+  ) {
+    const nannie = await this.prisma.nannie.findUnique({
+      where: { id: nannieId },
+      select: { id: true },
+    });
+    if (!nannie) throw new NotFoundException('Nannie no encontrada');
+    const limpio = (s: string | undefined, max: number) =>
+      s?.trim() ? s.trim().slice(0, max) : null;
+    await this.prisma.nannie.update({
+      where: { id: nannieId },
+      data: {
+        emergenciaNombre: limpio(dto.emergenciaNombre, 120),
+        emergenciaTelefono: limpio(dto.emergenciaTelefono, 40),
+        emergenciaParentesco: limpio(dto.emergenciaParentesco, 60),
+        consideracionSalud: limpio(dto.consideracionSalud, 500),
+      },
+    });
+    return this.obtenerFichaPersonal(nannieId);
+  }
+
   /** Referencias (laborales/personales) capturadas por la nannie. */
   async listarReferencias(nannieId: string) {
     return this.prisma.referenciaNannie.findMany({

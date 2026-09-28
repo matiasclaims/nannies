@@ -117,6 +117,11 @@ export class NanniesService {
       tieneCuenta: !!n.usuario,
       calificacionPapas: { promedio: prom(evalPapas.map((e) => e.calificacion ?? 0)), total: evalPapas.length },
       calificacionAgencia: { promedio: prom(evalAgencia.map((e) => Number(e.calificacion))), total: evalAgencia.length },
+      // Contacto de emergencia y salud (los captura la nannie en su expediente).
+      emergenciaNombre: n.emergenciaNombre,
+      emergenciaTelefono: n.emergenciaTelefono,
+      emergenciaParentesco: n.emergenciaParentesco,
+      consideracionSalud: n.consideracionSalud,
     };
   }
 

@@ -36,7 +36,7 @@ export const NAV: NavItem[] = [
   { href: '/asignacion', label: 'Asignación', icon: ArrowLeftRight, movil: true, roles: COORD },
   { href: '/calendario', label: 'Calendario', icon: CalendarDays, movil: true },
   { href: '/mis-colonias', label: 'Mis colonias', icon: MapPin, movil: true, roles: ['NANNIE'] },
-  { href: '/mis-documentos', label: 'Mis documentos', icon: FolderUp, movil: true, roles: ['NANNIE'] },
+  { href: '/mis-documentos', label: 'Mi expediente', icon: FolderUp, movil: true, roles: ['NANNIE'] },
   { href: '/nannies', label: 'Nannies', icon: Users, movil: true, roles: COORD },
   { href: '/familias', label: 'Familias', icon: Heart, roles: COORD },
   { href: '/finanzas', label: 'Finanzas', icon: Wallet, roles: COORD },

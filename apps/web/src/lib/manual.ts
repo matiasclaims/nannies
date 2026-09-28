@@ -443,15 +443,16 @@ export const MANUAL: CapituloModulo[] = [
           nota: 'Tu coordinación también puede ponerte una foto (por ejemplo, de tu credencial).',
         },
         {
-          titulo: 'Mis documentos',
+          titulo: 'Mi expediente',
           intro:
-            'Puedes subir tus documentos y constancias directo a la plataforma, sin mandarlos por otro lado. Coordinación los revisa desde tu expediente.',
+            'Puedes completar tus datos y subir tus documentos y constancias directo a la plataforma, sin mandarlos por otro lado. Coordinación los revisa desde tu expediente.',
           pasos: [
-            'Entra a "Mis documentos" en el menú.',
+            'Entra a "Mi expediente" en el menú.',
+            'En "Contacto de emergencia y salud" indica a quién avisar en una emergencia (nombre, teléfono, relación) y cualquier consideración de salud que la empresa deba conocer. Guarda.',
             'Verás la lista de documentos (9) y cursos (5). Junto a cada uno, presiona "Subir" y elige el archivo (PDF o foto, máx. 8 MB).',
             'Para reemplazar uno, vuelve a subirlo; para quitarlo, usa el bote de basura.',
           ],
-          nota: 'Solo tú y tu coordinación ven tus documentos.',
+          nota: 'Solo tú y tu coordinación ven tu expediente.',
         },
       ],
     },

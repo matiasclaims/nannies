@@ -604,6 +604,31 @@ function ExpedienteChecklists({ perfil }: { perfil: NanniePerfil }) {
         )}
       </div>
 
+      {/* Contacto de emergencia y salud (capturados por la nannie). */}
+      <div>
+        <p className="mb-1 text-xs font-semibold text-texto-suave">Contacto de emergencia y salud (capturados por la nannie)</p>
+        {perfil.emergenciaNombre || perfil.emergenciaTelefono || perfil.emergenciaParentesco || perfil.consideracionSalud ? (
+          <div className="space-y-2">
+            {(perfil.emergenciaNombre || perfil.emergenciaTelefono || perfil.emergenciaParentesco) && (
+              <div className="rounded-lg border border-borde p-2 text-xs">
+                <p className="font-semibold text-texto-fuerte">Avisar en emergencia</p>
+                <p className="text-texto-suave">
+                  {[perfil.emergenciaNombre, perfil.emergenciaParentesco, perfil.emergenciaTelefono].filter(Boolean).join(' · ') || '—'}
+                </p>
+              </div>
+            )}
+            {perfil.consideracionSalud && (
+              <div className="rounded-lg border border-borde p-2 text-xs">
+                <p className="font-semibold text-texto-fuerte">Consideraciones de salud</p>
+                <p className="whitespace-pre-line text-texto-suave">{perfil.consideracionSalud}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-texto-suave">La nannie aún no captura estos datos.</p>
+        )}
+      </div>
+
     </div>
   );
 }
