@@ -353,6 +353,7 @@ export interface FamiliaLite {
   zona: string | null;
   estado?: string;
   inactiva?: boolean;
+  esHistoricaOculta?: boolean;
   diasSinServicio?: number;
   nServicios?: number;
   ninosNombres?: string[];

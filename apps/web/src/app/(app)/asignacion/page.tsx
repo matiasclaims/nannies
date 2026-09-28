@@ -54,7 +54,7 @@ function BuscadorFamilia({
   const textoSel = sel ? `${sel.nombreContacto}${sel.apellido ? ` ${sel.apellido}` : ''}` : '';
 
   const resultados = useMemo(() => {
-    const activas = familias.filter((f) => !f.id.startsWith('hist')); // fuera las históricas del import
+    const activas = familias.filter((f) => !f.esHistoricaOculta); // fuera las históricas SIN actividad viva
     const nq = normTxt(q.trim());
     const base = nq
       ? activas.filter((f) =>

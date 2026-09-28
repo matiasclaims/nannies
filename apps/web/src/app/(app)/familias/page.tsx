@@ -107,9 +107,9 @@ export default function FamiliasPage() {
       ) : (
         <ul className="space-y-2">
           {familias
-            // Fuera las familias históricas del import (placeholders `hist…`): son
-            // duplicados de clientes reales, solo sirven para el nombre en Finanzas.
-            .filter((f) => !f.id.startsWith('hist'))
+            // Fuera las familias históricas del import (placeholders `hist…`) que
+            // NO tienen actividad viva; las que ya se reactivaron sí aparecen.
+            .filter((f) => !f.esHistoricaOculta)
             .filter((f) => (!ocultarInactivas || !f.inactiva) && (!soloPaquete || f.paqueteActivo))
             .filter((f) => {
               const t = norm(q.trim());

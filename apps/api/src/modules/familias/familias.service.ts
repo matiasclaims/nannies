@@ -32,8 +32,9 @@ export class FamiliasService {
 
   /** 5.1 · Directorio: familias con paquete activo, nº de servicios y última atención. */
   async listar() {
-    const familias = await this.prisma.familia.findMany({
-      select: {
+    const [familias, conVivos] = await Promise.all([
+      this.prisma.familia.findMany({
+        select: {
         id: true,
         nombreContacto: true,
         apellido: true,
@@ -54,8 +55,17 @@ export class FamiliasService {
           },
           take: 1,
         },
-      },
-    });
+        },
+      }),
+      // Familias con al menos un servicio VIVO (no histórico): una familia del
+      // import histórico (id `hist…`) que ya tiene actividad real deja de ocultarse.
+      this.prisma.servicio.findMany({
+        where: { esHistorico: false },
+        select: { familiaId: true },
+        distinct: ['familiaId'],
+      }),
+    ]);
+    const conServicioVivo = new Set(conVivos.map((s) => s.familiaId));
 
     // Orden cronológico por última atención (Paula, 2026-09): las últimas en
     // contratar un servicio hasta arriba; las que nunca han tenido, por fechaAlta.
@@ -69,6 +79,9 @@ export class FamiliasService {
       return {
         ...f,
         nServicios: _count.servicios,
+        // Histórica del import que NO debe salir en listas/buscadores (id `hist…`
+        // sin servicios vivos). Con actividad real, deja de ocultarse.
+        esHistoricaOculta: f.id.startsWith('hist') && !conServicioVivo.has(f.id),
         ninosNombres: ninos.map((n) => n.nombre).filter(Boolean),
         ultimaAtencion: servicios[0]?.fecha.toISOString().slice(0, 10) ?? null,
         // Inactividad DERIVADA (M5 · Paula): ≥60 días sin servicio → "Inactiva",
