@@ -140,6 +140,7 @@ export default function PerfilFamiliaPage() {
           plaza={data.plaza}
           zona={data.zona}
           paquete={data.paqueteActivo}
+          paquetesEnEspera={data.paquetesEnEspera}
           nannies={nannies}
           onCambio={cargar}
         />

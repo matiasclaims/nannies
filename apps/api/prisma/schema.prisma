@@ -114,7 +114,8 @@ enum RespuestaOferta {
 }
 
 enum EstadoPaquete {
-  ACTIVO // con saldo de horas disponible
+  ACTIVO // con saldo de horas disponible (solo 1 por familia a la vez)
+  EN_ESPERA // pagado por adelantado; se activa solo al agotarse el ACTIVO
   CONSUMIDO // saldo agotado
   CANCELADO
 }

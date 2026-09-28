@@ -19,6 +19,7 @@ export function PaqueteFamilia({
   plaza,
   zona,
   paquete,
+  paquetesEnEspera = [],
   nannies,
   onCambio,
 }: {
@@ -26,6 +27,7 @@ export function PaqueteFamilia({
   plaza: Plaza;
   zona: string | null;
   paquete: PaqueteActivo | null;
+  paquetesEnEspera?: PaqueteActivo[];
   nannies: NannieLite[];
   onCambio: () => Promise<void> | void;
 }) {
@@ -66,6 +68,42 @@ export function PaqueteFamilia({
       </div>
       {error && <p className="mt-1 text-xs text-marca-rojo">{error}</p>}
     </>
+  );
+
+  // Paquetes simultáneos (Paula 2026-09): hasta 3 vigentes por familia
+  // (1 ACTIVO + hasta 2 EN_ESPERA). Un CONSUMIDO ya no cuenta como vigente.
+  const activoVigente = !!paquete && paquete.estado !== 'CONSUMIDO';
+  const vigentes = (activoVigente ? 1 : 0) + paquetesEnEspera.length;
+  const puedeRegistrar = vigentes < 3;
+
+  // Lista (solo lectura) de los paquetes en espera: pagados por adelantado, se
+  // activan solos al agotarse el actual. No se pueden programar todavía.
+  const bloqueEnEspera = paquetesEnEspera.length > 0 && (
+    <div className="mt-3 space-y-2 border-t border-borde pt-3">
+      {paquetesEnEspera.map((q) => (
+        <div key={q.id} className="rounded-lg bg-fondo p-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-medium text-texto-fuerte">
+              Paquete en espera
+              <span className="ml-1 rounded-full bg-marca-morado/15 px-1.5 py-0.5 text-[10px] font-semibold text-marca-morado">
+                pagado por adelantado
+              </span>
+              {q.asignacionManual && (
+                <span className="ml-1 rounded-full bg-marca-morado/15 px-1.5 py-0.5 text-[10px] font-semibold text-marca-morado">
+                  manual
+                </span>
+              )}
+            </span>
+            <span className="text-texto-suave">
+              {q.horasRestantes} / {q.horasTotales} h
+            </span>
+          </div>
+          <p className="mt-1 text-[10px] text-texto-suave">
+            Se activará automáticamente cuando se agote el paquete actual.
+          </p>
+        </div>
+      ))}
+    </div>
   );
 
   if (paquete) {
@@ -176,11 +214,19 @@ export function PaqueteFamilia({
           </>
         ) : null}
 
-        {/* Horas agotadas: la proyección sigue arriba, pero además se puede
-            registrar un paquete nuevo (renovación). */}
-        {p.estado === 'CONSUMIDO' && (
+        {/* Paquetes pagados por adelantado (en espera de activarse). */}
+        {bloqueEnEspera}
+
+        {/* Registrar otro paquete: si el actual se agotó es una renovación; si
+            sigue activo, es un pago por adelantado que entra en espera. Hasta 3
+            paquetes vigentes por familia. */}
+        {puedeRegistrar && (
           <div className="mt-3 border-t border-borde pt-3">
-            <p className="mb-2 text-xs text-texto-suave">Las horas de este paquete se agotaron. Registra uno nuevo:</p>
+            <p className="mb-2 text-xs text-texto-suave">
+              {p.estado === 'CONSUMIDO'
+                ? 'Las horas de este paquete se agotaron. Registra uno nuevo:'
+                : 'Registrar otro paquete (pago por adelantado). Quedará en espera y se activará solo al agotarse el actual:'}
+            </p>
             {formRegistrar}
           </div>
         )}
@@ -205,6 +251,7 @@ export function PaqueteFamilia({
     <div>
       <p className="mb-2 text-xs text-texto-suave">Esta familia no tiene un paquete de horas activo. Regístrale uno:</p>
       {formRegistrar}
+      {bloqueEnEspera}
     </div>
   );
 }

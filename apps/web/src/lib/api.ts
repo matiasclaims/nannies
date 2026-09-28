@@ -340,7 +340,7 @@ export interface AvancePaquete {
 
 export interface PaqueteActivo {
   id: string;
-  estado?: 'ACTIVO' | 'CONSUMIDO' | 'CANCELADO';
+  estado?: 'ACTIVO' | 'EN_ESPERA' | 'CONSUMIDO' | 'CANCELADO';
   horasTotales: number;
   horasConsumidas: number;
   horasRestantes: number;
@@ -613,6 +613,8 @@ export interface PerfilFamilia {
   servicios: ServicioHist[];
   notas: NotaFamilia[];
   paqueteActivo: PaqueteActivo | null;
+  /** Paquetes pagados por adelantado que esperan a que se agote el activo. */
+  paquetesEnEspera?: PaqueteActivo[];
 }
 /** Ficha OPERATIVA de la familia para la nannie (M5, Opción A). Los campos
  *  ocultos por rol llegan ausentes, por eso todo es opcional. */

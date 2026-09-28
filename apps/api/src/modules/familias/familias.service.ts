@@ -194,24 +194,31 @@ export class FamiliasService {
       precioTotal = tramo.precioTotal;
     }
 
-    const yaTiene = await this.prisma.paquete.findFirst({
-      where: { familiaId, estado: 'ACTIVO' },
+    // Paquetes simultáneos (Paula 2026-09): la familia puede tener hasta 3
+    // paquetes vigentes a la vez (1 ACTIVO + hasta 2 EN_ESPERA), para registrar
+    // pagos por adelantado. Solo el ACTIVO consume horas; los EN_ESPERA se
+    // activan solos al agotarse el actual (o si se cancela).
+    const vigentes = await this.prisma.paquete.findMany({
+      where: { familiaId, estado: { in: ['ACTIVO', 'EN_ESPERA'] } },
+      select: { estado: true },
     });
-    if (yaTiene) {
+    if (vigentes.length >= 3) {
       throw new BadRequestException(
-        'La familia ya tiene un paquete activo. Debe consumirse antes de registrar otro.',
+        'La familia ya tiene 3 paquetes simultáneos (el máximo). Debe consumirse alguno antes de registrar otro.',
       );
     }
+    const estado = vigentes.some((p) => p.estado === 'ACTIVO') ? 'EN_ESPERA' : 'ACTIVO';
 
     const paquete = await this.prisma.paquete.create({
       data: {
         familiaId,
         horasTotales,
         precioTotal,
+        estado,
         asignacionManual: dto.asignacionManual ?? false,
         tokenPublico: nuevoTokenPublico(),
       },
-      select: { id: true, horasTotales: true, horasConsumidas: true, asignacionManual: true },
+      select: { id: true, horasTotales: true, horasConsumidas: true, asignacionManual: true, estado: true },
     });
     return {
       ...paquete,
@@ -250,6 +257,25 @@ export class FamiliasService {
       this.prisma.servicio.deleteMany({ where: { id: { in: ids } } }),
       this.prisma.paquete.delete({ where: { id: paqueteId } }),
     ]);
+    // Si se borró el paquete ACTIVO y la familia tiene otro en espera, se
+    // promueve el más antiguo para que no quede sin paquete asignable.
+    const hayActivo = await this.prisma.paquete.findFirst({
+      where: { familiaId: paquete.familiaId, estado: 'ACTIVO' },
+      select: { id: true },
+    });
+    if (!hayActivo) {
+      const siguiente = await this.prisma.paquete.findFirst({
+        where: { familiaId: paquete.familiaId, estado: 'EN_ESPERA' },
+        orderBy: { fechaContratacion: 'asc' },
+        select: { id: true },
+      });
+      if (siguiente) {
+        await this.prisma.paquete.update({
+          where: { id: siguiente.id },
+          data: { estado: 'ACTIVO' },
+        });
+      }
+    }
     return { ok: true as const };
   }
 
@@ -400,6 +426,13 @@ export class FamiliasService {
     }
 
     const p = familia.paquetes[0];
+    // Paquetes simultáneos pagados por adelantado: esperan a que se agote el
+    // activo para asignarse. Se muestran como referencia (sin botón Programar).
+    const enEspera = await this.prisma.paquete.findMany({
+      where: { familiaId, estado: 'EN_ESPERA' },
+      orderBy: { fechaContratacion: 'asc' },
+      select: { id: true, horasTotales: true, horasConsumidas: true, asignacionManual: true },
+    });
     const referencia = familia.servicios[0]?.fecha ?? familia.fechaAlta;
     const diasSinServicio = diasEntre(referencia, new Date());
     return {
@@ -466,6 +499,13 @@ export class FamiliasService {
             asignacionManual: p.asignacionManual,
           }
         : null,
+      paquetesEnEspera: enEspera.map((q) => ({
+        id: q.id,
+        horasTotales: q.horasTotales,
+        horasConsumidas: q.horasConsumidas,
+        horasRestantes: q.horasTotales - q.horasConsumidas,
+        asignacionManual: q.asignacionManual,
+      })),
     };
   }
 

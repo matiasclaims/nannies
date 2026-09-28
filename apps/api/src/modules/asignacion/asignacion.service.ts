@@ -286,13 +286,29 @@ export class AsignacionService {
         });
       }
       const consumidas = paquete.horasConsumidas + fechas.length * dur;
+      const seAgoto = consumidas >= paquete.horasTotales;
       await tx.paquete.update({
         where: { id: paquete.id },
         data: {
           horasConsumidas: consumidas,
-          estado: consumidas >= paquete.horasTotales ? 'CONSUMIDO' : 'ACTIVO',
+          estado: seAgoto ? 'CONSUMIDO' : 'ACTIVO',
         },
       });
+      // Activación automática: si el paquete activo se agotó, promover el
+      // siguiente paquete en espera (el más antiguo por fecha de contratación).
+      if (seAgoto) {
+        const siguiente = await tx.paquete.findFirst({
+          where: { familiaId: paquete.familiaId, estado: 'EN_ESPERA' },
+          orderBy: { fechaContratacion: 'asc' },
+          select: { id: true },
+        });
+        if (siguiente) {
+          await tx.paquete.update({
+            where: { id: siguiente.id },
+            data: { estado: 'ACTIVO' },
+          });
+        }
+      }
       return {
         creados: fechas.length,
         fechas: fechas.map((f) => f.toISOString().slice(0, 10)),

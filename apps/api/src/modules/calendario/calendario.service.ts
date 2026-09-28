@@ -417,13 +417,17 @@ export class CalendarioService {
       const horaFinPaquete = horasDesborde > 0 ? sumarHoras(dto.horaInicio, horasPaquete) : dto.horaFin;
 
       const consumidas = paquete.horasConsumidas + horasPaquete;
+      const seAgoto = consumidas >= paquete.horasTotales;
       await tx.paquete.update({
         where: { id: paquete.id },
         data: {
           horasConsumidas: consumidas,
-          estado: consumidas >= paquete.horasTotales ? 'CONSUMIDO' : 'ACTIVO',
+          estado: seAgoto ? 'CONSUMIDO' : 'ACTIVO',
         },
       });
+      if (seAgoto) {
+        await this.activarSiguientePaquete(tx, paquete.familiaId);
+      }
       const servicio = await tx.servicio.create({
         data: { ...data, horaFin: horaFinPaquete, duracionHoras: horasPaquete },
       });
@@ -519,13 +523,17 @@ export class CalendarioService {
         durBase = servicio.duracionHoras + deltaPaquete;
         finBase = horasDesborde > 0 ? sumarHoras(servicio.horaInicio, durBase) : dto.horaFin;
         const consumidas = servicio.paquete.horasConsumidas + deltaPaquete;
+        const seAgoto = consumidas >= servicio.paquete.horasTotales;
         await tx.paquete.update({
           where: { id: servicio.paquete.id },
           data: {
             horasConsumidas: consumidas,
-            estado: consumidas >= servicio.paquete.horasTotales ? 'CONSUMIDO' : 'ACTIVO',
+            estado: seAgoto ? 'CONSUMIDO' : 'ACTIVO',
           },
         });
+        if (seAgoto) {
+          await this.activarSiguientePaquete(tx, servicio.paquete.familiaId);
+        }
       }
 
       // Recalcula el cobro de la parte base según el formato.
@@ -614,6 +622,28 @@ export class CalendarioService {
    *    resolverse después. En los tres casos la nannie SÍ cobra sus horas (nómina
    *    paga por duración del servicio COMPLETADO). Sin mínimo de 3 h (son sobrantes).
    */
+  /**
+   * Activación automática de paquetes simultáneos: si la familia ya no tiene
+   * un paquete ACTIVO (el actual se agotó), promueve el paquete EN_ESPERA más
+   * antiguo (por fecha de contratación) a ACTIVO. No hace nada si aún hay un
+   * ACTIVO o no hay paquetes en espera.
+   */
+  private async activarSiguientePaquete(tx: Prisma.TransactionClient, familiaId: string) {
+    const hayActivo = await tx.paquete.findFirst({
+      where: { familiaId, estado: 'ACTIVO' },
+      select: { id: true },
+    });
+    if (hayActivo) return;
+    const siguiente = await tx.paquete.findFirst({
+      where: { familiaId, estado: 'EN_ESPERA' },
+      orderBy: { fechaContratacion: 'asc' },
+      select: { id: true },
+    });
+    if (siguiente) {
+      await tx.paquete.update({ where: { id: siguiente.id }, data: { estado: 'ACTIVO' } });
+    }
+  }
+
   private async crearServicioDesborde(
     tx: Prisma.TransactionClient,
     origen: {
@@ -689,13 +719,17 @@ export class CalendarioService {
     if (horas > tramo.horas) {
       throw new BadRequestException(`El desborde de ${horas} h no cabe en un paquete de ${tramo.horas} h.`);
     }
+    const yaHayActivo = await tx.paquete.findFirst({
+      where: { familiaId: origen.familiaId, estado: 'ACTIVO' },
+      select: { id: true },
+    });
     const nuevo = await tx.paquete.create({
       data: {
         familia: { connect: { id: origen.familiaId } },
         horasTotales: tramo.horas,
         horasConsumidas: horas,
         precioTotal: tramo.precioTotal,
-        estado: horas >= tramo.horas ? 'CONSUMIDO' : 'ACTIVO',
+        estado: horas >= tramo.horas ? 'CONSUMIDO' : yaHayActivo ? 'EN_ESPERA' : 'ACTIVO',
         fechaContratacion: origen.fecha,
       },
     });
@@ -742,13 +776,22 @@ export class CalendarioService {
       );
     }
     const nuevoId = await this.prisma.$transaction(async (tx) => {
+      const yaHayActivo = await tx.paquete.findFirst({
+        where: { familiaId: servicio.familiaId, estado: 'ACTIVO' },
+        select: { id: true },
+      });
       const nuevo = await tx.paquete.create({
         data: {
           familia: { connect: { id: servicio.familiaId } },
           horasTotales: tramo.horas,
           horasConsumidas: servicio.duracionHoras,
           precioTotal: tramo.precioTotal,
-          estado: servicio.duracionHoras >= tramo.horas ? 'CONSUMIDO' : 'ACTIVO',
+          estado:
+            servicio.duracionHoras >= tramo.horas
+              ? 'CONSUMIDO'
+              : yaHayActivo
+                ? 'EN_ESPERA'
+                : 'ACTIVO',
           fechaContratacion: servicio.fecha,
         },
       });
@@ -861,12 +904,20 @@ export class CalendarioService {
         const paquete = await tx.paquete.findUnique({ where: { id: servicio.paqueteId } });
         if (paquete) {
           const consumidas = Math.max(0, paquete.horasConsumidas - servicio.duracionHoras);
+          let estado = paquete.estado;
+          if (paquete.estado === 'CONSUMIDO') {
+            // Devuelve saldo a un paquete agotado. Si otro paquete ya tomó su
+            // lugar como ACTIVO (fila en espera promovida), este vuelve a la
+            // cola como EN_ESPERA en vez de crear un segundo ACTIVO.
+            const otroActivo = await tx.paquete.findFirst({
+              where: { familiaId: paquete.familiaId, estado: 'ACTIVO', id: { not: paquete.id } },
+              select: { id: true },
+            });
+            estado = otroActivo ? 'EN_ESPERA' : 'ACTIVO';
+          }
           await tx.paquete.update({
             where: { id: paquete.id },
-            data: {
-              horasConsumidas: consumidas,
-              estado: paquete.estado === 'CONSUMIDO' ? 'ACTIVO' : paquete.estado,
-            },
+            data: { horasConsumidas: consumidas, estado },
           });
         }
       }
@@ -1030,12 +1081,20 @@ export class CalendarioService {
         const paquete = await tx.paquete.findUnique({ where: { id: servicio.paqueteId } });
         if (paquete) {
           const consumidas = Math.max(0, paquete.horasConsumidas - servicio.duracionHoras);
+          let estado = paquete.estado;
+          if (paquete.estado === 'CONSUMIDO') {
+            // Devuelve saldo a un paquete agotado. Si otro paquete ya tomó su
+            // lugar como ACTIVO (fila en espera promovida), este vuelve a la
+            // cola como EN_ESPERA en vez de crear un segundo ACTIVO.
+            const otroActivo = await tx.paquete.findFirst({
+              where: { familiaId: paquete.familiaId, estado: 'ACTIVO', id: { not: paquete.id } },
+              select: { id: true },
+            });
+            estado = otroActivo ? 'EN_ESPERA' : 'ACTIVO';
+          }
           await tx.paquete.update({
             where: { id: paquete.id },
-            data: {
-              horasConsumidas: consumidas,
-              estado: paquete.estado === 'CONSUMIDO' ? 'ACTIVO' : paquete.estado,
-            },
+            data: { horasConsumidas: consumidas, estado },
           });
         }
       }
