@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Pencil, Trash2, Check, X, ClipboardList, HeartPulse, NotebookPen, QrCode, Star } from 'lucide-react';
 import {
   api,
@@ -23,7 +23,15 @@ import { HoraSelect } from '@/components/hora-select';
 /** Vista de la nannie: sus ofertas arriba + su semana como agenda + marcar disponibilidad.
  *  `nannieId` acota los datos a la nannie (necesario para el doble perfil de Jacky:
  *  su cuenta es de coordinación, así que el backend no la acota por rol). */
-export function AgendaNannie({ dias, nannieId }: { dias: DiaSemana[]; nannieId?: string }) {
+export function AgendaNannie({
+  dias,
+  vista = 'semana',
+  nannieId,
+}: {
+  dias: DiaSemana[];
+  vista?: 'semana' | 'mes';
+  nannieId?: string;
+}) {
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [ofertasPend, setOfertasPend] = useState<Servicio[]>([]);
   const [dispon, setDispon] = useState<Disponibilidad[]>([]);
@@ -33,6 +41,8 @@ export function AgendaNannie({ dias, nannieId }: { dias: DiaSemana[]; nannieId?:
   const [reporteServ, setReporteServ] = useState<Servicio | null>(null);
   const [encuestaServ, setEncuestaServ] = useState<Servicio | null>(null);
   const [miEval, setMiEval] = useState<MiResumenEval | null>(null);
+  // Vista mensual: día seleccionado del grid (su detalle se muestra debajo).
+  const [diaSel, setDiaSel] = useState<string | null>(null);
 
   useEffect(() => {
     api.miResumenEval().then(setMiEval).catch(() => undefined);
@@ -81,6 +91,86 @@ export function AgendaNannie({ dias, nannieId }: { dias: DiaSemana[]; nannieId?:
   // Todas las ofertas por responder (de cualquier fecha), ordenadas por fecha.
   const ofertas = [...ofertasPend].sort((a, b) => a.fecha.localeCompare(b.fecha));
   const enDia = (iso: string, dia: string) => iso.slice(0, 10) === dia;
+
+  // Día seleccionado EFECTIVO en la vista mensual: si el elegido ya no está en el
+  // rango (cambió el mes), cae en hoy si aplica; si no, el primer día. Derivado
+  // para no reajustar estado dentro de un efecto.
+  const hoyIso = new Date().toISOString().slice(0, 10);
+  const diaSelEfectivo =
+    diaSel && dias.some((d) => d.fecha === diaSel)
+      ? diaSel
+      : dias.some((d) => d.fecha === hoyIso)
+        ? hoyIso
+        : (dias[0]?.fecha ?? null);
+
+  // Contenido (servicios + bloques de disponibilidad) de un día. Se reutiliza en
+  // la vista semanal (lista) y en la mensual (detalle del día elegido).
+  const contenidoDia = (servs: Servicio[], bloques: Disponibilidad[]) => {
+    if (servs.length === 0 && bloques.length === 0) {
+      return <p className="text-xs text-texto-suave">Sin actividad</p>;
+    }
+    return (
+      <div className="space-y-1">
+        {servs.map((s) => (
+          <div key={s.id} className="flex flex-wrap items-center gap-2">
+            <p className="text-sm text-texto-fuerte">
+              <span className="font-medium">{TIPO_LABEL[s.tipoServicio]}</span>{' '}
+              {s.horaInicio}–{s.horaFin} · {s.zona}
+            </p>
+            {s.requierePlaneacion ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                <ClipboardList className="h-3 w-3" /> Requiere planeación
+              </span>
+            ) : (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                Sin planeación
+              </span>
+            )}
+            {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
+              <button
+                onClick={() => setFichaServ(s)}
+                className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
+              >
+                <ClipboardList className="h-3.5 w-3.5" /> Ver ficha
+              </button>
+            )}
+            {s.estado === 'ACEPTADO' && (
+              <button
+                onClick={() => completar(s.id)}
+                className="rounded-lg bg-marca-verde px-2.5 py-1 text-xs font-semibold text-white hover:brightness-95"
+              >
+                Marcar terminado
+              </button>
+            )}
+            {s.estado === 'COMPLETADO' && (
+              <span className="rounded-full bg-marca-rojo/20 px-2 py-0.5 text-[11px] font-semibold text-[#a3312f]">
+                Terminado
+              </span>
+            )}
+            {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
+              <button
+                onClick={() => setReporteServ(s)}
+                className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
+              >
+                <NotebookPen className="h-3.5 w-3.5" /> Reporte
+              </button>
+            )}
+            {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
+              <button
+                onClick={() => setEncuestaServ(s)}
+                className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
+              >
+                <QrCode className="h-3.5 w-3.5" /> Encuesta
+              </button>
+            )}
+          </div>
+        ))}
+        {bloques.map((b) => (
+          <BloqueDispon key={b.id} b={b} onCambio={cargar} />
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
@@ -155,17 +245,28 @@ export function AgendaNannie({ dias, nannieId }: { dias: DiaSemana[]; nannieId?:
         )}
       </div>
 
-      {/* Mi semana (agenda) */}
+      {/* Mi agenda: semana (lista de días) o mes (grid + detalle del día). */}
       <div className="rounded-2xl bg-panel p-4 shadow-card">
-        <h3 className="mb-3 text-sm font-semibold text-texto-fuerte">Mi semana</h3>
+        <h3 className="mb-3 text-sm font-semibold text-texto-fuerte">
+          {vista === 'mes' ? 'Mi mes' : 'Mi semana'}
+        </h3>
         {estado === 'cargando' ? (
           <div className="h-32 animate-pulse rounded-xl bg-fondo" />
+        ) : vista === 'mes' ? (
+          <VistaMes
+            dias={dias}
+            servicios={servicios}
+            dispon={dispon}
+            diaSel={diaSelEfectivo}
+            onSelDia={setDiaSel}
+            enDia={enDia}
+            contenidoDia={contenidoDia}
+          />
         ) : (
           <div className="space-y-2">
             {dias.map((d) => {
               const servs = servicios.filter((s) => enDia(s.fecha, d.fecha));
               const bloques = dispon.filter((x) => enDia(x.fecha, d.fecha));
-              const vacio = servs.length === 0 && bloques.length === 0;
               return (
                 <div
                   key={d.fecha}
@@ -182,69 +283,7 @@ export function AgendaNannie({ dias, nannieId }: { dias: DiaSemana[]; nannieId?:
                   >
                     {d.etiqueta}
                   </p>
-                  {vacio ? (
-                    <p className="text-xs text-texto-suave">Sin actividad</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {servs.map((s) => (
-                        <div key={s.id} className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm text-texto-fuerte">
-                            <span className="font-medium">{TIPO_LABEL[s.tipoServicio]}</span>{' '}
-                            {s.horaInicio}–{s.horaFin} · {s.zona}
-                          </p>
-                          {s.requierePlaneacion ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                              <ClipboardList className="h-3 w-3" /> Requiere planeación
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
-                              Sin planeación
-                            </span>
-                          )}
-                          {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
-                            <button
-                              onClick={() => setFichaServ(s)}
-                              className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
-                            >
-                              <ClipboardList className="h-3.5 w-3.5" /> Ver ficha
-                            </button>
-                          )}
-                          {s.estado === 'ACEPTADO' && (
-                            <button
-                              onClick={() => completar(s.id)}
-                              className="rounded-lg bg-marca-verde px-2.5 py-1 text-xs font-semibold text-white hover:brightness-95"
-                            >
-                              Marcar terminado
-                            </button>
-                          )}
-                          {s.estado === 'COMPLETADO' && (
-                            <span className="rounded-full bg-marca-rojo/20 px-2 py-0.5 text-[11px] font-semibold text-[#a3312f]">
-                              Terminado
-                            </span>
-                          )}
-                          {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
-                            <button
-                              onClick={() => setReporteServ(s)}
-                              className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
-                            >
-                              <NotebookPen className="h-3.5 w-3.5" /> Reporte
-                            </button>
-                          )}
-                          {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
-                            <button
-                              onClick={() => setEncuestaServ(s)}
-                              className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
-                            >
-                              <QrCode className="h-3.5 w-3.5" /> Encuesta
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                      {bloques.map((b) => (
-                        <BloqueDispon key={b.id} b={b} onCambio={cargar} />
-                      ))}
-                    </div>
-                  )}
+                  {contenidoDia(servs, bloques)}
                 </div>
               );
             })}
@@ -264,6 +303,93 @@ export function AgendaNannie({ dias, nannieId }: { dias: DiaSemana[]; nannieId?:
         />
       )}
       {encuestaServ && <EncuestaLinkModal servicioId={encuestaServ.id} onCerrar={() => setEncuestaServ(null)} />}
+    </div>
+  );
+}
+
+/** Vista mensual: grid del mes (marcadores por día) + detalle del día elegido.
+ *  Comparte el render de cada día con la vista semanal (contenidoDia). */
+function VistaMes({
+  dias,
+  servicios,
+  dispon,
+  diaSel,
+  onSelDia,
+  enDia,
+  contenidoDia,
+}: {
+  dias: DiaSemana[];
+  servicios: Servicio[];
+  dispon: Disponibilidad[];
+  diaSel: string | null;
+  onSelDia: (iso: string) => void;
+  enDia: (iso: string, dia: string) => boolean;
+  contenidoDia: (servs: Servicio[], bloques: Disponibilidad[]) => ReactNode;
+}) {
+  const CABECERAS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+  // Huecos iniciales: día de la semana del primer día del mes (0 = domingo).
+  const blancos = dias[0] ? new Date(`${dias[0].fecha}T00:00:00Z`).getUTCDay() : 0;
+  const sel = diaSel ? dias.find((d) => d.fecha === diaSel) : undefined;
+  const servsSel = sel ? servicios.filter((s) => enDia(s.fecha, sel.fecha)) : [];
+  const bloquesSel = sel ? dispon.filter((x) => enDia(x.fecha, sel.fecha)) : [];
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-7 gap-1 text-center">
+        {CABECERAS.map((c, i) => (
+          <span key={i} className="pb-1 text-[11px] font-semibold text-texto-suave">
+            {c}
+          </span>
+        ))}
+        {Array.from({ length: blancos }).map((_, i) => (
+          <span key={`b${i}`} />
+        ))}
+        {dias.map((d) => {
+          const nServs = servicios.filter((s) => enDia(s.fecha, d.fecha)).length;
+          const hayDispon = dispon.some((x) => enDia(x.fecha, d.fecha));
+          const activo = d.fecha === diaSel;
+          const num = Number(d.fecha.slice(8, 10));
+          return (
+            <button
+              key={d.fecha}
+              onClick={() => onSelDia(d.fecha)}
+              className={cn(
+                'flex aspect-square flex-col items-center justify-center rounded-lg border text-sm transition',
+                activo
+                  ? 'border-marca-azul bg-marca-azul text-white'
+                  : d.esHoy
+                    ? 'border-marca-azul/40 bg-marca-azul/5 text-texto-fuerte'
+                    : 'border-borde text-texto-fuerte hover:bg-fondo',
+              )}
+            >
+              <span className={cn('font-medium', activo && 'text-white')}>{num}</span>
+              <span className="mt-0.5 flex h-2 items-center gap-0.5">
+                {nServs > 0 && (
+                  <span
+                    className={cn(
+                      'grid h-3.5 min-w-3.5 place-items-center rounded-full px-1 text-[9px] font-bold',
+                      activo ? 'bg-white text-marca-azul' : 'bg-marca-verde text-white',
+                    )}
+                  >
+                    {nServs}
+                  </span>
+                )}
+                {hayDispon && nServs === 0 && (
+                  <span className={cn('h-1.5 w-1.5 rounded-full', activo ? 'bg-white' : 'bg-amber-400')} />
+                )}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Detalle del día seleccionado */}
+      <div className="rounded-xl border border-borde p-3">
+        <p className="mb-1 text-xs font-semibold capitalize text-marca-azul">
+          {sel ? sel.etiqueta : 'Elige un día'}
+        </p>
+        {sel ? contenidoDia(servsSel, bloquesSel) : null}
+      </div>
     </div>
   );
 }

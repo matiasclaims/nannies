@@ -55,3 +55,35 @@ export function etiquetaSemana(lunes: Date): string {
     d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' });
   return `${f(lunes)} – ${f(fin)}`;
 }
+
+// --- Mes (para la vista mensual de la agenda de la nannie) ---
+
+/** Primer día del mes que contiene `base` (en UTC). */
+export function inicioMes(base: Date): Date {
+  return new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), 1));
+}
+
+/** Todos los días del mes de `ref`, como DiaSemana (para el grid mensual). */
+export function diasDeMes(ref: Date): DiaSemana[] {
+  const hoy = iso(new Date());
+  const y = ref.getUTCFullYear();
+  const m = ref.getUTCMonth();
+  const total = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(); // último día del mes
+  return Array.from({ length: total }, (_, i) => {
+    const d = new Date(Date.UTC(y, m, i + 1));
+    const f = iso(d);
+    return {
+      fecha: f,
+      etiqueta: d.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', timeZone: 'UTC' }),
+      esHoy: f === hoy,
+    };
+  });
+}
+
+export function sumarMeses(ref: Date, n: number): Date {
+  return new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() + n, 1));
+}
+
+export function etiquetaMes(ref: Date): string {
+  return ref.toLocaleDateString('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
