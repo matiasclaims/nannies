@@ -104,16 +104,19 @@ export class FinanzasService {
 
     for (const s of servicios) {
       const n = s.nannie!;
-      // Histórico (Qro 2023-2025): usa el pago GUARDADO (su zona/tipo son legados
-      // y el motor no los tarifa); el resto se tarifa con el tabulador vigente.
-      const pago = s.esHistorico
-        ? { monto: s.finanza?.pagoNannie != null ? Number(s.finanza.pagoNannie) : null, motivo: undefined as string | undefined }
-        : pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, n.nivelTarifaMesActual, {
-            paqueteHoras: s.paquete?.horasTotales,
-            ludotecaMontaje: s.ludotecaMontaje,
-            plaza: s.plaza,
-            zona: s.zona,
-          });
+      // Pago MANUAL (override): si FinanzaServicio.pagoNannie está puesto, gana
+      // sobre el tabulador (para tarifas fuera de catálogo). Los históricos sin
+      // override quedan sin pago; el resto se tarifa con el motor vigente.
+      const pago = s.finanza?.pagoNannie != null
+        ? { monto: Number(s.finanza.pagoNannie), motivo: undefined as string | undefined }
+        : s.esHistorico
+          ? { monto: null, motivo: undefined as string | undefined }
+          : pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, n.nivelTarifaMesActual, {
+              paqueteHoras: s.paquete?.horasTotales,
+              ludotecaMontaje: s.ludotecaMontaje,
+              plaza: s.plaza,
+              zona: s.zona,
+            });
       let grupo = porNannie.get(n.id);
       if (!grupo) {
         grupo = {
@@ -353,20 +356,21 @@ export class FinanzasService {
       const cobro = s.finanza ? Number(s.finanza.cobroFamilia) : 0;
       const comision = s.finanza?.comision ? Number(s.finanza.comision) : 0;
       const ajuste = s.finanza?.ajuste ? Number(s.finanza.ajuste) : 0;
-      // Pago SOLO informativo (se reconoce cuando se complete). Se muestra si ya
-      // se completó; si no, queda en null (aún no es egreso de este mes).
-      const pago = s.esHistorico
-        ? s.finanza?.pagoNannie != null
-          ? Number(s.finanza.pagoNannie)
-          : null
-        : s.estado === 'COMPLETADO' && s.nannie
-          ? pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
-              paqueteHoras: s.paquete?.horasTotales,
-              ludotecaMontaje: s.ludotecaMontaje,
-              plaza: s.plaza,
-              zona: s.zona,
-            }).monto
-          : null;
+      // Pago SOLO informativo (se reconoce cuando se complete). Pago MANUAL
+      // (pagoNannie) gana sobre el tabulador; si no, históricos = null y el resto
+      // se tarifa (solo si ya se completó).
+      const pago = s.finanza?.pagoNannie != null
+        ? Number(s.finanza.pagoNannie)
+        : s.esHistorico
+          ? null
+          : s.estado === 'COMPLETADO' && s.nannie
+            ? pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
+                paqueteHoras: s.paquete?.horasTotales,
+                ludotecaMontaje: s.ludotecaMontaje,
+                plaza: s.plaza,
+                zona: s.zona,
+              }).monto
+            : null;
       return {
         servicioId: s.id,
         nannie: s.nannie?.nombre ?? '—',
@@ -414,17 +418,20 @@ export class FinanzasService {
     let pagoNannies = 0;
     let pagosPendientes = 0;
     for (const s of serviciosPago) {
-      // Histórico: pago guardado (aunque no tenga nannie ligada, es costo real).
-      const pago = s.esHistorico
-        ? (s.finanza?.pagoNannie != null ? Number(s.finanza.pagoNannie) : null)
-        : s.nannie
-          ? pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
-              paqueteHoras: s.paquete?.horasTotales,
-              ludotecaMontaje: s.ludotecaMontaje,
-              plaza: s.plaza,
-              zona: s.zona,
-            }).monto
-          : null;
+      // Pago MANUAL (pagoNannie) gana; luego histórico = su guardado; el resto
+      // se tarifa. (aunque no tenga nannie ligada, el histórico es costo real).
+      const pago = s.finanza?.pagoNannie != null
+        ? Number(s.finanza.pagoNannie)
+        : s.esHistorico
+          ? null
+          : s.nannie
+            ? pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
+                paqueteHoras: s.paquete?.horasTotales,
+                ludotecaMontaje: s.ludotecaMontaje,
+                plaza: s.plaza,
+                zona: s.zona,
+              }).monto
+            : null;
       if (pago == null) {
         pagosPendientes++;
         continue;
@@ -767,14 +774,16 @@ export class FinanzasService {
       if (s.fecha < mesGte || s.fecha > mesLte) continue;
       horasMes += s.duracionHoras;
       serviciosMes += 1;
-      const pago = s.esHistorico
-        ? { monto: s.finanza?.pagoNannie != null ? Number(s.finanza.pagoNannie) : null }
-        : pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, nannie.nivelTarifaMesActual, {
-            paqueteHoras: s.paquete?.horasTotales,
-            ludotecaMontaje: s.ludotecaMontaje,
-            plaza: s.plaza,
-            zona: s.zona,
-          });
+      const pago = s.finanza?.pagoNannie != null
+        ? { monto: Number(s.finanza.pagoNannie) }
+        : s.esHistorico
+          ? { monto: null }
+          : pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, nannie.nivelTarifaMesActual, {
+              paqueteHoras: s.paquete?.horasTotales,
+              ludotecaMontaje: s.ludotecaMontaje,
+              plaza: s.plaza,
+              zona: s.zona,
+            });
       if (pago.monto != null) ganadoMes += pago.monto;
     }
 
