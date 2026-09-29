@@ -887,9 +887,15 @@ export class CalendarioService {
     // Candado anti-duplicidad: la nueva nannie no debe tener otro servicio que se
     // traslape ese día (excluyendo este mismo).
     await this.verificarSinChoque(nannieId, servicio.fecha, servicio.horaInicio, servicio.horaFin, servicio.id);
-    await this.prisma.servicio.update({
-      where: { id: servicioId },
-      data: { nannieId, estado: 'ACEPTADO' },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.servicio.update({
+        where: { id: servicioId },
+        data: { nannieId, estado: 'ACEPTADO' },
+      });
+      // Asignación directa = servicio comprometido: consume la disponibilidad de
+      // la nannie en ese horario (igual que al aceptar una oferta), para que no
+      // queden a la vez el bloque "disponible" y el servicio aceptado.
+      await this.consumirDisponibilidad(tx, nannieId, servicio.fecha, servicio.horaInicio, servicio.horaFin);
     });
     void this.notificarAsignacion(nannieId).catch(() => undefined);
     return { ok: true };
