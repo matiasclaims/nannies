@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode, Package } from 'lucide-react';
-import { api, type PerfilFamilia, type NinoPerfil, type NinoInput, type FamiliaInput, type NannieLite } from '@/lib/api';
+import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode, Package, ChevronDown } from 'lucide-react';
+import { api, type PerfilFamilia, type ServicioHist, type NinoPerfil, type NinoInput, type FamiliaInput, type NannieLite } from '@/lib/api';
 import { TIPO_LABEL, ESTADO_SERVICIO, edadLabel } from '@/lib/dominio';
 import { AREAS_TRABAJO, CONSENTIMIENTOS } from '@/lib/familia-catalogo';
 import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
@@ -184,67 +184,13 @@ export default function PerfilFamiliaPage() {
         </div>
       </div>
 
-      {/* Historial de servicios */}
+      {/* Historial de servicios (los de paquete van colapsados por folio) */}
       <div className="rounded-2xl bg-panel p-5 shadow-card">
         <h2 className="mb-2 text-sm font-semibold text-texto-fuerte">Historial de servicios</h2>
         {data.servicios.length === 0 ? (
           <p className="text-xs text-texto-suave">Sin servicios registrados.</p>
         ) : (
-          <div className="divide-y divide-borde">
-            {data.servicios.map((s) => (
-              <div key={s.id} className="py-2 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-texto-fuerte">{TIPO_LABEL[s.tipoServicio]} · {fechaCorta(s.fecha)}</p>
-                    <p className="text-xs text-texto-suave">{s.horaInicio}–{s.horaFin} · {s.nannie}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {s.esPaquete && (
-                      <span
-                        title="Servicio de paquete"
-                        className="flex items-center gap-1 rounded-full bg-marca-morado/15 px-2 py-0.5 text-[11px] font-semibold text-marca-morado"
-                      >
-                        <Package className="h-3 w-3" /> Paquete
-                      </span>
-                    )}
-                    {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && s.portaEncuesta !== false && (
-                      <button
-                        onClick={() => setEncuestaSid(s.id)}
-                        title="Compartir encuesta con la familia"
-                        className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-[11px] font-medium text-marca-azul hover:bg-fondo"
-                      >
-                        <QrCode className="h-3.5 w-3.5" /> Encuesta
-                      </button>
-                    )}
-                    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', ESTADO_SERVICIO[s.estado].clase)}>
-                      {ESTADO_SERVICIO[s.estado].label}
-                    </span>
-                  </div>
-                </div>
-                {s.paquete && (
-                  <p className="mt-1 flex items-center gap-1.5 text-[11px] text-marca-morado">
-                    <Package className="h-3 w-3 shrink-0" />
-                    Consumió {s.paquete.consumidas} h del paquete · quedan {s.paquete.remanentes} h de {s.paquete.totales} h
-                  </p>
-                )}
-                {s.reporte && (
-                  <div className="mt-2 rounded-lg bg-fondo px-3 py-2 text-xs">
-                    <p className="mb-1 font-semibold text-texto-fuerte">
-                      Reporte · ánimo del peque: {s.reporte.animoNino}
-                    </p>
-                    <p className="text-texto-suave"><span className="font-medium text-texto-fuerte">Actividades:</span> {s.reporte.actividades}</p>
-                    {s.reporte.incidentes && (
-                      <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Incidentes:</span> {s.reporte.incidentes}</p>
-                    )}
-                    {s.reporte.notas && (
-                      <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Notas:</span> {s.reporte.notas}</p>
-                    )}
-                    <p className="mt-1 text-[11px] text-texto-suave">— {s.reporte.autor}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          <HistorialServicios servicios={data.servicios} onEncuesta={setEncuestaSid} />
         )}
       </div>
 
@@ -696,4 +642,166 @@ function fechaCorta(iso: string): string {
     year: 'numeric',
     timeZone: 'UTC',
   });
+}
+
+/** Historial de servicios: los individuales van sueltos y los de paquete se
+ *  agrupan (colapsados) por folio; al abrir el grupo se ven sus sesiones. Cada
+ *  paquete aparece en la posición de su sesión más reciente (la lista viene
+ *  ordenada de la más nueva a la más vieja). */
+type ItemHist =
+  | { kind: 'ind'; s: ServicioHist }
+  | { kind: 'paq'; paqueteId: string; folio: number | null; servicios: ServicioHist[] };
+
+function HistorialServicios({
+  servicios,
+  onEncuesta,
+}: {
+  servicios: ServicioHist[];
+  onEncuesta: (id: string) => void;
+}) {
+  const items: ItemHist[] = [];
+  const idxDe = new Map<string, number>();
+  for (const s of servicios) {
+    if (s.paqueteId) {
+      let i = idxDe.get(s.paqueteId);
+      if (i == null) {
+        i = items.length;
+        idxDe.set(s.paqueteId, i);
+        items.push({ kind: 'paq', paqueteId: s.paqueteId, folio: s.paqueteFolio ?? null, servicios: [] });
+      }
+      (items[i] as Extract<ItemHist, { kind: 'paq' }>).servicios.push(s);
+    } else {
+      items.push({ kind: 'ind', s });
+    }
+  }
+
+  return (
+    <div className="divide-y divide-borde">
+      {items.map((it) =>
+        it.kind === 'ind' ? (
+          <ServicioRow key={it.s.id} s={it.s} onEncuesta={onEncuesta} />
+        ) : (
+          <PaqueteGrupo key={it.paqueteId} folio={it.folio} servicios={it.servicios} onEncuesta={onEncuesta} />
+        ),
+      )}
+    </div>
+  );
+}
+
+/** Cabecera colapsable de un paquete en el historial: folio + nº de sesiones +
+ *  rango de fechas; al abrir muestra cada sesión. */
+function PaqueteGrupo({
+  folio,
+  servicios,
+  onEncuesta,
+}: {
+  folio: number | null;
+  servicios: ServicioHist[];
+  onEncuesta: (id: string) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  // La lista viene de más nueva a más vieja: el rango va de la última a la primera.
+  const nueva = servicios[0];
+  const vieja = servicios[servicios.length - 1];
+  const rango =
+    servicios.length > 1 ? `${fechaCorta(vieja.fecha)} – ${fechaCorta(nueva.fecha)}` : fechaCorta(nueva.fecha);
+  // Saldo del paquete: se toma del servicio más reciente que traiga el dato.
+  const conSaldo = servicios.find((s) => s.paquete)?.paquete ?? null;
+
+  return (
+    <div className="py-2 text-sm">
+      <button
+        onClick={() => setAbierto((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1 text-left hover:bg-fondo"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <ChevronDown className={cn('h-4 w-4 shrink-0 text-texto-suave transition-transform', abierto && 'rotate-180')} />
+          <span className="flex items-center gap-1 rounded-full bg-marca-morado/15 px-2 py-0.5 text-[11px] font-semibold text-marca-morado">
+            <Package className="h-3 w-3" /> Paquete{folio != null ? ` #${folio}` : ''}
+          </span>
+          <span className="truncate text-texto-fuerte">
+            {servicios.length} {servicios.length === 1 ? 'sesión' : 'sesiones'}
+            <span className="text-texto-suave"> · {rango}</span>
+          </span>
+        </span>
+        {conSaldo && (
+          <span className="shrink-0 text-[11px] text-texto-suave">
+            quedan {conSaldo.remanentes} h de {conSaldo.totales} h
+          </span>
+        )}
+      </button>
+      {abierto && (
+        <div className="mt-1 space-y-1 border-l-2 border-marca-morado/20 pl-3">
+          {servicios.map((s) => (
+            <ServicioRow key={s.id} s={s} onEncuesta={onEncuesta} dentroDePaquete />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Una fila de servicio del historial (individual o dentro de un paquete). */
+function ServicioRow({
+  s,
+  onEncuesta,
+  dentroDePaquete = false,
+}: {
+  s: ServicioHist;
+  onEncuesta: (id: string) => void;
+  dentroDePaquete?: boolean;
+}) {
+  return (
+    <div className="py-2 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-texto-fuerte">{TIPO_LABEL[s.tipoServicio]} · {fechaCorta(s.fecha)}</p>
+          <p className="text-xs text-texto-suave">{s.horaInicio}–{s.horaFin} · {s.nannie}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {s.esPaquete && !dentroDePaquete && (
+            <span
+              title="Servicio de paquete"
+              className="flex items-center gap-1 rounded-full bg-marca-morado/15 px-2 py-0.5 text-[11px] font-semibold text-marca-morado"
+            >
+              <Package className="h-3 w-3" /> Paquete{s.paqueteFolio != null ? ` #${s.paqueteFolio}` : ''}
+            </span>
+          )}
+          {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && s.portaEncuesta !== false && (
+            <button
+              onClick={() => onEncuesta(s.id)}
+              title="Compartir encuesta con la familia"
+              className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-[11px] font-medium text-marca-azul hover:bg-fondo"
+            >
+              <QrCode className="h-3.5 w-3.5" /> Encuesta
+            </button>
+          )}
+          <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', ESTADO_SERVICIO[s.estado].clase)}>
+            {ESTADO_SERVICIO[s.estado].label}
+          </span>
+        </div>
+      </div>
+      {s.paquete && (
+        <p className="mt-1 flex items-center gap-1.5 text-[11px] text-marca-morado">
+          <Package className="h-3 w-3 shrink-0" />
+          Consumió {s.paquete.consumidas} h del paquete · quedan {s.paquete.remanentes} h de {s.paquete.totales} h
+        </p>
+      )}
+      {s.reporte && (
+        <div className="mt-2 rounded-lg bg-fondo px-3 py-2 text-xs">
+          <p className="mb-1 font-semibold text-texto-fuerte">
+            Reporte · ánimo del peque: {s.reporte.animoNino}
+          </p>
+          <p className="text-texto-suave"><span className="font-medium text-texto-fuerte">Actividades:</span> {s.reporte.actividades}</p>
+          {s.reporte.incidentes && (
+            <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Incidentes:</span> {s.reporte.incidentes}</p>
+          )}
+          {s.reporte.notas && (
+            <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Notas:</span> {s.reporte.notas}</p>
+          )}
+          <p className="mt-1 text-[11px] text-texto-suave">— {s.reporte.autor}</p>
+        </div>
+      )}
+    </div>
+  );
 }

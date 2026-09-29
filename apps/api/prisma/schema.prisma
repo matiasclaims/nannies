@@ -613,6 +613,9 @@ model OfertaRespuesta {
 // El precio total viene de la tabla de cobro verificada (se cablea en M3).
 model Paquete {
   id               String        @id @default(cuid())
+  // Folio legible y único del paquete: identifica al paquete "en todos lados"
+  // para no confundir paquetes de una misma familia. Se asigna solo (secuencia).
+  folio            Int           @unique @default(autoincrement())
   familiaId        String
   familia          Familia       @relation(fields: [familiaId], references: [id])
   horasTotales     Int // 10 / 20 / 30 / 40 / 50

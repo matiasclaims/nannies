@@ -322,7 +322,7 @@ export type Rango = 'BASE' | 'ROOKIE' | 'JUNIOR' | 'SENIOR';
 export interface Proyeccion {
   familia: string;
   plaza: Plaza;
-  paquete: { horasTotales: number; horasConsumidas: number; horasRestantes: number };
+  paquete: { folio?: number; horasTotales: number; horasConsumidas: number; horasRestantes: number };
   sesiones: {
     fecha: string;
     horaInicio: string;
@@ -354,6 +354,8 @@ export interface AvancePaquete {
 
 export interface PaqueteActivo {
   id: string;
+  /** Folio legible y único del paquete (para identificarlo sin confundirlo). */
+  folio?: number;
   estado?: 'ACTIVO' | 'EN_ESPERA' | 'CONSUMIDO' | 'CANCELADO';
   horasTotales: number;
   horasConsumidas: number;
@@ -591,6 +593,9 @@ export interface ServicioHist {
   reporte: ReporteServicio | null;
   /** Si el servicio nació de un paquete de horas. */
   esPaquete: boolean;
+  /** Paquete al que pertenece (para agrupar/colapsar el historial). */
+  paqueteId?: string | null;
+  paqueteFolio?: number | null;
   /** Encuesta: individual siempre; paquete solo la última sesión de la nannie. */
   portaEncuesta?: boolean;
   /** Consumo del paquete de ESA sesión (solo si esPaquete y no está cancelada). */

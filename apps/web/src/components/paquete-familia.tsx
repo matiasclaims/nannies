@@ -103,6 +103,11 @@ export function PaqueteFamilia({
           <div className="flex items-center justify-between text-xs">
             <span className="font-medium text-texto-fuerte">
               Paquete en espera
+              {q.folio != null && (
+                <span className="ml-1 rounded-full bg-fondo px-1.5 py-0.5 text-[10px] font-semibold text-texto-suave">
+                  #{q.folio}
+                </span>
+              )}
               <span className="ml-1 rounded-full bg-marca-morado/15 px-1.5 py-0.5 text-[10px] font-semibold text-marca-morado">
                 pagado por adelantado
               </span>
@@ -182,6 +187,11 @@ export function PaqueteFamilia({
         <div className="mb-1 flex items-center justify-between text-sm">
           <span className="font-medium text-texto-fuerte">
             {p.estado === 'CONSUMIDO' ? 'Paquete · horas agotadas' : 'Paquete activo'}
+            {p.folio != null && (
+              <span className="ml-1 rounded-full bg-fondo px-1.5 py-0.5 text-[10px] font-semibold text-texto-suave">
+                #{p.folio}
+              </span>
+            )}
             {p.asignacionManual && (
               <span className="ml-1 rounded-full bg-marca-morado/15 px-1.5 py-0.5 text-[10px] font-semibold text-marca-morado">
                 manual

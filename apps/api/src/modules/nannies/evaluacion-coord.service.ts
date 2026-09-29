@@ -52,6 +52,7 @@ export class EvaluacionCoordService {
         },
         select: {
           id: true,
+          folio: true,
           horasTotales: true,
           fechaContratacion: true,
           familia: { select: { nombreContacto: true } },
@@ -96,7 +97,7 @@ export class EvaluacionCoordService {
           nannie: nombre,
           familia: p.familia.nombreContacto,
           fecha: p.fechaContratacion.toISOString().slice(0, 10),
-          detalle: `Paquete ${p.horasTotales} h`,
+          detalle: `Paquete #${p.folio} · ${p.horasTotales} h`,
         });
       }
     }
@@ -207,7 +208,7 @@ export class EvaluacionCoordService {
       nannie: nannie?.nombre ?? '',
       familia: p.familia.nombreContacto,
       fecha: p.fechaContratacion.toISOString().slice(0, 10),
-      detalle: `Paquete ${p.horasTotales} h · ${p.servicios.length} sesiones`,
+      detalle: `Paquete #${p.folio} · ${p.horasTotales} h · ${p.servicios.length} sesiones`,
       incidencias: await this.mermaIncidencias(nannieId, gte, lte),
       evaluacion: this.mapEval(p.evaluacionesCoord[0] ?? null),
     };
@@ -264,7 +265,7 @@ export class EvaluacionCoordService {
       take: 60,
       include: {
         servicio: { select: { fecha: true, tipoServicio: true, familia: { select: { nombreContacto: true } } } },
-        paquete: { select: { horasTotales: true, fechaContratacion: true, familia: { select: { nombreContacto: true } } } },
+        paquete: { select: { folio: true, horasTotales: true, fechaContratacion: true, familia: { select: { nombreContacto: true } } } },
       },
     });
     return evs.map((e) => ({
@@ -272,7 +273,9 @@ export class EvaluacionCoordService {
       tipo: e.servicioId ? ('INDIVIDUAL' as const) : ('PAQUETE' as const),
       fecha: (e.servicio?.fecha ?? e.paquete?.fechaContratacion ?? e.creadoEn).toISOString().slice(0, 10),
       familia: e.servicio?.familia.nombreContacto ?? e.paquete?.familia.nombreContacto ?? '',
-      detalle: e.servicio ? (e.servicio.tipoServicio as string) : `Paquete ${e.paquete?.horasTotales ?? ''} h`,
+      detalle: e.servicio
+        ? (e.servicio.tipoServicio as string)
+        : `Paquete #${e.paquete?.folio ?? ''} · ${e.paquete?.horasTotales ?? ''} h`,
       calificacion: Number(e.calificacion),
       evaluadaPor: e.evaluadaPor,
       nota: e.nota,

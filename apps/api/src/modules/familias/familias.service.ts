@@ -50,6 +50,7 @@ export class FamiliasService {
           where: { estado: 'ACTIVO' },
           select: {
             id: true,
+            folio: true,
             horasTotales: true,
             horasConsumidas: true,
             asignacionManual: true,
@@ -93,6 +94,7 @@ export class FamiliasService {
         paqueteActivo: paquetes[0]
           ? {
               id: paquetes[0].id,
+              folio: paquetes[0].folio,
               horasTotales: paquetes[0].horasTotales,
               horasConsumidas: paquetes[0].horasConsumidas,
               horasRestantes: paquetes[0].horasTotales - paquetes[0].horasConsumidas,
@@ -219,7 +221,7 @@ export class FamiliasService {
         asignacionManual: dto.asignacionManual ?? false,
         tokenPublico: nuevoTokenPublico(),
       },
-      select: { id: true, horasTotales: true, horasConsumidas: true, asignacionManual: true, estado: true },
+      select: { id: true, folio: true, horasTotales: true, horasConsumidas: true, asignacionManual: true, estado: true },
     });
     return {
       ...paquete,
@@ -299,6 +301,7 @@ export class FamiliasService {
       familia: paquete.familia.nombreContacto,
       plaza: paquete.familia.plaza,
       paquete: {
+        folio: paquete.folio,
         horasTotales: paquete.horasTotales,
         horasConsumidas: paquete.horasConsumidas,
         horasRestantes: paquete.horasTotales - paquete.horasConsumidas,
@@ -398,9 +401,10 @@ export class FamiliasService {
     // horasConsumidas del paquete.
     const paquetesFam = await this.prisma.paquete.findMany({
       where: { familiaId },
-      select: { id: true, horasTotales: true, horasConsumidas: true },
+      select: { id: true, folio: true, horasTotales: true, horasConsumidas: true },
     });
     const totalPaquete = new Map(paquetesFam.map((p) => [p.id, p.horasTotales]));
+    const folioDe = new Map(paquetesFam.map((p) => [p.id, p.folio]));
     const servPaquete = await this.prisma.servicio.findMany({
       where: { familiaId, paqueteId: { not: null }, estado: { notIn: ['CANCELADO', 'RECHAZADO'] } },
       select: { id: true, paqueteId: true, duracionHoras: true },
@@ -439,7 +443,7 @@ export class FamiliasService {
     const enEspera = await this.prisma.paquete.findMany({
       where: { familiaId, estado: 'EN_ESPERA' },
       orderBy: { fechaContratacion: 'asc' },
-      select: { id: true, horasTotales: true, horasConsumidas: true, asignacionManual: true },
+      select: { id: true, folio: true, horasTotales: true, horasConsumidas: true, asignacionManual: true },
     });
     const referencia = familia.servicios[0]?.fecha ?? familia.fechaAlta;
     const diasSinServicio = diasEntre(referencia, new Date());
@@ -479,6 +483,9 @@ export class FamiliasService {
         // Distintivo de paquete: si nació de un paquete, cuánto consumió del
         // paquete esa sesión y cuánto quedó de saldo tras ella (Mario 2026-09-21).
         esPaquete: s.paqueteId != null,
+        // Identificador del paquete (para agrupar/colapsar el historial): id y folio.
+        paqueteId: s.paqueteId ?? null,
+        paqueteFolio: s.paqueteId ? folioDe.get(s.paqueteId) ?? null : null,
         // Encuesta: solo desde el arranque del sistema (19-sep-2026). Individual
         // siempre; paquete solo la última sesión de la nannie.
         portaEncuesta:
@@ -504,6 +511,7 @@ export class FamiliasService {
       paqueteActivo: p
         ? {
             id: p.id,
+            folio: p.folio,
             estado: p.estado,
             horasTotales: p.horasTotales,
             horasConsumidas: p.horasConsumidas,
@@ -513,6 +521,7 @@ export class FamiliasService {
         : null,
       paquetesEnEspera: enEspera.map((q) => ({
         id: q.id,
+        folio: q.folio,
         horasTotales: q.horasTotales,
         horasConsumidas: q.horasConsumidas,
         horasRestantes: q.horasTotales - q.horasConsumidas,

@@ -52,7 +52,8 @@ export default function ProyeccionPage() {
         </div>
         <div className="text-right text-sm">
           <p className="text-texto-suave">
-            Paquete de <strong className="text-texto-fuerte">{data.paquete.horasTotales} h</strong>
+            Paquete{data.paquete.folio != null ? ` #${data.paquete.folio}` : ''} de{' '}
+            <strong className="text-texto-fuerte">{data.paquete.horasTotales} h</strong>
           </p>
           <p className="text-texto-suave">
             Programadas {data.paquete.horasConsumidas} h · restan{' '}
