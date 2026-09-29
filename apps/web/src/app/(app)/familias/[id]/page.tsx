@@ -711,7 +711,7 @@ function HistorialServicios({
         <div className="divide-y divide-borde">
           {items.map((it) =>
             it.kind === 'ind' ? (
-              <ServicioRow key={it.s.id} s={it.s} onEncuesta={onEncuesta} />
+              <ServicioRow key={it.s.id} s={it.s} onEncuesta={onEncuesta} colapsable />
             ) : (
               <PaqueteGrupo key={it.paqueteId} folio={it.folio} servicios={it.servicios} onEncuesta={onEncuesta} />
             ),
@@ -775,16 +775,88 @@ function PaqueteGrupo({
   );
 }
 
-/** Una fila de servicio del historial (individual o dentro de un paquete). */
+/** Una fila de servicio del historial. `colapsable` (individuales): sale en una
+ *  línea compacta y su detalle se abre al dar clic. Dentro de un paquete se
+ *  muestra completa (el paquete ya es el que colapsa). */
 function ServicioRow({
   s,
   onEncuesta,
   dentroDePaquete = false,
+  colapsable = false,
 }: {
   s: ServicioHist;
   onEncuesta: (id: string) => void;
   dentroDePaquete?: boolean;
+  colapsable?: boolean;
 }) {
+  const [abierto, setAbierto] = useState(false);
+
+  const badgeEstado = (
+    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', ESTADO_SERVICIO[s.estado].clase)}>
+      {ESTADO_SERVICIO[s.estado].label}
+    </span>
+  );
+  const botonEncuesta = (s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && s.portaEncuesta !== false && (
+    <button
+      onClick={() => onEncuesta(s.id)}
+      title="Compartir encuesta con la familia"
+      className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-[11px] font-medium text-marca-azul hover:bg-fondo"
+    >
+      <QrCode className="h-3.5 w-3.5" /> Encuesta
+    </button>
+  );
+  const notaPaquete = s.paquete && (
+    <p className="flex items-center gap-1.5 text-[11px] text-marca-morado">
+      <Package className="h-3 w-3 shrink-0" />
+      Consumió {s.paquete.consumidas} h del paquete · quedan {s.paquete.remanentes} h de {s.paquete.totales} h
+    </p>
+  );
+  const bloqueReporte = s.reporte && (
+    <div className="rounded-lg bg-fondo px-3 py-2 text-xs">
+      <p className="mb-1 font-semibold text-texto-fuerte">Reporte · ánimo del peque: {s.reporte.animoNino}</p>
+      <p className="text-texto-suave"><span className="font-medium text-texto-fuerte">Actividades:</span> {s.reporte.actividades}</p>
+      {s.reporte.incidentes && (
+        <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Incidentes:</span> {s.reporte.incidentes}</p>
+      )}
+      {s.reporte.notas && (
+        <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Notas:</span> {s.reporte.notas}</p>
+      )}
+      <p className="mt-1 text-[11px] text-texto-suave">— {s.reporte.autor}</p>
+    </div>
+  );
+
+  // Modo compacto (servicios individuales): una línea + detalle al abrir.
+  if (colapsable) {
+    return (
+      <div className="py-1.5 text-sm">
+        <button
+          onClick={() => setAbierto((v) => !v)}
+          className="flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1 text-left hover:bg-fondo"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <ChevronDown className={cn('h-4 w-4 shrink-0 text-texto-suave transition-transform', abierto && 'rotate-180')} />
+            <span className="truncate text-texto-fuerte">
+              {TIPO_LABEL[s.tipoServicio]} · {fechaCorta(s.fecha)}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-1.5">
+            {s.reporte && <span className="rounded-full bg-fondo px-1.5 py-0.5 text-[10px] font-medium text-texto-suave">reporte</span>}
+            {badgeEstado}
+          </span>
+        </button>
+        {abierto && (
+          <div className="mt-1 space-y-2 pl-6">
+            <p className="text-xs text-texto-suave">{s.horaInicio}–{s.horaFin} · {s.nannie}</p>
+            {botonEncuesta}
+            {notaPaquete}
+            {bloqueReporte}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Modo completo (sesión dentro de un paquete ya desplegado).
   return (
     <div className="py-2 text-sm">
       <div className="flex items-center justify-between gap-2">
@@ -801,41 +873,12 @@ function ServicioRow({
               <Package className="h-3 w-3" /> Paquete{s.paqueteFolio != null ? ` #${s.paqueteFolio}` : ''}
             </span>
           )}
-          {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && s.portaEncuesta !== false && (
-            <button
-              onClick={() => onEncuesta(s.id)}
-              title="Compartir encuesta con la familia"
-              className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-[11px] font-medium text-marca-azul hover:bg-fondo"
-            >
-              <QrCode className="h-3.5 w-3.5" /> Encuesta
-            </button>
-          )}
-          <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', ESTADO_SERVICIO[s.estado].clase)}>
-            {ESTADO_SERVICIO[s.estado].label}
-          </span>
+          {botonEncuesta}
+          {badgeEstado}
         </div>
       </div>
-      {s.paquete && (
-        <p className="mt-1 flex items-center gap-1.5 text-[11px] text-marca-morado">
-          <Package className="h-3 w-3 shrink-0" />
-          Consumió {s.paquete.consumidas} h del paquete · quedan {s.paquete.remanentes} h de {s.paquete.totales} h
-        </p>
-      )}
-      {s.reporte && (
-        <div className="mt-2 rounded-lg bg-fondo px-3 py-2 text-xs">
-          <p className="mb-1 font-semibold text-texto-fuerte">
-            Reporte · ánimo del peque: {s.reporte.animoNino}
-          </p>
-          <p className="text-texto-suave"><span className="font-medium text-texto-fuerte">Actividades:</span> {s.reporte.actividades}</p>
-          {s.reporte.incidentes && (
-            <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Incidentes:</span> {s.reporte.incidentes}</p>
-          )}
-          {s.reporte.notas && (
-            <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Notas:</span> {s.reporte.notas}</p>
-          )}
-          <p className="mt-1 text-[11px] text-texto-suave">— {s.reporte.autor}</p>
-        </div>
-      )}
+      {notaPaquete && <div className="mt-1">{notaPaquete}</div>}
+      {bloqueReporte && <div className="mt-2">{bloqueReporte}</div>}
     </div>
   );
 }
