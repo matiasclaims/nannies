@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode, Package, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode, Package, ChevronDown, List } from 'lucide-react';
 import { api, type PerfilFamilia, type ServicioHist, type NinoPerfil, type NinoInput, type FamiliaInput, type NannieLite } from '@/lib/api';
 import { TIPO_LABEL, ESTADO_SERVICIO, edadLabel } from '@/lib/dominio';
 import { AREAS_TRABAJO, CONSENTIMIENTOS } from '@/lib/familia-catalogo';
@@ -649,7 +649,7 @@ function fechaCorta(iso: string): string {
  *  paquete aparece en la posición de su sesión más reciente (la lista viene
  *  ordenada de la más nueva a la más vieja). */
 type ItemHist =
-  | { kind: 'ind'; s: ServicioHist }
+  | { kind: 'ind'; servicios: ServicioHist[] }
   | { kind: 'paq'; paqueteId: string; folio: number | null; servicios: ServicioHist[] };
 
 function HistorialServicios({
@@ -666,23 +666,27 @@ function HistorialServicios({
   const añoActivo = años.includes(año) ? año : años[0] ?? '';
   const delAño = servicios.filter((s) => s.fecha.slice(0, 4) === añoActivo);
 
-  // Dentro del año: individuales sueltos y los de paquete agrupados por folio,
-  // conservando el orden (cada paquete en la posición de su sesión más reciente).
-  const items: ItemHist[] = [];
-  const idxDe = new Map<string, number>();
+  // Dentro del año: un grupo por paquete (colapsable por folio) + UN grupo con
+  // todos los individuales ("Servicios individuales"). Cada grupo se ordena por
+  // su servicio más reciente (la lista viene de lo más nuevo a lo más viejo).
+  const paqMap = new Map<string, ServicioHist[]>();
+  const individuales: ServicioHist[] = [];
   for (const s of delAño) {
     if (s.paqueteId) {
-      let i = idxDe.get(s.paqueteId);
-      if (i == null) {
-        i = items.length;
-        idxDe.set(s.paqueteId, i);
-        items.push({ kind: 'paq', paqueteId: s.paqueteId, folio: s.paqueteFolio ?? null, servicios: [] });
-      }
-      (items[i] as Extract<ItemHist, { kind: 'paq' }>).servicios.push(s);
+      const arr = paqMap.get(s.paqueteId);
+      if (arr) arr.push(s);
+      else paqMap.set(s.paqueteId, [s]);
     } else {
-      items.push({ kind: 'ind', s });
+      individuales.push(s);
     }
   }
+  const grupos: ItemHist[] = [];
+  for (const [paqueteId, servs] of paqMap) {
+    grupos.push({ kind: 'paq', paqueteId, folio: servs[0]?.paqueteFolio ?? null, servicios: servs });
+  }
+  if (individuales.length) grupos.push({ kind: 'ind', servicios: individuales });
+  const refDe = (g: ItemHist) => (g.kind === 'paq' ? g.servicios[0]?.fecha : g.servicios[0]?.fecha) ?? '';
+  grupos.sort((a, b) => (refDe(a) < refDe(b) ? 1 : refDe(a) > refDe(b) ? -1 : 0));
 
   return (
     <div>
@@ -705,15 +709,15 @@ function HistorialServicios({
         ))}
       </div>
 
-      {items.length === 0 ? (
+      {grupos.length === 0 ? (
         <p className="text-xs text-texto-suave">Sin servicios en {añoActivo}.</p>
       ) : (
         <div className="divide-y divide-borde">
-          {items.map((it) =>
-            it.kind === 'ind' ? (
-              <ServicioRow key={it.s.id} s={it.s} onEncuesta={onEncuesta} colapsable />
+          {grupos.map((g) =>
+            g.kind === 'paq' ? (
+              <PaqueteGrupo key={g.paqueteId} folio={g.folio} servicios={g.servicios} onEncuesta={onEncuesta} />
             ) : (
-              <PaqueteGrupo key={it.paqueteId} folio={it.folio} servicios={it.servicios} onEncuesta={onEncuesta} />
+              <IndividualesGrupo key="individuales" servicios={g.servicios} onEncuesta={onEncuesta} />
             ),
           )}
         </div>
@@ -775,88 +779,17 @@ function PaqueteGrupo({
   );
 }
 
-/** Una fila de servicio del historial. `colapsable` (individuales): sale en una
- *  línea compacta y su detalle se abre al dar clic. Dentro de un paquete se
- *  muestra completa (el paquete ya es el que colapsa). */
+/** Una fila de servicio del historial (dentro del grupo de individuales o de un
+ *  paquete ya desplegado). */
 function ServicioRow({
   s,
   onEncuesta,
   dentroDePaquete = false,
-  colapsable = false,
 }: {
   s: ServicioHist;
   onEncuesta: (id: string) => void;
   dentroDePaquete?: boolean;
-  colapsable?: boolean;
 }) {
-  const [abierto, setAbierto] = useState(false);
-
-  const badgeEstado = (
-    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', ESTADO_SERVICIO[s.estado].clase)}>
-      {ESTADO_SERVICIO[s.estado].label}
-    </span>
-  );
-  const botonEncuesta = (s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && s.portaEncuesta !== false && (
-    <button
-      onClick={() => onEncuesta(s.id)}
-      title="Compartir encuesta con la familia"
-      className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-[11px] font-medium text-marca-azul hover:bg-fondo"
-    >
-      <QrCode className="h-3.5 w-3.5" /> Encuesta
-    </button>
-  );
-  const notaPaquete = s.paquete && (
-    <p className="flex items-center gap-1.5 text-[11px] text-marca-morado">
-      <Package className="h-3 w-3 shrink-0" />
-      Consumió {s.paquete.consumidas} h del paquete · quedan {s.paquete.remanentes} h de {s.paquete.totales} h
-    </p>
-  );
-  const bloqueReporte = s.reporte && (
-    <div className="rounded-lg bg-fondo px-3 py-2 text-xs">
-      <p className="mb-1 font-semibold text-texto-fuerte">Reporte · ánimo del peque: {s.reporte.animoNino}</p>
-      <p className="text-texto-suave"><span className="font-medium text-texto-fuerte">Actividades:</span> {s.reporte.actividades}</p>
-      {s.reporte.incidentes && (
-        <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Incidentes:</span> {s.reporte.incidentes}</p>
-      )}
-      {s.reporte.notas && (
-        <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Notas:</span> {s.reporte.notas}</p>
-      )}
-      <p className="mt-1 text-[11px] text-texto-suave">— {s.reporte.autor}</p>
-    </div>
-  );
-
-  // Modo compacto (servicios individuales): una línea + detalle al abrir.
-  if (colapsable) {
-    return (
-      <div className="py-1.5 text-sm">
-        <button
-          onClick={() => setAbierto((v) => !v)}
-          className="flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1 text-left hover:bg-fondo"
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            <ChevronDown className={cn('h-4 w-4 shrink-0 text-texto-suave transition-transform', abierto && 'rotate-180')} />
-            <span className="truncate text-texto-fuerte">
-              {TIPO_LABEL[s.tipoServicio]} · {fechaCorta(s.fecha)}
-            </span>
-          </span>
-          <span className="flex shrink-0 items-center gap-1.5">
-            {s.reporte && <span className="rounded-full bg-fondo px-1.5 py-0.5 text-[10px] font-medium text-texto-suave">reporte</span>}
-            {badgeEstado}
-          </span>
-        </button>
-        {abierto && (
-          <div className="mt-1 space-y-2 pl-6">
-            <p className="text-xs text-texto-suave">{s.horaInicio}–{s.horaFin} · {s.nannie}</p>
-            {botonEncuesta}
-            {notaPaquete}
-            {bloqueReporte}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Modo completo (sesión dentro de un paquete ya desplegado).
   return (
     <div className="py-2 text-sm">
       <div className="flex items-center justify-between gap-2">
@@ -873,12 +806,76 @@ function ServicioRow({
               <Package className="h-3 w-3" /> Paquete{s.paqueteFolio != null ? ` #${s.paqueteFolio}` : ''}
             </span>
           )}
-          {botonEncuesta}
-          {badgeEstado}
+          {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && s.portaEncuesta !== false && (
+            <button
+              onClick={() => onEncuesta(s.id)}
+              title="Compartir encuesta con la familia"
+              className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-[11px] font-medium text-marca-azul hover:bg-fondo"
+            >
+              <QrCode className="h-3.5 w-3.5" /> Encuesta
+            </button>
+          )}
+          <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', ESTADO_SERVICIO[s.estado].clase)}>
+            {ESTADO_SERVICIO[s.estado].label}
+          </span>
         </div>
       </div>
-      {notaPaquete && <div className="mt-1">{notaPaquete}</div>}
-      {bloqueReporte && <div className="mt-2">{bloqueReporte}</div>}
+      {s.paquete && (
+        <p className="mt-1 flex items-center gap-1.5 text-[11px] text-marca-morado">
+          <Package className="h-3 w-3 shrink-0" />
+          Consumió {s.paquete.consumidas} h del paquete · quedan {s.paquete.remanentes} h de {s.paquete.totales} h
+        </p>
+      )}
+      {s.reporte && (
+        <div className="mt-2 rounded-lg bg-fondo px-3 py-2 text-xs">
+          <p className="mb-1 font-semibold text-texto-fuerte">Reporte · ánimo del peque: {s.reporte.animoNino}</p>
+          <p className="text-texto-suave"><span className="font-medium text-texto-fuerte">Actividades:</span> {s.reporte.actividades}</p>
+          {s.reporte.incidentes && (
+            <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Incidentes:</span> {s.reporte.incidentes}</p>
+          )}
+          {s.reporte.notas && (
+            <p className="mt-0.5 text-texto-suave"><span className="font-medium text-texto-fuerte">Notas:</span> {s.reporte.notas}</p>
+          )}
+          <p className="mt-1 text-[11px] text-texto-suave">— {s.reporte.autor}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Grupo colapsable de TODOS los servicios individuales de un año (una sola
+ *  etiqueta "Servicios Individuales", igual que la de paquete). */
+function IndividualesGrupo({
+  servicios,
+  onEncuesta,
+}: {
+  servicios: ServicioHist[];
+  onEncuesta: (id: string) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  return (
+    <div className="py-2 text-sm">
+      <button
+        onClick={() => setAbierto((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1 text-left hover:bg-fondo"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <ChevronDown className={cn('h-4 w-4 shrink-0 text-texto-suave transition-transform', abierto && 'rotate-180')} />
+          <span className="flex items-center gap-1 rounded-full bg-marca-azul/10 px-2 py-0.5 text-[11px] font-semibold text-marca-azul">
+            <List className="h-3 w-3" /> Servicios individuales
+          </span>
+          <span className="truncate text-texto-suave">
+            {servicios.length} {servicios.length === 1 ? 'servicio' : 'servicios'}
+          </span>
+        </span>
+      </button>
+      {abierto && (
+        <div className="mt-1 divide-y divide-borde border-l-2 border-marca-azul/20 pl-3">
+          {servicios.map((s) => (
+            <ServicioRow key={s.id} s={s} onEncuesta={onEncuesta} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
