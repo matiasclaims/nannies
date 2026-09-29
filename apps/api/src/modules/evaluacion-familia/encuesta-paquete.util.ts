@@ -1,6 +1,15 @@
 import type { PrismaService } from '../../prisma/prisma.service';
 
 /**
+ * Arranque de encuestas (familia y coordinación): el sistema empezó a usarse el
+ * 19-sep-2026, así que las encuestas solo corren para servicios/paquetes con
+ * fecha DESDE ese día. Lo previo son datos migrados/históricos y no genera
+ * encuestas pendientes (Paula 2026-09-28). Se compara contra servicio.fecha y,
+ * para paquetes, contra su fechaContratacion.
+ */
+export const FECHA_INICIO_ENCUESTAS = new Date('2026-09-19T00:00:00.000Z');
+
+/**
  * Encuesta de papás por PAQUETE (no por día): de un paquete atendido por una
  * nannie sale UNA sola encuesta, en la ÚLTIMA sesión programada de esa nannie
  * dentro del paquete. Si un mismo paquete lo atienden varias nannies, hay una

@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { reglaPorNumero } from './incidencias.catalogo';
 import { PILARES, INCIDENCIA_PILAR, calificacionPonderada, type ClavePilar } from './evaluaciones.catalogo';
 import { GuardarEvalCoordDto } from './dto/guardar-eval-coord.dto';
+import { FECHA_INICIO_ENCUESTAS } from '../evaluacion-familia/encuesta-paquete.util';
 
 const ACTIVAS_SESION = ['OFERTADO', 'ACEPTADO', 'COMPLETADO'] as const;
 
@@ -30,6 +31,8 @@ export class EvaluacionCoordService {
           // Excluye el import histórico (COMPLETADO en bloque, nunca operado en
           // el sistema): no se evalúa. Ver historico-cuentas-excel (ids hs-/hp-).
           id: { not: { startsWith: 'hs-' } },
+          // Solo desde el arranque del sistema (19-sep-2026). Ver FECHA_INICIO_ENCUESTAS.
+          fecha: { gte: FECHA_INICIO_ENCUESTAS },
         },
         orderBy: { fecha: 'desc' },
         select: {
@@ -41,7 +44,12 @@ export class EvaluacionCoordService {
         },
       }),
       this.prisma.paquete.findMany({
-        where: { estado: 'CONSUMIDO', id: { not: { startsWith: 'hp-' } } },
+        where: {
+          estado: 'CONSUMIDO',
+          id: { not: { startsWith: 'hp-' } },
+          // Solo paquetes contratados desde el arranque del sistema (19-sep-2026).
+          fechaContratacion: { gte: FECHA_INICIO_ENCUESTAS },
+        },
         select: {
           id: true,
           horasTotales: true,

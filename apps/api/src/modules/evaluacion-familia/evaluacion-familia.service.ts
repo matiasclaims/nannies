@@ -3,7 +3,7 @@ import { randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { ResponderEncuestaDto } from './dto/responder-encuesta.dto';
-import { serviciosPortadoresEncuesta } from './encuesta-paquete.util';
+import { serviciosPortadoresEncuesta, FECHA_INICIO_ENCUESTAS } from './encuesta-paquete.util';
 
 /** Umbral del reglamento (#14): promedio de papás por debajo → sugiere prueba. */
 export const UMBRAL_PRUEBA = 7.5;
@@ -24,9 +24,13 @@ export class EvaluacionFamiliaService {
   async linkDeServicio(servicioId: string, user: UsuarioAutenticado) {
     const servicio = await this.prisma.servicio.findUnique({
       where: { id: servicioId },
-      select: { id: true, nannieId: true, estado: true, paqueteId: true },
+      select: { id: true, nannieId: true, estado: true, paqueteId: true, fecha: true },
     });
     if (!servicio) throw new NotFoundException('Servicio no encontrado');
+    // El sistema arrancó el 19-sep-2026: no se emiten encuestas de servicios previos.
+    if (servicio.fecha < FECHA_INICIO_ENCUESTAS) {
+      throw new BadRequestException('Este servicio es anterior al inicio del sistema; no lleva encuesta.');
+    }
     if (user.rol === 'NANNIE') {
       if (servicio.nannieId !== (user.nannieId ?? '__none__')) {
         throw new ForbiddenException('Solo puedes compartir la encuesta de tus propios servicios.');

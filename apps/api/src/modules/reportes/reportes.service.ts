@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { GuardarReporteDto } from './dto/guardar-reporte.dto';
 import { reglaPorNumero } from '../nannies/incidencias.catalogo';
-import { serviciosPortadoresEncuesta } from '../evaluacion-familia/encuesta-paquete.util';
+import { serviciosPortadoresEncuesta, FECHA_INICIO_ENCUESTAS } from '../evaluacion-familia/encuesta-paquete.util';
 
 /** M6 · 6.1 — Reporte de servicio. La nannie deja UN reporte por servicio
  *  (actividades, ánimo del niño, incidentes, notas); coordinación lo lee. */
@@ -106,8 +106,10 @@ export class ReportesService {
     );
 
     // Encuestas de papás SIN contestar: servicios completados cuya encuesta no
-    // existe o no se ha respondido (Paula las sigue y pide que se manden).
+    // existe o no se ha respondido (Paula las sigue y pide que se manden). Solo
+    // desde el arranque del sistema (19-sep-2026); lo previo no genera encuesta.
     const encuestasPendientes = completados
+      .filter((s) => s.fecha >= FECHA_INICIO_ENCUESTAS)
       .filter((s) => (s.paqueteId == null || portadores.has(s.id)))
       .filter((s) => !s.evaluacion || s.evaluacion.respondidoEn == null)
       .map((s) => ({

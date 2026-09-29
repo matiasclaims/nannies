@@ -9,7 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { MailService } from '../../core/mail/mail.service';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { tramoPorHoras } from '../familias/paquetes.tarifa';
-import { serviciosPortadoresEncuesta } from '../evaluacion-familia/encuesta-paquete.util';
+import { serviciosPortadoresEncuesta, FECHA_INICIO_ENCUESTAS } from '../evaluacion-familia/encuesta-paquete.util';
 import { CrearDisponibilidadDto } from './dto/crear-disponibilidad.dto';
 import { CrearDisponibilidadMultipleDto } from './dto/crear-disponibilidad-multiple.dto';
 import { EditarDisponibilidadDto } from './dto/editar-disponibilidad.dto';
@@ -276,8 +276,10 @@ export class CalendarioService {
       ...s,
       familia: esCoord ? familia.nombreContacto : null,
       ninos: esCoord ? familia.ninos.map((n) => n.nombre).filter(Boolean) : [],
-      // Individual: siempre; paquete: solo la última sesión de esa nannie.
-      portaEncuesta: s.paqueteId == null ? true : portadores.has(s.id),
+      // Encuesta: solo desde el arranque del sistema (19-sep-2026). Individual:
+      // siempre; paquete: solo la última sesión de esa nannie.
+      portaEncuesta:
+        s.fecha >= FECHA_INICIO_ENCUESTAS && (s.paqueteId == null ? true : portadores.has(s.id)),
     }));
   }
 
