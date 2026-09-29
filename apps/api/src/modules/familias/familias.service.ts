@@ -379,7 +379,9 @@ export class FamiliasService {
         servicios: {
           include: { nannie: { select: { nombre: true } }, reporte: true },
           orderBy: { fecha: 'desc' },
-          take: 50,
+          // Amplio para que el historial por año (pestañas 2024/2025/2026) tenga
+          // todo; por familia el volumen es acotado.
+          take: 500,
         },
         notas: { orderBy: { creadoEn: 'desc' } },
         // Se incluye también el CONSUMIDO (horas agotadas) para que la proyección

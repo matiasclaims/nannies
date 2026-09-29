@@ -659,9 +659,18 @@ function HistorialServicios({
   servicios: ServicioHist[];
   onEncuesta: (id: string) => void;
 }) {
+  // Pestañas por año (de la más reciente a la más antigua). El historial viene
+  // ordenado de lo más nuevo a lo más viejo.
+  const años = [...new Set(servicios.map((s) => s.fecha.slice(0, 4)))].sort().reverse();
+  const [año, setAño] = useState(años[0] ?? '');
+  const añoActivo = años.includes(año) ? año : años[0] ?? '';
+  const delAño = servicios.filter((s) => s.fecha.slice(0, 4) === añoActivo);
+
+  // Dentro del año: individuales sueltos y los de paquete agrupados por folio,
+  // conservando el orden (cada paquete en la posición de su sesión más reciente).
   const items: ItemHist[] = [];
   const idxDe = new Map<string, number>();
-  for (const s of servicios) {
+  for (const s of delAño) {
     if (s.paqueteId) {
       let i = idxDe.get(s.paqueteId);
       if (i == null) {
@@ -676,13 +685,38 @@ function HistorialServicios({
   }
 
   return (
-    <div className="divide-y divide-borde">
-      {items.map((it) =>
-        it.kind === 'ind' ? (
-          <ServicioRow key={it.s.id} s={it.s} onEncuesta={onEncuesta} />
-        ) : (
-          <PaqueteGrupo key={it.paqueteId} folio={it.folio} servicios={it.servicios} onEncuesta={onEncuesta} />
-        ),
+    <div>
+      {/* Pestañas de año */}
+      <div className="mb-2 flex flex-wrap gap-1">
+        {años.map((a) => (
+          <button
+            key={a}
+            onClick={() => setAño(a)}
+            className={cn(
+              'rounded-lg px-3 py-1 text-xs font-semibold transition',
+              a === añoActivo ? 'bg-marca-azul text-white' : 'bg-fondo text-texto-suave hover:bg-borde/40',
+            )}
+          >
+            {a}
+            <span className="ml-1 font-normal opacity-70">
+              ({servicios.filter((s) => s.fecha.slice(0, 4) === a).length})
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {items.length === 0 ? (
+        <p className="text-xs text-texto-suave">Sin servicios en {añoActivo}.</p>
+      ) : (
+        <div className="divide-y divide-borde">
+          {items.map((it) =>
+            it.kind === 'ind' ? (
+              <ServicioRow key={it.s.id} s={it.s} onEncuesta={onEncuesta} />
+            ) : (
+              <PaqueteGrupo key={it.paqueteId} folio={it.folio} servicios={it.servicios} onEncuesta={onEncuesta} />
+            ),
+          )}
+        </div>
       )}
     </div>
   );
