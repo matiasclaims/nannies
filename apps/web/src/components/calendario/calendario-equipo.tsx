@@ -57,7 +57,9 @@ const CLASE_BLOQUEADO = 'bg-slate-200 border border-slate-300 text-slate-600';
 const CLASE_SIN_ASIGNAR = 'bg-marca-morado/15 border border-dashed border-marca-morado/60 text-marca-morado';
 function claseServicio(estado: Servicio['estado']): string {
   if (estado === 'OFERTADO') return 'bg-marca-azul/20 border border-marca-azul/40 text-marca-azul';
-  if (estado === 'ACEPTADO' || estado === 'COMPLETADO')
+  if (estado === 'COMPLETADO')
+    return 'bg-marca-verde/20 border border-marca-verde/50 text-[#3b6d11]';
+  if (estado === 'ACEPTADO')
     return 'bg-marca-rojo/20 border border-marca-rojo/50 text-[#a3312f]';
   if (estado === 'RECHAZADO') return 'bg-[#5B292D]/20 border border-[#5B292D]/50 text-[#5B292D]';
   return 'bg-slate-200 border border-slate-300 text-slate-500';
@@ -134,7 +136,11 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
     const servs = servicios
       // Incluye también los servicios SIN nannie (por asignar): así aparecen en
       // la cuadrícula y se pueden abrir para asignar/cancelar/reprogramar.
-      .filter((s) => (s.estado === 'OFERTADO' || s.estado === 'ACEPTADO') && enDia(s.fecha, dia))
+      .filter(
+        (s) =>
+          (s.estado === 'OFERTADO' || s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') &&
+          enDia(s.fecha, dia),
+      )
       .map<Bloque>((s) => {
         const quien = s.nannieId ? primerNombre(s.nannieId) : 'Sin asignar';
         return {
@@ -786,6 +792,7 @@ function Leyenda({ modo }: { modo: Modo }) {
     { c: 'bg-amber-200', t: 'Disponible' },
     { c: 'bg-marca-rojo/40', t: 'Asignado' },
     { c: 'bg-marca-azul/40', t: 'Ofertado' },
+    { c: 'bg-marca-verde/40', t: 'Terminado' },
     // Bloqueado y Rechazado solo aparecen en la vista "Por nannie".
     ...(modo === 'nannie'
       ? [
