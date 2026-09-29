@@ -338,9 +338,9 @@ export default function AsignacionPage() {
       if (duracion < min || duracion > max)
         return setError(`Una nannie de fiesta en ${esQro ? 'Querétaro' : 'Toluca'} es de ${min} a ${max} horas.`);
     }
-    // Mínimo 3 h solo para servicios sueltos; paquete y LUDOTECA admiten <3 h.
-    if (!esFiesta && !esLudoteca && duracion < 3 && !usaPaquete)
-      return setError('El horario debe ser en horas completas y de mínimo 3 horas.');
+    // Desde 1 h (Paula 2026-09-29): individuales, paquete y ludoteca admiten <3 h.
+    if (!esFiesta && duracion < 1 && !usaPaquete)
+      return setError('El horario debe dar al menos 1 hora.');
     setBuscando(true);
     try {
       const { candidatas } = await api.recomendar({
@@ -564,7 +564,7 @@ export default function AsignacionPage() {
         <p className="text-xs text-texto-suave">
           Duración:{' '}
           {duracion === null ? (
-            <span className="text-marca-rojo">horas completas, mínimo 3</span>
+            <span className="text-marca-rojo">horas completas, mínimo 1 h</span>
           ) : (
             `${duracion} h`
           )}

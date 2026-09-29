@@ -295,16 +295,11 @@ export class CalendarioService {
     if (dto.formato === 'PAQUETE' && !dto.paqueteId) {
       throw new BadRequestException('Un servicio de paquete requiere paqueteId');
     }
-    // Mínimo de 3 h solo para servicios sueltos/individuales (piso de cobro). Un
-    // servicio de PAQUETE puede ser de 1-2 h (horas ya pagadas, Opción B); la
-    // LUDOTECA admite desde 1 h y la FIESTA tiene su propio rango por plaza (abajo).
-    if (
-      dto.formato !== 'PAQUETE' &&
-      dto.tipoServicio !== 'LUDOTECA_MOVIL' &&
-      dto.tipoServicio !== 'NANNIE_FIESTA_PLAYDATE' &&
-      dto.duracionHoras < 3
-    ) {
-      throw new BadRequestException('El mínimo de horas por servicio es 3');
+    // Individuales desde 1 h (Paula 2026-09-29): coordinación captura el horario
+    // que necesite; el pago de 1-2 h se prorratea la fila de 3 h. La FIESTA tiene
+    // su propio rango por plaza (abajo). Solo se exige que sea al menos 1 h.
+    if (dto.tipoServicio !== 'NANNIE_FIESTA_PLAYDATE' && dto.duracionHoras < 1) {
+      throw new BadRequestException('El mínimo de horas por servicio es 1');
     }
     // Fiesta: rango por plaza (Toluca 2-10 h, Qro 3-5 h). PE/PEqro 2026.
     if (dto.tipoServicio === 'NANNIE_FIESTA_PLAYDATE') {
@@ -501,13 +496,10 @@ export class CalendarioService {
     if (nuevaDur == null) {
       throw new BadRequestException('El nuevo horario debe dar horas completas.');
     }
-    // Mínimo 3 h, salvo LUDOTECA (desde 1 h) y FIESTA (rango propio por plaza).
-    if (
-      nuevaDur < 3 &&
-      servicio.tipoServicio !== 'LUDOTECA_MOVIL' &&
-      servicio.tipoServicio !== 'NANNIE_FIESTA_PLAYDATE'
-    ) {
-      throw new BadRequestException('El nuevo horario debe dar horas completas y mínimo 3 h.');
+    // Desde 1 h (Paula 2026-09-29): individuales y ludoteca desde 1 h; FIESTA
+    // valida su propio rango por plaza (abajo).
+    if (nuevaDur < 1 && servicio.tipoServicio !== 'NANNIE_FIESTA_PLAYDATE') {
+      throw new BadRequestException('El nuevo horario debe dar al menos 1 hora.');
     }
     if (servicio.tipoServicio === 'NANNIE_FIESTA_PLAYDATE') {
       const { min, max } = rangoFiesta(servicio.plaza);

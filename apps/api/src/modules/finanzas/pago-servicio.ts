@@ -61,6 +61,15 @@ export function pagoDeServicio(
     return { monto: redondea2(porHora * (duracionHoras + horasMontaje)), clave: 'LUDOTECA' };
   }
 
+  // Generales (Daycare/Nightcare/Acompañamiento/…) de 1-2 h: el tabulador arranca
+  // en 3 h, así que se PRORRATEA la fila de 3 h por hora (Paula 2026-09-29). No
+  // aplica a Fiesta (tiene su propio rango) ni a Ludoteca (ya resuelta arriba).
+  if (tipo !== 'NANNIE_FIESTA_PLAYDATE' && duracionHoras >= 1 && duracionHoras < 3) {
+    const g3 = filaPorClave('GRAL_3');
+    if (!g3) return { monto: null, clave: null, motivo: 'Falta la fila GRAL_3.' };
+    return { monto: redondea2((g3.pago[nivel] / 3) * duracionHoras), clave: 'GRAL_3' };
+  }
+
   // Generales y Fiesta: fila del tabulador por duración.
   const { clave, motivo } = claveTabulador(tipo, duracionHoras);
   if (!clave) return { monto: null, clave: null, motivo };

@@ -132,7 +132,7 @@ export const MANUAL: CapituloModulo[] = [
             'Elige la familia. Si es nueva, usa el botón + para darla de alta al momento.',
             'Elige el tipo de servicio, la plaza y la zona (al elegir la familia se rellenan solas si ya las tiene).',
             'Indica la fecha, el horario (Desde/Hasta) y el número de niños.',
-            'El horario va en horas completas. El mínimo depende del tipo: la mayoría son 3 horas, la Ludoteca desde 1 hora y la Nannie de fiesta 2–10 h en Toluca / 3–5 h en Querétaro.',
+            'El horario va en horas completas, desde 1 hora. La Nannie de fiesta tiene su propio rango: 2–10 h en Toluca / 3–5 h en Querétaro. En servicios individuales de 1–2 h el pago a la nannie se prorratea la tarifa de 3 h.',
             'El "Hasta" puede llegar a las 00:00 (medianoche), para cerrar servicios que terminan a esa hora.',
           ],
           nota: 'La duración se calcula sola y te avisa en rojo si no cumple el mínimo del tipo de servicio. El sistema NO deja asignar a una nannie dos servicios que se traslapen el mismo día (aunque uno siga solo ofertado), para evitar duplicidades.',

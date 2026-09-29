@@ -368,8 +368,8 @@ function AccionesServicio({
   const nuevaDur = horasEntre(servicio.horaInicio, horaFin);
   const { horasNoche } = nuevaDur ? dividirDiaNoche(servicio.horaInicio, nuevaDur) : { horasNoche: 0 };
   const cruzaNoche = horasNoche > 0;
-  // Mínimo 3 h, salvo LUDOTECA (admite desde 1 h).
-  const invalida = nuevaDur == null || (nuevaDur < 3 && servicio.tipoServicio !== 'LUDOTECA_MOVIL');
+  // Desde 1 h (Paula 2026-09-29): individuales y ludoteca admiten <3 h.
+  const invalida = nuevaDur == null || nuevaDur < 1;
 
   // --- Reasignar ---
   const [nannieSel, setNannieSel] = useState('');
@@ -410,7 +410,7 @@ function AccionesServicio({
   }
 
   const guardarHorario = async () => {
-    if (invalida) return setError('El horario debe dar horas completas y mínimo 3 h.');
+    if (invalida) return setError('El horario debe dar al menos 1 hora (horas completas).');
     // Si ya se mostró el prompt de desborde, se reintenta con la decisión elegida.
     if (desborde) {
       if (desModo === 'INDIVIDUAL' && (!desCobro || Number(desCobro) <= 0)) {
