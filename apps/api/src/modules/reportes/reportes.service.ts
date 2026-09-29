@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { GuardarReporteDto } from './dto/guardar-reporte.dto';
 import { reglaPorNumero } from '../nannies/incidencias.catalogo';
+import { serviciosPortadoresEncuesta } from '../evaluacion-familia/encuesta-paquete.util';
 
 /** M6 · 6.1 — Reporte de servicio. La nannie deja UN reporte por servicio
  *  (actividades, ánimo del niño, incidentes, notas); coordinación lo lee. */
@@ -87,6 +88,7 @@ export class ReportesService {
         select: {
           id: true,
           fecha: true,
+          paqueteId: true,
           familia: { select: { nombreContacto: true } },
           nannie: { select: { nombre: true } },
           evaluacion: { select: { respondidoEn: true } },
@@ -95,9 +97,18 @@ export class ReportesService {
       }),
     ]);
 
+    // Encuesta por PAQUETE: de un paquete sale UNA encuesta por nannie (su última
+    // sesión). Solo esa sesión de paquete puede quedar "pendiente"; las demás
+    // sesiones del paquete no cuentan. Los individuales cuentan cada uno.
+    const portadores = await serviciosPortadoresEncuesta(
+      this.prisma,
+      completados.map((s) => s.paqueteId).filter((x): x is string => !!x),
+    );
+
     // Encuestas de papás SIN contestar: servicios completados cuya encuesta no
     // existe o no se ha respondido (Paula las sigue y pide que se manden).
     const encuestasPendientes = completados
+      .filter((s) => (s.paqueteId == null || portadores.has(s.id)))
       .filter((s) => !s.evaluacion || s.evaluacion.respondidoEn == null)
       .map((s) => ({
         servicioId: s.id,

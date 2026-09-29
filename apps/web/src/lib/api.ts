@@ -278,6 +278,9 @@ export interface Servicio {
   duracionHoras: number;
   estado: EstadoServicio;
   requierePlaneacion: boolean;
+  /** Encuesta de papás: individual = siempre; paquete = solo la última sesión
+   *  de esa nannie en el paquete (una encuesta por paquete y nannie). */
+  portaEncuesta?: boolean;
   /** Solo para coordinación (en su calendario). La nannie recibe null / []. */
   familia?: string | null;
   ninos?: string[];
@@ -588,6 +591,8 @@ export interface ServicioHist {
   reporte: ReporteServicio | null;
   /** Si el servicio nació de un paquete de horas. */
   esPaquete: boolean;
+  /** Encuesta: individual siempre; paquete solo la última sesión de la nannie. */
+  portaEncuesta?: boolean;
   /** Consumo del paquete de ESA sesión (solo si esPaquete y no está cancelada). */
   paquete: { consumidas: number; remanentes: number; totales: number } | null;
 }

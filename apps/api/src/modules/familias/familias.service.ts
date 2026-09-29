@@ -10,6 +10,7 @@ import { CrearPaqueteDto } from './dto/crear-paquete.dto';
 import { CrearNinoDto, EditarNinoDto } from './dto/nino.dto';
 import { CrearNotaDto } from './dto/crear-nota.dto';
 import { tramoPorHoras } from './paquetes.tarifa';
+import { serviciosPortadoresEncuesta } from '../evaluacion-familia/encuesta-paquete.util';
 import { tarifasZonaQro } from '../finanzas/queretaro-tarifas';
 
 /** Umbral de inactividad de una familia (Paula, M5): 60 días sin servicio. */
@@ -425,6 +426,13 @@ export class FamiliasService {
       infoPaqueteServicio.set(s.id, { consumidas: s.duracionHoras, remanentes: Math.max(0, totales - nuevo), totales });
     }
 
+    // Encuesta por paquete: marca qué servicios de paquete portan la encuesta
+    // (última sesión de cada nannie en su paquete). Individuales: siempre.
+    const portadoresEncuesta = await serviciosPortadoresEncuesta(
+      this.prisma,
+      familia.servicios.map((s) => s.paqueteId).filter((x): x is string => !!x),
+    );
+
     const p = familia.paquetes[0];
     // Paquetes simultáneos pagados por adelantado: esperan a que se agote el
     // activo para asignarse. Se muestran como referencia (sin botón Programar).
@@ -471,6 +479,8 @@ export class FamiliasService {
         // Distintivo de paquete: si nació de un paquete, cuánto consumió del
         // paquete esa sesión y cuánto quedó de saldo tras ella (Mario 2026-09-21).
         esPaquete: s.paqueteId != null,
+        // Encuesta: individual siempre; paquete solo la última sesión de la nannie.
+        portaEncuesta: s.paqueteId == null ? true : portadoresEncuesta.has(s.id),
         paquete: infoPaqueteServicio.get(s.id) ?? null,
         // Reporte de servicio (M6 · 6.1): coordinación lo lee inline.
         reporte: s.reporte

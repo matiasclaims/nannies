@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { MailService } from '../../core/mail/mail.service';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { tramoPorHoras } from '../familias/paquetes.tarifa';
+import { serviciosPortadoresEncuesta } from '../evaluacion-familia/encuesta-paquete.util';
 import { CrearDisponibilidadDto } from './dto/crear-disponibilidad.dto';
 import { CrearDisponibilidadMultipleDto } from './dto/crear-disponibilidad-multiple.dto';
 import { EditarDisponibilidadDto } from './dto/editar-disponibilidad.dto';
@@ -262,6 +263,12 @@ export class CalendarioService {
       orderBy: [{ fecha: 'asc' }, { horaInicio: 'asc' }],
     });
 
+    // Encuesta por PAQUETE (no por día): marca qué servicios de paquete portan
+    // la encuesta (la última sesión de cada nannie en su paquete). Los servicios
+    // individuales siempre la portan. Ver serviciosPortadoresEncuesta.
+    const paqueteIds = rows.map((r) => r.paqueteId).filter((x): x is string => !!x);
+    const portadores = await serviciosPortadoresEncuesta(this.prisma, paqueteIds);
+
     // La familia/niños solo se exponen a COORDINACIÓN (en su calendario de equipo).
     // A la nannie NO (Opción A · privacidad): su ficha operativa va por otra ruta.
     const esCoord = user.rol !== 'NANNIE';
@@ -269,6 +276,8 @@ export class CalendarioService {
       ...s,
       familia: esCoord ? familia.nombreContacto : null,
       ninos: esCoord ? familia.ninos.map((n) => n.nombre).filter(Boolean) : [],
+      // Individual: siempre; paquete: solo la última sesión de esa nannie.
+      portaEncuesta: s.paqueteId == null ? true : portadores.has(s.id),
     }));
   }
 

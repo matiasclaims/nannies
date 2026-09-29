@@ -207,7 +207,7 @@ export default function PerfilFamiliaPage() {
                         <Package className="h-3 w-3" /> Paquete
                       </span>
                     )}
-                    {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
+                    {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && s.portaEncuesta !== false && (
                       <button
                         onClick={() => setEncuestaSid(s.id)}
                         title="Compartir encuesta con la familia"

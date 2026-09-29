@@ -155,7 +155,7 @@ export function AgendaNannie({
                 <NotebookPen className="h-3.5 w-3.5" /> Reporte
               </button>
             )}
-            {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
+            {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && s.portaEncuesta !== false && (
               <button
                 onClick={() => setEncuestaServ(s)}
                 className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"

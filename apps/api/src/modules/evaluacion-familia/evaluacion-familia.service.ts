@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { ResponderEncuestaDto } from './dto/responder-encuesta.dto';
+import { serviciosPortadoresEncuesta } from './encuesta-paquete.util';
 
 /** Umbral del reglamento (#14): promedio de papás por debajo → sugiere prueba. */
 export const UMBRAL_PRUEBA = 7.5;
@@ -23,7 +24,7 @@ export class EvaluacionFamiliaService {
   async linkDeServicio(servicioId: string, user: UsuarioAutenticado) {
     const servicio = await this.prisma.servicio.findUnique({
       where: { id: servicioId },
-      select: { id: true, nannieId: true, estado: true },
+      select: { id: true, nannieId: true, estado: true, paqueteId: true },
     });
     if (!servicio) throw new NotFoundException('Servicio no encontrado');
     if (user.rol === 'NANNIE') {
@@ -32,6 +33,17 @@ export class EvaluacionFamiliaService {
       }
     } else if (user.rol !== 'DIRECTORA' && user.rol !== 'SUBDIRECTORA') {
       throw new ForbiddenException('No autorizado.');
+    }
+    // Encuesta por PAQUETE: si el servicio es de paquete, solo la última sesión
+    // de esa nannie en ese paquete puede portar la encuesta (una por paquete y
+    // nannie). Los servicios individuales no tienen esta restricción.
+    if (servicio.paqueteId) {
+      const portadores = await serviciosPortadoresEncuesta(this.prisma, [servicio.paqueteId]);
+      if (!portadores.has(servicio.id)) {
+        throw new BadRequestException(
+          'La encuesta del paquete se emite en la última sesión de la nannie; este servicio no es el último.',
+        );
+      }
     }
     const existente = await this.prisma.evaluacionServicio.findUnique({
       where: { servicioId },
