@@ -110,7 +110,7 @@ export default function FamiliasPage() {
             // Fuera las familias históricas del import (placeholders `hist…`) que
             // NO tienen actividad viva; las que ya se reactivaron sí aparecen.
             .filter((f) => !f.esHistoricaOculta)
-            .filter((f) => (!ocultarInactivas || !f.inactiva) && (!soloPaquete || f.paqueteActivo))
+            .filter((f) => (!ocultarInactivas || !f.inactiva) && (!soloPaquete || f.paqueteEnCurso))
             .filter((f) => {
               const t = norm(q.trim());
               if (!t) return true;
@@ -146,11 +146,15 @@ export default function FamiliasPage() {
                   {f.ultimaAtencion ? ` · última ${fechaCortaFam(f.ultimaAtencion)}` : ''}
                 </p>
               </div>
-              {f.paqueteActivo && (
+              {f.paqueteActivo ? (
                 <span className="shrink-0 rounded-full bg-marca-verde/15 px-2.5 py-1 text-xs font-semibold text-[#3b6d11]">
                   Paquete · {f.paqueteActivo.horasRestantes}/{f.paqueteActivo.horasTotales} h
                 </span>
-              )}
+              ) : f.paqueteEnCurso ? (
+                <span className="shrink-0 rounded-full bg-marca-azul/15 px-2.5 py-1 text-xs font-semibold text-marca-azul">
+                  Paquete en curso
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>

@@ -214,22 +214,34 @@ export class DashboardService {
         tipoServicio: s.tipoServicio,
       }));
 
-    // --- Paquetes de horas activos (familias con saldo vigente) ---
+    // --- Paquetes EN CURSO: con saldo por asignar (ACTIVO), pagados por
+    //     adelantado (EN_ESPERA), o ya sin saldo pero con sesiones asignadas sin
+    //     concluir (CONSUMIDO con sesión OFERTADO/ACEPTADO). Deja de contar solo
+    //     el 100% terminado. El indicador cuenta FAMILIAS distintas. ---
     const paquetesActivosRows = await this.prisma.paquete.findMany({
-      where: { estado: 'ACTIVO' },
+      where: {
+        estado: { not: 'CANCELADO' },
+        OR: [
+          { estado: { in: ['ACTIVO', 'EN_ESPERA'] } },
+          { servicios: { some: { estado: { in: ['OFERTADO', 'ACEPTADO'] } } } },
+        ],
+      },
       select: {
         id: true,
+        estado: true,
         horasTotales: true,
         horasConsumidas: true,
         fechaContratacion: true,
         familia: { select: { id: true, nombreContacto: true } },
       },
     });
-    const paquetesActivos = paquetesActivosRows.length;
+    const paquetesActivos = new Set(paquetesActivosRows.map((p) => p.familia.id)).size;
 
     // --- Paquetes por agotarse: quedan ≤5 h O ya se consumió ≥80% (avisar para
-    //     ofrecer renovación). Solo horas (los paquetes no tienen vigencia por fecha). ---
+    //     ofrecer renovación). Solo sobre los que aún tienen horas por asignar
+    //     (ACTIVO); los CONSUMIDO/EN_ESPERA no aplican aquí. ---
     const paquetesPorAgotarse = paquetesActivosRows
+      .filter((p) => p.estado === 'ACTIVO')
       .map((p) => {
         const restantes = p.horasTotales - p.horasConsumidas;
         const pct = p.horasTotales > 0 ? p.horasConsumidas / p.horasTotales : 0;

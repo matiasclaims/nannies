@@ -33,7 +33,7 @@ export class FamiliasService {
 
   /** 5.1 · Directorio: familias con paquete activo, nº de servicios y última atención. */
   async listar() {
-    const [familias, conVivos] = await Promise.all([
+    const [familias, conVivos, enCurso] = await Promise.all([
       this.prisma.familia.findMany({
         select: {
         id: true,
@@ -66,7 +66,22 @@ export class FamiliasService {
         select: { familiaId: true },
         distinct: ['familiaId'],
       }),
+      // Familias con un paquete EN CURSO: con saldo por asignar (ACTIVO), pagado
+      // por adelantado (EN_ESPERA), o ya sin saldo pero con sesiones asignadas sin
+      // concluir (OFERTADO/ACEPTADO). Igual criterio que el indicador del panorama.
+      this.prisma.paquete.findMany({
+        where: {
+          estado: { not: 'CANCELADO' },
+          OR: [
+            { estado: { in: ['ACTIVO', 'EN_ESPERA'] } },
+            { servicios: { some: { estado: { in: ['OFERTADO', 'ACEPTADO'] } } } },
+          ],
+        },
+        select: { familiaId: true },
+        distinct: ['familiaId'],
+      }),
     ]);
+    const familiasEnCurso = new Set(enCurso.map((p) => p.familiaId));
     const conServicioVivo = new Set(conVivos.map((s) => s.familiaId));
 
     // Orden cronológico por última atención (Paula, 2026-09): las últimas en
@@ -91,6 +106,9 @@ export class FamiliasService {
         // actividad reciente cambia la referencia). SUSPENDIDA no aplica.
         inactiva: f.estado !== 'SUSPENDIDA' && diasSinServicio >= UMBRAL_INACTIVIDAD_DIAS,
         diasSinServicio,
+        // Tiene un paquete en curso (con saldo, en espera, o con sesiones por
+        // concluir), aunque no tenga saldo por asignar (paqueteActivo puede ser null).
+        paqueteEnCurso: familiasEnCurso.has(f.id),
         paqueteActivo: paquetes[0]
           ? {
               id: paquetes[0].id,

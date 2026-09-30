@@ -377,6 +377,8 @@ export interface FamiliaLite {
   ninosNombres?: string[];
   ultimaAtencion?: string | null;
   paqueteActivo?: PaqueteActivo | null;
+  /** Tiene un paquete en curso (con saldo, en espera, o con sesiones por concluir). */
+  paqueteEnCurso?: boolean;
 }
 
 export interface NinoPerfil {

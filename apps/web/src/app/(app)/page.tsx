@@ -90,7 +90,7 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
         ) : (
           <CardMoney href="/calendario" tip="Total de servicios vigentes del mes. Clic para ver el calendario." titulo="Servicios del mes" valor={String(d?.servicios.total ?? '—')} nota={`${d?.servicios.completados ?? 0} completados`} color="azul" icon={Activity} />
         )}
-        <CardMoney href="/familias?paquete=activos" tip="Familias con un paquete de horas vigente. Clic para ver la lista." titulo="Paquetes activos" valor={String(d?.paquetesActivos ?? '—')} nota="familias con saldo" color="morado" icon={Package} />
+        <CardMoney href="/familias?paquete=activos" tip="Familias con un paquete en curso: con saldo por asignar, pagado por adelantado, o con sesiones asignadas aún por concluir. Clic para ver la lista." titulo="Paquetes activos" valor={String(d?.paquetesActivos ?? '—')} nota="familias con paquete en curso" color="morado" icon={Package} />
       </section>
 
       {/* Alerta: paquetes por agotarse (≤5 h o ≥80% consumido) → ofrecer renovación */}
