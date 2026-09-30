@@ -2,6 +2,7 @@ import { Sidebar } from '@/components/sidebar';
 import { Topbar } from '@/components/topbar';
 import { BottomNav } from '@/components/bottom-nav';
 import { CambioPasswordGate } from '@/components/cambio-password-gate';
+import { BotonReportarProblema } from '@/components/boton-reportar-problema';
 import { ModoProvider } from '@/lib/modo-perfil';
 
 /** Shell autenticado: sidebar (escritorio) + topbar + bottom nav (celular). El
@@ -18,6 +19,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <main className="flex-1 px-4 py-5 pb-24 md:px-6 md:pb-6">{children}</main>
             <BottomNav />
           </div>
+          <BotonReportarProblema />
         </div>
       </CambioPasswordGate>
     </ModoProvider>

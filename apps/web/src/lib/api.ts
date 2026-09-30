@@ -47,6 +47,8 @@ export interface NanniePerfil extends NannieExpediente {
   emergenciaParentesco: string | null;
   consideracionSalud: string | null;
 }
+export type TipoReporteProblema = 'ERROR' | 'SUGERENCIA' | 'DUDA';
+
 /** Datos del expediente que captura la nannie (contacto de emergencia + salud). */
 export interface FichaPersonalNannie {
   emergenciaNombre: string | null;
@@ -1159,6 +1161,9 @@ export const api = {
     }),
   referenciasDeNannie: (id: string) => req<ReferenciaNannie[]>(`/nannies/${id}/referencias`),
   // Ficha personal (contacto de emergencia + consideraciones de salud)
+  // Reporte de problemas del sistema (cualquier usuario)
+  reportarProblema: (dto: { descripcion: string; tipo?: TipoReporteProblema; url?: string; userAgent?: string }) =>
+    req<{ ok: true; id: string }>('/reportes-problema', { method: 'POST', body: JSON.stringify(dto) }),
   miFichaPersonal: () => req<FichaPersonalNannie>('/mis-documentos/ficha'),
   guardarMiFichaPersonal: (datos: FichaPersonalNannie) =>
     req<FichaPersonalNannie>('/mis-documentos/ficha', {

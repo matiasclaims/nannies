@@ -732,3 +732,34 @@ model NannieColonia {
   @@index([nannieId])
   @@map("nannie_colonias")
 }
+
+// ------------------------------------------------------------
+//  Reporte de problemas del sistema (feedback de usuarios)
+// ------------------------------------------------------------
+
+enum TipoReporteProblema {
+  ERROR
+  SUGERENCIA
+  DUDA
+}
+
+/**
+ * Un usuario (cualquier rol) reporta un problema/sugerencia del sistema. Se
+ * guarda con quién, rol, la pantalla (url) y el navegador para poder reproducir,
+ * y se avisa por correo. estado sirve para el seguimiento (fase 2).
+ */
+model ReporteProblema {
+  id          String              @id @default(cuid())
+  usuarioId   String? // quién lo reportó (snapshot de nombre/rol abajo por si se borra)
+  autorNombre String
+  rol         String
+  tipo        TipoReporteProblema @default(ERROR)
+  descripcion String
+  url         String? // pantalla donde estaba
+  userAgent   String? // navegador / dispositivo
+  estado      String              @default("NUEVO") // NUEVO | EN_REVISION | RESUELTO
+  creadoEn    DateTime            @default(now())
+
+  @@index([creadoEn])
+  @@map("reportes_problema")
+}
