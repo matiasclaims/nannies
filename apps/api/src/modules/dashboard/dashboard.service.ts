@@ -243,7 +243,7 @@ export class DashboardService {
     //     Cubre todos los paquetes vigentes (incluye CONSUMIDO mayormente hecho). ---
     const [paquetesVigentes, horasHechasRaw] = await Promise.all([
       this.prisma.paquete.findMany({
-        where: { estado: { not: 'CANCELADO' } },
+        where: { estado: { not: 'CANCELADO' }, familia: { estado: { not: 'SUSPENDIDA' } } },
         select: {
           id: true,
           horasTotales: true,
@@ -273,7 +273,10 @@ export class DashboardService {
           desde: p.fechaContratacion.toISOString().slice(0, 10),
         };
       })
-      .filter((p) => p.restantes > 0 && (p.restantes <= 5 || p.consumidoPct >= 80))
+      // Por porcentaje consumido REAL (>=80%), que sirve para cualquier tamaño de
+      // paquete. (El umbral absoluto de "<=5 h" marcaba falsamente paquetes chicos
+      // de 3-4 h aún sin usar.) Debe quedar algo por hacer (restantes > 0).
+      .filter((p) => p.restantes > 0 && p.consumidoPct >= 80)
       .sort((a, b) => a.restantes - b.restantes);
 
     // --- Adeudos por definir: horas de DESBORDE de paquete sin facturar (la
