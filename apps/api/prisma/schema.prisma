@@ -542,6 +542,11 @@ model Servicio {
   // reconoce en esta fecha, no en la del servicio (Mario 2026-09-21). El INGRESO
   // se reconoce por `creadoEn` (cuando Paula creó el servicio).
   completadoEn DateTime?
+  // Cierre manual de pendientes (p. ej. cierre de un mes): el servicio deja de
+  // salir como "pendiente de encuesta / reporte" aunque no se haya respondido,
+  // sin borrar lo ya contestado. Solo oculta los pendientes marcados.
+  encuestaCerrada Boolean     @default(false)
+  reporteCerrado  Boolean     @default(false)
   creadoEn     DateTime       @default(now())
   actualizadoEn DateTime      @updatedAt
 

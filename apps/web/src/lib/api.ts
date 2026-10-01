@@ -571,6 +571,8 @@ export interface ReporteDiaItem {
   horaFin: string;
   zona: string;
   estado: EstadoServicio;
+  /** Cerrado manualmente (p. ej. cierre de mes): no sale como "pendiente". */
+  reporteCerrado?: boolean;
   reporte: ReporteServicio | null;
 }
 /** Datos completos para la hoja imprimible del reporte de un servicio. */

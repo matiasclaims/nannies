@@ -203,6 +203,10 @@ function FilaReporte({ it }: { it: ReporteDiaItem }) {
           >
             <Printer className="h-3.5 w-3.5" /> Imprimir / PDF
           </a>
+        ) : it.reporteCerrado ? (
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-fondo px-2 py-0.5 text-[11px] font-medium text-texto-suave">
+            Sin reporte
+          </span>
         ) : (
           <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
             <FileWarning className="h-3 w-3" /> Pendiente de reporte

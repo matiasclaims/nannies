@@ -84,7 +84,9 @@ export class ReportesService {
       }),
       // Servicios completados del periodo + estado de su encuesta de papás.
       this.prisma.servicio.findMany({
-        where: { estado: 'COMPLETADO', nannieId: { not: null }, fecha: { gte, lt } },
+        // Excluye los que se cerraron manualmente (encuestaCerrada): ya no son
+        // pendientes aunque no se hayan contestado.
+        where: { estado: 'COMPLETADO', nannieId: { not: null }, fecha: { gte, lt }, encuestaCerrada: false },
         select: {
           id: true,
           fecha: true,
@@ -331,6 +333,8 @@ export class ReportesService {
       horaFin: s.horaFin,
       zona: s.zona,
       estado: s.estado,
+      // Cerrado manualmente (p. ej. cierre de mes): no sale como "pendiente".
+      reporteCerrado: s.reporteCerrado,
       reporte: s.reporte
         ? {
             actividades: s.reporte.actividades,
