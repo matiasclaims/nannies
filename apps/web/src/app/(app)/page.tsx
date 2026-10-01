@@ -77,7 +77,7 @@ function PanoramaCoordinacion({ nombre }: { nombre?: string }) {
         <Tarjeta href="/asignacion" tip="% de servicios con nannie asignada. Clic para asignar los pendientes.">
           <RingGauge value={d?.cobertura.porcentaje ?? null} label="Cobertura" sub={d ? `${d.cobertura.sinCobertura} sin cubrir` : ''} color="#0CC0DF" />
         </Tarjeta>
-        <Tarjeta href="/finanzas" tip="Horas pagadas del mes (paquetes + individuales). Rango objetivo 400-800 h. Clic para ir a Finanzas.">
+        <Tarjeta href="/finanzas" tip="Horas vendidas del mes: horas completas de los paquetes contratados + horas de los servicios individuales creados. Es venta, no horas trabajadas. Clic para ir a Finanzas.">
           <HorasIndicador horas={d?.horasPagadas ?? null} />
         </Tarjeta>
       </section>
@@ -702,7 +702,7 @@ function HorasIndicador({ horas }: { horas: number | null }) {
           <span className="text-[9px] text-texto-suave">horas</span>
         </div>
       </div>
-      <p className="mt-1 text-sm font-semibold text-texto-fuerte">Horas pagadas</p>
+      <p className="mt-1 text-sm font-semibold text-texto-fuerte">Horas vendidas</p>
       <span className="mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white" style={{ backgroundColor: rango.color }}>{rango.label}</span>
     </>
   );
