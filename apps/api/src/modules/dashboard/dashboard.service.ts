@@ -237,14 +237,32 @@ export class DashboardService {
     });
     const paquetesActivos = new Set(paquetesActivosRows.map((p) => p.familia.id)).size;
 
-    // --- Paquetes por agotarse: quedan ≤5 h O ya se consumió ≥80% (avisar para
-    //     ofrecer renovación). Solo sobre los que aún tienen horas por asignar
-    //     (ACTIVO); los CONSUMIDO/EN_ESPERA no aplican aquí. ---
-    const paquetesPorAgotarse = paquetesActivosRows
-      .filter((p) => p.estado === 'ACTIVO')
+    // --- Paquetes por agotarse: por las horas REALMENTE realizadas (sesiones
+    //     COMPLETADAS), no las asignadas. Avisa cuando a la familia le quedan ≤5 h
+    //     de servicio O ya consumió ≥80%, tenga o no el resto asignado a sesiones.
+    //     Cubre todos los paquetes vigentes (incluye CONSUMIDO mayormente hecho). ---
+    const [paquetesVigentes, horasHechasRaw] = await Promise.all([
+      this.prisma.paquete.findMany({
+        where: { estado: { not: 'CANCELADO' } },
+        select: {
+          id: true,
+          horasTotales: true,
+          fechaContratacion: true,
+          familia: { select: { id: true, nombreContacto: true } },
+        },
+      }),
+      this.prisma.servicio.groupBy({
+        by: ['paqueteId'],
+        where: { paqueteId: { not: null }, estado: 'COMPLETADO' },
+        _sum: { duracionHoras: true },
+      }),
+    ]);
+    const hechasPorPaq = new Map(horasHechasRaw.map((r) => [r.paqueteId as string, r._sum.duracionHoras ?? 0]));
+    const paquetesPorAgotarse = paquetesVigentes
       .map((p) => {
-        const restantes = p.horasTotales - p.horasConsumidas;
-        const pct = p.horasTotales > 0 ? p.horasConsumidas / p.horasTotales : 0;
+        const hechas = hechasPorPaq.get(p.id) ?? 0;
+        const restantes = p.horasTotales - hechas;
+        const pct = p.horasTotales > 0 ? hechas / p.horasTotales : 0;
         return {
           paqueteId: p.id,
           familiaId: p.familia.id,
@@ -255,7 +273,7 @@ export class DashboardService {
           desde: p.fechaContratacion.toISOString().slice(0, 10),
         };
       })
-      .filter((p) => p.restantes <= 5 || p.consumidoPct >= 80)
+      .filter((p) => p.restantes > 0 && (p.restantes <= 5 || p.consumidoPct >= 80))
       .sort((a, b) => a.restantes - b.restantes);
 
     // --- Adeudos por definir: horas de DESBORDE de paquete sin facturar (la
