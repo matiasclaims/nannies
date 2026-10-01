@@ -60,7 +60,7 @@ export class ReportesService {
       }),
       this.prisma.servicio.findMany({
         where: { fecha: { gte, lt }, nannieId: { not: null } },
-        select: { nannieId: true, estado: true, duracionHoras: true },
+        select: { nannieId: true, estado: true, duracionHoras: true, paqueteId: true },
       }),
       this.prisma.evaluacionServicio.findMany({
         where: { respondidoEn: { not: null }, servicio: { fecha: { gte, lt } } },
@@ -125,12 +125,26 @@ export class ReportesService {
         { nannieId: n.id, nombre: n.nombre, color: n.color, prueba: n.estado === 'PRUEBA', servicios: 0, horas: 0, pSum: 0, pN: 0, aSum: 0, aN: 0, incidencias: 0 },
       ]),
     );
+    // Servicios por nannie: un servicio INDIVIDUAL cuenta 1; un PAQUETE cuenta 1
+    // por nannie (aunque haya hecho varias sesiones de ese paquete) y si lo
+    // atienden 2+ nannies, suma 1 a cada una. Las HORAS sí son todas las sesiones.
+    const paquetesPorNannie = new Map<string, Set<string>>();
     for (const s of servicios) {
       const g = s.nannieId ? acc.get(s.nannieId) : null;
       if (g && s.estado === 'COMPLETADO') {
-        g.servicios++;
         g.horas += s.duracionHoras;
+        if (s.paqueteId) {
+          let set = paquetesPorNannie.get(s.nannieId as string);
+          if (!set) { set = new Set(); paquetesPorNannie.set(s.nannieId as string, set); }
+          set.add(s.paqueteId);
+        } else {
+          g.servicios++;
+        }
       }
+    }
+    for (const [nannieId, paquetes] of paquetesPorNannie) {
+      const g = acc.get(nannieId);
+      if (g) g.servicios += paquetes.size;
     }
     for (const e of evalPapas) {
       const g = e.servicio.nannieId ? acc.get(e.servicio.nannieId) : null;
@@ -194,7 +208,7 @@ export class ReportesService {
     if (!nannie) throw new NotFoundException('Nannie no encontrada');
 
     const [servicios, reportes, evalPapas, incidencias, evalAgencia] = await Promise.all([
-      this.prisma.servicio.findMany({ where: { nannieId, fecha: { gte, lt } }, select: { estado: true, duracionHoras: true } }),
+      this.prisma.servicio.findMany({ where: { nannieId, fecha: { gte, lt } }, select: { estado: true, duracionHoras: true, paqueteId: true } }),
       this.prisma.reporteServicio.findMany({
         where: { servicio: { nannieId, fecha: { gte, lt } } },
         include: { servicio: { select: { fecha: true, tipoServicio: true, familia: { select: { nombreContacto: true } } } } },
@@ -224,6 +238,11 @@ export class ReportesService {
 
     const completados = servicios.filter((s) => s.estado === 'COMPLETADO');
     const horas = completados.reduce((s, x) => s + x.duracionHoras, 0);
+    // Servicios: individual = 1 cada uno; paquete = 1 por paquete (aunque la
+    // nannie haya hecho varias sesiones de ese paquete). Las horas sí son todas.
+    const serviciosCount =
+      completados.filter((s) => !s.paqueteId).length +
+      new Set(completados.filter((s) => s.paqueteId).map((s) => s.paqueteId)).size;
     const papas = evalPapas.map((e) => e.calificacion).filter((n): n is number => n != null);
     const promPapas = papas.length ? Math.round((papas.reduce((s, n) => s + n, 0) / papas.length) * 10) / 10 : null;
     const ag = evalAgencia.map((e) => Number(e.calificacion));
@@ -234,7 +253,7 @@ export class ReportesService {
       hasta,
       nannie: { id: nannie.id, nombre: nannie.nombre, color: nannie.color, prueba: nannie.estado === 'PRUEBA', especialidad: nannie.especialidad },
       kpis: {
-        servicios: completados.length,
+        servicios: serviciosCount,
         horas,
         calificacionPapas: promPapas,
         evaluacionPapasN: papas.length,
