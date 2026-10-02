@@ -18,6 +18,7 @@ export const CATALOGO_DOCUMENTOS: ItemChecklist[] = [
   { clave: 'antecedentes_no_penales', nombre: 'Carta de antecedentes no penales' },
   { clave: 'convenio_colaboracion', nombre: 'Convenio de colaboración laboral' },
   { clave: 'formato_zonas', nombre: 'Formato de zonas' },
+  { clave: 'pruebas_psicometricas', nombre: 'Pruebas psicométricas' },
 ];
 
 const CAPACITATE = 'Capacítate para el Empleo · Fundación Carlos Slim';
