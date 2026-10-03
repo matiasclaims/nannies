@@ -824,8 +824,16 @@ export class CalendarioService {
     // Candado (Mario 2026-09-21): una NANNIE no puede completar un servicio a
     // futuro (evita cobrar algo aún no dado). Coordinación sí puede (override).
     if (user.rol === 'NANNIE') {
-      const ahora = new Date();
-      const hoyMin = Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate());
+      // "Hoy" en hora de México (UTC−6), no UTC: de 6 p.m. a medianoche local el
+      // UTC ya es el día siguiente y dejaría completar un servicio de mañana.
+      const hoyMX = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Mexico_City',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
+      const [y, m, d] = hoyMX.split('-').map(Number);
+      const hoyMin = Date.UTC(y, m - 1, d);
       if (servicio.fecha.getTime() > hoyMin) {
         throw new BadRequestException('Aún no puedes marcar terminado un servicio que no ha llegado: se habilita el día del servicio.');
       }
