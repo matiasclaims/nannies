@@ -30,6 +30,7 @@ enum Rol {
   DIRECTORA // Paula — acceso total, ve margen y confirma consecuencias
   SUBDIRECTORA // Jackeline — opera todo menos el margen
   NANNIE // solo lo suyo; familias en vista operativa (sin PII de menores)
+  PROGRAMADOR // Mario — perfil técnico: solo gestiona los reportes de problemas
 }
 
 enum Plaza {
@@ -763,6 +764,9 @@ model ReporteProblema {
   url         String? // pantalla donde estaba
   userAgent   String? // navegador / dispositivo
   estado      String              @default("NUEVO") // NUEVO | EN_REVISION | RESUELTO
+  // Al resolver: quién/cuándo y una nota para avisar por correo a quien reportó.
+  notaResolucion String?
+  resueltoEn     DateTime?
   creadoEn    DateTime            @default(now())
 
   @@index([creadoEn])

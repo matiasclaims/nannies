@@ -19,9 +19,9 @@
 
 // Espejo del enum Rol de Prisma (se mantiene en sync a mano para
 // no acoplar la matriz al cliente generado).
-export type Rol = 'DIRECTORA' | 'SUBDIRECTORA' | 'NANNIE';
+export type Rol = 'DIRECTORA' | 'SUBDIRECTORA' | 'NANNIE' | 'PROGRAMADOR';
 
-export const ROLES: readonly Rol[] = ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'] as const;
+export const ROLES: readonly Rol[] = ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE', 'PROGRAMADOR'] as const;
 
 /**
  * Acciones con consecuencia sobre dinero o estatus de una persona.
@@ -46,6 +46,7 @@ export type Accion =
   | 'familia.gestionar'
   | 'nannie.gestionar'
   | 'reporte.gestionar'
+  | 'problema.gestionar'
   | 'incidencia.registrar'
   // Auto-servicio de la nannie (sobre lo suyo; ver PERTENENCIA)
   | 'disponibilidad.propia.editar'
@@ -77,6 +78,8 @@ export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
   'familia.gestionar': ['DIRECTORA', 'SUBDIRECTORA'],
   'nannie.gestionar': ['DIRECTORA', 'SUBDIRECTORA'],
   'reporte.gestionar': ['DIRECTORA', 'SUBDIRECTORA'],
+  // Gestión de reportes de problemas del sistema: perfil técnico (Mario).
+  'problema.gestionar': ['PROGRAMADOR'],
   'incidencia.registrar': ['DIRECTORA', 'SUBDIRECTORA'],
   'dashboard.ver': ['DIRECTORA', 'SUBDIRECTORA'],
 

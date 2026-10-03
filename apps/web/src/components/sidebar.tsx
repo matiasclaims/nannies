@@ -18,6 +18,7 @@ const ROL_LABEL: Record<Sesion['rol'], string> = {
   DIRECTORA: 'Directora',
   SUBDIRECTORA: 'Subdirectora',
   NANNIE: 'Nannie',
+  PROGRAMADOR: 'Programador',
 };
 
 /** Sidebar de escritorio (piel "Claro"): marca arriba, perfil abajo. */

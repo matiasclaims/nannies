@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   FolderUp,
   MapPin,
+  Bug,
   type LucideIcon,
 } from 'lucide-react';
 import type { Rol } from '@/lib/api';
@@ -42,9 +43,15 @@ export const NAV: NavItem[] = [
   { href: '/finanzas', label: 'Finanzas', icon: Wallet, roles: COORD },
   { href: '/reportes', label: 'Reportes', icon: ClipboardList, roles: COORD },
   { href: '/evaluaciones', label: 'Evaluaciones', icon: ClipboardCheck, roles: COORD },
+  { href: '/problemas', label: 'Problemas', icon: Bug, movil: true, roles: ['PROGRAMADOR'] },
 ];
 
-/** Ítems visibles para un rol (los que no declaran `roles` los ven todos). */
+/**
+ * Ítems visibles para un rol (los que no declaran `roles` los ven todos).
+ * PROGRAMADOR es un perfil técnico acotado: SOLO ve ítems que lo declaran
+ * explícitamente (no los abiertos a todos, como Panorama/Calendario).
+ */
 export function navPara(rol: Rol | undefined): NavItem[] {
+  if (rol === 'PROGRAMADOR') return NAV.filter((i) => i.roles?.includes('PROGRAMADOR'));
   return NAV.filter((i) => !i.roles || (rol != null && i.roles.includes(rol)));
 }

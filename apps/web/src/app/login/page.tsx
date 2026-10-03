@@ -34,8 +34,8 @@ export default function LoginPage() {
     setError('');
     setCargando(true);
     try {
-      await api.login(email, password);
-      router.push('/');
+      const { rol } = await api.login(email, password);
+      router.push(rol === 'PROGRAMADOR' ? '/problemas' : '/');
       router.refresh();
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {

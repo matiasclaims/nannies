@@ -18,13 +18,14 @@ export default function ManualPage() {
   // La etiqueta y el PDF reflejan el ROL real (Directora / Subdirectora /
   // Nannie); el contenido de coordinación es común a Directora y Subdirectora.
   const etiquetaRol = sesion
-    ? { DIRECTORA: 'Directora', SUBDIRECTORA: 'Subdirectora', NANNIE: 'Nannie' }[sesion.rol]
+    ? { DIRECTORA: 'Directora', SUBDIRECTORA: 'Subdirectora', NANNIE: 'Nannie', PROGRAMADOR: 'Programador' }[sesion.rol]
     : '';
   const pdfHref = sesion
     ? {
         DIRECTORA: '/manual-directora.pdf',
         SUBDIRECTORA: '/manual-subdirectora.pdf',
         NANNIE: '/manual-nannie.pdf',
+        PROGRAMADOR: '#',
       }[sesion.rol]
     : '#';
   const cap = MANUAL[modIdx];

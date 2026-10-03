@@ -6,7 +6,7 @@
  */
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 
-export type Rol = 'DIRECTORA' | 'SUBDIRECTORA' | 'NANNIE';
+export type Rol = 'DIRECTORA' | 'SUBDIRECTORA' | 'NANNIE' | 'PROGRAMADOR';
 
 export interface Sesion {
   sub: string;
@@ -48,6 +48,22 @@ export interface NanniePerfil extends NannieExpediente {
   consideracionSalud: string | null;
 }
 export type TipoReporteProblema = 'ERROR' | 'SUGERENCIA' | 'DUDA';
+
+/** Reporte de problema con su estado, para la pantalla de gestión (PROGRAMADOR). */
+export interface ProblemaReporte {
+  id: string;
+  autorNombre: string;
+  rol: string;
+  correo: string | null;
+  tipo: TipoReporteProblema;
+  descripcion: string;
+  url: string | null;
+  userAgent: string | null;
+  estado: 'NUEVO' | 'EN_REVISION' | 'RESUELTO';
+  notaResolucion: string | null;
+  resueltoEn: string | null;
+  creadoEn: string;
+}
 
 /** Datos del expediente que captura la nannie (contacto de emergencia + salud). */
 export interface FichaPersonalNannie {
@@ -1166,6 +1182,16 @@ export const api = {
   // Reporte de problemas del sistema (cualquier usuario)
   reportarProblema: (dto: { descripcion: string; tipo?: TipoReporteProblema; url?: string; userAgent?: string }) =>
     req<{ ok: true; id: string }>('/reportes-problema', { method: 'POST', body: JSON.stringify(dto) }),
+  // Gestión de reportes (perfil PROGRAMADOR)
+  problemas: (estado?: string) =>
+    req<ProblemaReporte[]>(`/reportes-problema${estado && estado !== 'TODOS' ? `?estado=${estado}` : ''}`),
+  problemaEnRevision: (id: string) =>
+    req<{ ok: true }>(`/reportes-problema/${id}/en-revision`, { method: 'POST' }),
+  resolverProblema: (id: string, nota?: string) =>
+    req<{ ok: true; avisado: boolean }>(`/reportes-problema/${id}/resolver`, {
+      method: 'POST',
+      body: JSON.stringify({ nota }),
+    }),
   miFichaPersonal: () => req<FichaPersonalNannie>('/mis-documentos/ficha'),
   guardarMiFichaPersonal: (datos: FichaPersonalNannie) =>
     req<FichaPersonalNannie>('/mis-documentos/ficha', {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ElementType, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { CalendarDays, TrendingUp, MapPin, XCircle, Activity, PieChart, Package, Star, Maximize2, X, Plus, UserPlus, Users, FileText, AlertCircle, type LucideIcon } from 'lucide-react';
 import { api, type Dashboard, type MiPanorama, type TipoServicio } from '@/lib/api';
 import { ESTADO_SERVICIO, TIPO_LABEL } from '@/lib/dominio';
@@ -15,6 +16,13 @@ const money = (n: number) =>
 
 export default function PanoramaPage() {
   const { sesion, rolEfectivo } = useModoPerfil();
+  const router = useRouter();
+
+  // PROGRAMADOR es perfil técnico: su inicio es la gestión de reportes.
+  useEffect(() => {
+    if (rolEfectivo === 'PROGRAMADOR') router.replace('/problemas');
+  }, [rolEfectivo, router]);
+  if (rolEfectivo === 'PROGRAMADOR') return null;
 
   // La nannie ve SU panorama personal; coordinación ve el dashboard de negocio.
   // Con doble perfil (Jacky), manda el rol efectivo del modo activo.
