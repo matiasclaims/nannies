@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Star, ChevronLeft, ChevronRight, TriangleAlert } from 'lucide-react';
 import { api, type PilarEval, type EvaluacionData, type NotasEval, type ClavePilar } from '@/lib/api';
 import { Seccion } from '@/components/seccion';
-import { inicioSemana, sumarSemanas, etiquetaSemana } from '@/lib/semana';
+import { inicioSemana, sumarSemanas, etiquetaSemana, baseHoyMX } from '@/lib/semana';
 import { cn } from '@/lib/utils';
 
 const CLAVES: ClavePilar[] = [
@@ -26,7 +26,7 @@ const VACIAS: NotasEval = {
  *  muestra las incidencias de la semana por pilar (la coordinación baja la nota). */
 export function EvaluacionNannie({ nannieId }: { nannieId: string }) {
   const [pilares, setPilares] = useState<PilarEval[]>([]);
-  const [semana, setSemana] = useState<Date>(() => inicioSemana(new Date()));
+  const [semana, setSemana] = useState<Date>(() => inicioSemana(baseHoyMX()));
   const [data, setData] = useState<EvaluacionData | null>(null);
   const [notas, setNotas] = useState<NotasEval>(VACIAS);
   const [nota, setNota] = useState('');

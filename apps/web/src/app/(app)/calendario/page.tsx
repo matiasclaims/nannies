@@ -12,6 +12,7 @@ import {
   diasDeMes,
   sumarMeses,
   etiquetaMes,
+  baseHoyMX,
 } from '@/lib/semana';
 import { cn } from '@/lib/utils';
 import { CalendarioEquipo } from '@/components/calendario/calendario-equipo';
@@ -35,10 +36,10 @@ export default function CalendarioPage() {
         if (y && m && d) return inicioSemana(new Date(y, m - 1, d));
       }
     }
-    return inicioSemana(new Date());
+    return inicioSemana(baseHoyMX());
   });
   // Mes de referencia para la vista mensual (solo la nannie puede alternar).
-  const [mesRef, setMesRef] = useState<Date>(() => inicioMes(new Date()));
+  const [mesRef, setMesRef] = useState<Date>(() => inicioMes(baseHoyMX()));
   // Vista de la nannie: 'semana' (por defecto) o 'mes'.
   const [vista, setVista] = useState<'semana' | 'mes'>('semana');
 

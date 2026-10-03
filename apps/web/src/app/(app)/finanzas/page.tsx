@@ -23,7 +23,7 @@ import {
   type Sesion,
 } from '@/lib/api';
 import { TIPO_LABEL } from '@/lib/dominio';
-import { inicioSemana, sumarSemanas, rangoSemana, etiquetaSemana } from '@/lib/semana';
+import { inicioSemana, sumarSemanas, rangoSemana, etiquetaSemana, baseHoyMX } from '@/lib/semana';
 import { Avatar } from '@/components/avatar';
 import { NombreNannie } from '@/components/nombre-nannie';
 import { cn } from '@/lib/utils';
@@ -81,7 +81,7 @@ export default function FinanzasPage() {
   const [tab, setTab] = useState<TabId>('ingresos');
   const [anio, setAnio] = useState(hoy.getFullYear());
   const [mes, setMes] = useState(hoy.getMonth());
-  const [semana, setSemana] = useState<Date>(() => inicioSemana(new Date()));
+  const [semana, setSemana] = useState<Date>(() => inicioSemana(baseHoyMX()));
   const [ingresos, setIngresos] = useState<Ingresos | null>(null);
   const [nomina, setNomina] = useState<Nomina | null>(null);
   const [margen, setMargen] = useState<Margen | null>(null);

@@ -15,7 +15,7 @@ import {
 import { ANIMOS } from '@/lib/dominio';
 import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
 import { TIPO_LABEL, ESTADO_DISPONIBILIDAD, edadLabel } from '@/lib/dominio';
-import type { DiaSemana } from '@/lib/semana';
+import { hoyMX, type DiaSemana } from '@/lib/semana';
 import { cn } from '@/lib/utils';
 import { FormMarcarDisponibilidad } from './form-marcar-disponibilidad';
 import { HoraSelect } from '@/components/hora-select';
@@ -95,7 +95,7 @@ export function AgendaNannie({
   // Día seleccionado EFECTIVO en la vista mensual: si el elegido ya no está en el
   // rango (cambió el mes), cae en hoy si aplica; si no, el primer día. Derivado
   // para no reajustar estado dentro de un efecto.
-  const hoyIso = new Date().toISOString().slice(0, 10);
+  const hoyIso = hoyMX();
   const diaSelEfectivo =
     diaSel && dias.some((d) => d.fecha === diaSel)
       ? diaSel
