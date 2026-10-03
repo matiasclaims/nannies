@@ -10,6 +10,7 @@ import {
   FolderUp,
   MapPin,
   Bug,
+  ListTodo,
   type LucideIcon,
 } from 'lucide-react';
 import type { Rol } from '@/lib/api';
@@ -44,6 +45,7 @@ export const NAV: NavItem[] = [
   { href: '/reportes', label: 'Reportes', icon: ClipboardList, roles: COORD },
   { href: '/evaluaciones', label: 'Evaluaciones', icon: ClipboardCheck, roles: COORD },
   { href: '/problemas', label: 'Problemas', icon: Bug, movil: true, roles: ['PROGRAMADOR'] },
+  { href: '/backlog', label: 'Backlog', icon: ListTodo, movil: true, roles: ['PROGRAMADOR'] },
 ];
 
 /**

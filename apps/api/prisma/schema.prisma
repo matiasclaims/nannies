@@ -772,3 +772,31 @@ model ReporteProblema {
   @@index([creadoEn])
   @@map("reportes_problema")
 }
+
+enum PrioridadBacklog {
+  BAJA
+  MEDIA
+  ALTA
+}
+
+enum EstadoBacklog {
+  PENDIENTE
+  EN_PROGRESO
+  HECHO
+}
+
+/** Backlog del PROGRAMADOR: pendientes (features/mejoras/bugs) que lleva Mario.
+ *  Puede nacer de un reporte de problema (origenReporteId). */
+model BacklogItem {
+  id             String           @id @default(cuid())
+  titulo         String
+  descripcion    String?
+  prioridad      PrioridadBacklog @default(MEDIA)
+  estado         EstadoBacklog    @default(PENDIENTE)
+  origenReporteId String? // reporte de problema del que se originó (si aplica)
+  creadoEn       DateTime         @default(now())
+  actualizadoEn  DateTime         @updatedAt
+
+  @@index([estado])
+  @@map("backlog_items")
+}

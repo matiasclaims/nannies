@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Bug, Check, Clock, Mail, Monitor, ExternalLink, Loader2 } from 'lucide-react';
+import { Bug, Check, Clock, Mail, Monitor, ExternalLink, Loader2, ListTodo } from 'lucide-react';
 import { api, ApiError, type ProblemaReporte } from '@/lib/api';
 import { useModoPerfil } from '@/lib/modo-perfil';
 import { cn } from '@/lib/utils';
@@ -87,6 +87,23 @@ function ReporteCard({ r, onCambio }: { r: ProblemaReporte; onCambio: () => void
   const [nota, setNota] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [aBacklog, setABacklog] = useState<'idle' | 'enviando' | 'hecho'>('idle');
+
+  async function pasarABacklog() {
+    setABacklog('enviando');
+    setError('');
+    try {
+      await api.crearBacklog({
+        titulo: `[${TIPO_LABEL[r.tipo] ?? r.tipo}] ${r.descripcion.slice(0, 60)}${r.descripcion.length > 60 ? '…' : ''}`,
+        descripcion: r.descripcion + (r.url ? `\n\nPantalla: ${r.url}` : ''),
+        origenReporteId: r.id,
+      });
+      setABacklog('hecho');
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'No se pudo pasar a backlog.');
+      setABacklog('idle');
+    }
+  }
   const estadoUi = ESTADO_UI[r.estado] ?? { label: r.estado, cls: 'bg-fondo text-texto-suave' };
 
   async function accion(fn: () => Promise<unknown>) {
@@ -195,6 +212,14 @@ function ReporteCard({ r, onCambio }: { r: ProblemaReporte; onCambio: () => void
                 className="flex items-center gap-1 rounded-lg border border-borde px-2.5 py-1.5 text-xs font-medium text-marca-verde hover:bg-fondo disabled:opacity-50"
               >
                 <Check className="h-3.5 w-3.5" /> Marcar resuelto
+              </button>
+              <button
+                onClick={pasarABacklog}
+                disabled={busy || aBacklog !== 'idle'}
+                className="flex items-center gap-1 rounded-lg border border-borde px-2.5 py-1.5 text-xs font-medium text-marca-azul hover:bg-fondo disabled:opacity-50"
+              >
+                <ListTodo className="h-3.5 w-3.5" />
+                {aBacklog === 'hecho' ? 'En backlog' : aBacklog === 'enviando' ? '…' : 'Pasar a backlog'}
               </button>
             </div>
           )}

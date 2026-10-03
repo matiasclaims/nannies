@@ -47,6 +47,7 @@ export type Accion =
   | 'nannie.gestionar'
   | 'reporte.gestionar'
   | 'problema.gestionar'
+  | 'backlog.gestionar'
   | 'incidencia.registrar'
   // Auto-servicio de la nannie (sobre lo suyo; ver PERTENENCIA)
   | 'disponibilidad.propia.editar'
@@ -80,6 +81,7 @@ export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
   'reporte.gestionar': ['DIRECTORA', 'SUBDIRECTORA'],
   // Gestión de reportes de problemas del sistema: perfil técnico (Mario).
   'problema.gestionar': ['PROGRAMADOR'],
+  'backlog.gestionar': ['PROGRAMADOR'],
   'incidencia.registrar': ['DIRECTORA', 'SUBDIRECTORA'],
   'dashboard.ver': ['DIRECTORA', 'SUBDIRECTORA'],
 

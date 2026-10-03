@@ -65,6 +65,21 @@ export interface ProblemaReporte {
   creadoEn: string;
 }
 
+export type PrioridadBacklog = 'BAJA' | 'MEDIA' | 'ALTA';
+export type EstadoBacklog = 'PENDIENTE' | 'EN_PROGRESO' | 'HECHO';
+
+/** Ítem del backlog del PROGRAMADOR (pendientes de desarrollo). */
+export interface BacklogItem {
+  id: string;
+  titulo: string;
+  descripcion: string | null;
+  prioridad: PrioridadBacklog;
+  estado: EstadoBacklog;
+  origenReporteId: string | null;
+  creadoEn: string;
+  actualizadoEn: string;
+}
+
 /** Datos del expediente que captura la nannie (contacto de emergencia + salud). */
 export interface FichaPersonalNannie {
   emergenciaNombre: string | null;
@@ -1192,6 +1207,16 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ nota }),
     }),
+  // Backlog (perfil PROGRAMADOR)
+  backlog: (estado?: string) =>
+    req<BacklogItem[]>(`/backlog${estado && estado !== 'TODOS' ? `?estado=${estado}` : ''}`),
+  crearBacklog: (dto: { titulo: string; descripcion?: string; prioridad?: PrioridadBacklog; origenReporteId?: string }) =>
+    req<BacklogItem>('/backlog', { method: 'POST', body: JSON.stringify(dto) }),
+  actualizarBacklog: (
+    id: string,
+    dto: { titulo?: string; descripcion?: string; prioridad?: PrioridadBacklog; estado?: EstadoBacklog },
+  ) => req<BacklogItem>(`/backlog/${id}`, { method: 'PATCH', body: JSON.stringify(dto) }),
+  borrarBacklog: (id: string) => req<{ ok: true }>(`/backlog/${id}`, { method: 'DELETE' }),
   miFichaPersonal: () => req<FichaPersonalNannie>('/mis-documentos/ficha'),
   guardarMiFichaPersonal: (datos: FichaPersonalNannie) =>
     req<FichaPersonalNannie>('/mis-documentos/ficha', {
