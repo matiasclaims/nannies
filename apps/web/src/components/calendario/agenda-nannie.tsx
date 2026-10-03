@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Pencil, Trash2, Check, X, ClipboardList, HeartPulse, NotebookPen, QrCode, Star } from 'lucide-react';
 import {
   api,
+  ApiError,
   type Servicio,
   type Disponibilidad,
   type RespuestaOferta,
@@ -394,6 +395,11 @@ function VistaMes({
   );
 }
 
+// Topes del reporte (deben ir a la par del DTO del backend). El textarea los
+// hace tope DURO para que nunca se envíe algo que el backend rechace.
+const MAX_ACTIVIDADES = 5000;
+const MAX_OPCIONAL = 3000;
+
 /** M6 · 6.1 — La nannie escribe/edita el reporte de UN servicio. */
 function ReporteModal({
   servicio,
@@ -442,8 +448,8 @@ function ReporteModal({
         notas: notas.trim() || undefined,
       });
       onGuardado();
-    } catch {
-      setError('No se pudo guardar el reporte.');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo guardar el reporte.');
       setGuardando(false);
     }
   }
@@ -472,9 +478,13 @@ function ReporteModal({
                 value={actividades}
                 onChange={(e) => setActividades(e.target.value)}
                 rows={3}
+                maxLength={MAX_ACTIVIDADES}
                 className={campo}
                 placeholder="¿Qué hicieron durante el servicio?"
               />
+              <span className={cn('mt-0.5 block text-right text-[10px]', actividades.length > MAX_ACTIVIDADES - 200 ? 'text-marca-rojo' : 'text-texto-suave')}>
+                {actividades.length}/{MAX_ACTIVIDADES}
+              </span>
             </label>
             <div>
               <span className="mb-1 block text-xs font-medium text-texto-suave">Ánimo del peque *</span>
@@ -496,11 +506,11 @@ function ReporteModal({
             </div>
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-texto-suave">Incidentes u observaciones</span>
-              <textarea value={incidentes} onChange={(e) => setIncidentes(e.target.value)} rows={2} className={campo} placeholder="Opcional" />
+              <textarea value={incidentes} onChange={(e) => setIncidentes(e.target.value)} rows={2} maxLength={MAX_OPCIONAL} className={campo} placeholder="Opcional" />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-texto-suave">Notas / recomendaciones</span>
-              <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} className={campo} placeholder="Opcional" />
+              <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} maxLength={MAX_OPCIONAL} className={campo} placeholder="Opcional" />
             </label>
             {error && <p className="text-xs text-marca-rojo">{error}</p>}
             <button

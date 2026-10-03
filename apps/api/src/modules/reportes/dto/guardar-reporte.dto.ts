@@ -7,7 +7,7 @@ export const ANIMOS = ['Muy bien', 'Bien', 'Regular', 'Difícil'] as const;
 export class GuardarReporteDto {
   @IsString()
   @MinLength(3, { message: 'Describe brevemente las actividades.' })
-  @MaxLength(2000)
+  @MaxLength(5000, { message: 'El texto de actividades es demasiado largo (máx 5000 caracteres).' })
   actividades!: string;
 
   @IsIn(ANIMOS, { message: 'Ánimo inválido.' })
@@ -15,11 +15,11 @@ export class GuardarReporteDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(3000)
   incidentes?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(3000)
   notas?: string;
 }
