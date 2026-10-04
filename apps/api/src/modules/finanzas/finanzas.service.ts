@@ -46,10 +46,6 @@ function rangoPorServicios(serviciosAcumulados: number): RangoPermanente {
   return RangoPermanente.BASE;
 }
 
-// Servicios individuales que cuentan como ingreso (confirmados; se excluyen
-// los solo-ofertados/por-asignar y los rechazados/cancelados).
-const CONFIRMADOS = ['ACEPTADO', 'COMPLETADO'] as const;
-
 @Injectable()
 export class FinanzasService {
   constructor(private readonly prisma: PrismaService) {}
