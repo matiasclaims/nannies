@@ -8,8 +8,9 @@ import { FECHA_INICIO_ENCUESTAS } from '../evaluacion-familia/encuesta-paquete.u
 const ACTIVAS_SESION = ['OFERTADO', 'ACEPTADO', 'COMPLETADO'] as const;
 
 /** M4 (Paula 2026-09-03) · Evaluación de coordinación POR SERVICIO. Un servicio
- *  individual COMPLETADO = 1 evaluación; un paquete CONSUMIDO = 1 por cada nannie
- *  que lo cubrió. Puede quedar pendiente sin bloquear. Los cancelados no se evalúan. */
+ *  individual COMPLETADO = 1 evaluación; en un paquete, 1 por cada nannie cuando
+ *  TERMINA sus sesiones (todas COMPLETADAS). Puede quedar pendiente sin bloquear.
+ *  Los cancelados no se evalúan. */
 @Injectable()
 export class EvaluacionCoordService {
   constructor(private readonly prisma: PrismaService) {}
@@ -18,8 +19,8 @@ export class EvaluacionCoordService {
     return PILARES;
   }
 
-  /** Bandeja de pendientes: individuales COMPLETADOS sin evaluar + paquetes
-   *  CONSUMIDOS sin evaluar (por cada nannie que participó). */
+  /** Bandeja de pendientes: individuales COMPLETADOS sin evaluar + paquetes por
+   *  cada nannie que YA TERMINÓ sus sesiones (todas COMPLETADAS) y no se ha evaluado. */
   async pendientes() {
     const [individuales, paquetes] = await Promise.all([
       this.prisma.servicio.findMany({
@@ -43,22 +44,24 @@ export class EvaluacionCoordService {
           familia: { select: { nombreContacto: true } },
         },
       }),
+      // NO se filtra por estado CONSUMIDO ni por fechaContratacion: una nannie se
+      // evalúa cuando TERMINA sus sesiones (todas COMPLETADAS), aunque al paquete
+      // le falten horas por asignar o se haya contratado antes del arranque (p. ej.
+      // paquetes vivos de larga duración). El corte por "era del sistema" se aplica
+      // abajo, por la ÚLTIMA sesión de la nannie (no por fechaContratacion). Los
+      // históricos importados (ids hp-) sí se excluyen.
       this.prisma.paquete.findMany({
         where: {
-          estado: 'CONSUMIDO',
           id: { not: { startsWith: 'hp-' } },
-          // Solo paquetes contratados desde el arranque del sistema (19-sep-2026).
-          fechaContratacion: { gte: FECHA_INICIO_ENCUESTAS },
         },
         select: {
           id: true,
           folio: true,
           horasTotales: true,
-          fechaContratacion: true,
           familia: { select: { nombreContacto: true } },
           servicios: {
             where: { nannieId: { not: null }, estado: { in: [...ACTIVAS_SESION] } },
-            select: { nannieId: true, nannie: { select: { nombre: true } } },
+            select: { nannieId: true, estado: true, fecha: true, nannie: { select: { nombre: true } } },
           },
           evaluacionesCoord: { select: { nannieId: true } },
         },
@@ -86,17 +89,31 @@ export class EvaluacionCoordService {
 
     for (const p of paquetes) {
       const evaluadas = new Set(p.evaluacionesCoord.map((e) => e.nannieId));
-      const porNannie = new Map<string, string>();
-      for (const s of p.servicios) if (s.nannieId) porNannie.set(s.nannieId, s.nannie!.nombre);
-      for (const [nannieId, nombre] of porNannie) {
+      // Agrupa las sesiones vivas de cada nannie en el paquete.
+      const porNannie = new Map<string, { nombre: string; sesiones: { estado: string; fecha: Date }[] }>();
+      for (const s of p.servicios) {
+        if (!s.nannieId) continue;
+        const g = porNannie.get(s.nannieId) ?? { nombre: s.nannie!.nombre, sesiones: [] };
+        g.sesiones.push({ estado: s.estado, fecha: s.fecha });
+        porNannie.set(s.nannieId, g);
+      }
+      for (const [nannieId, info] of porNannie) {
         if (evaluadas.has(nannieId)) continue;
+        // Pendiente SOLO cuando la nannie terminó: todas sus sesiones COMPLETADAS
+        // (no le quedan ofertadas/aceptadas por realizar). Evita pendientes de
+        // sesiones a futuro.
+        const termino = info.sesiones.every((x) => x.estado === 'COMPLETADO');
+        if (!termino) continue;
+        const ultima = info.sesiones.reduce((a, b) => (b.fecha > a ? b.fecha : a), info.sesiones[0].fecha);
+        // Solo trabajo de la era del sistema (su última sesión desde el arranque).
+        if (ultima < FECHA_INICIO_ENCUESTAS) continue;
         items.push({
           tipo: 'PAQUETE',
           id: p.id,
           nannieId,
-          nannie: nombre,
+          nannie: info.nombre,
           familia: p.familia.nombreContacto,
-          fecha: p.fechaContratacion.toISOString().slice(0, 10),
+          fecha: ultima.toISOString().slice(0, 10),
           detalle: `Paquete #${p.folio} · ${p.horasTotales} h`,
         });
       }
