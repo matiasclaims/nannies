@@ -344,8 +344,7 @@ export class FinanzasService {
    * La lista `servicios` (para editar comisión/ajuste) es la de INGRESOS del mes.
    */
   async margen(desde: string, hasta: string) {
-    const gte = new Date(`${desde}T00:00:00.000Z`);
-    const lte = new Date(`${hasta}T23:59:59.999Z`);
+    const { gte, lte } = rangoMX(desde, hasta); // periodo anclado a días de México
 
     // --- INGRESO del mes (por creación): servicios individuales creados en el mes ---
     const serviciosIngreso = await this.prisma.servicio.findMany({
@@ -662,8 +661,7 @@ export class FinanzasService {
    * ese prorrateo solo alimenta el margen por servicio en 3.4).
    */
   async ingresos(desde: string, hasta: string) {
-    const gte = new Date(`${desde}T00:00:00.000Z`);
-    const lte = new Date(`${hasta}T23:59:59.999Z`);
+    const { gte, lte } = rangoMX(desde, hasta); // periodo anclado a días de México
 
     const [paquetes, individuales] = await Promise.all([
       this.prisma.paquete.findMany({
