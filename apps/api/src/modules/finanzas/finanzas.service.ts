@@ -21,6 +21,20 @@ function nivelPara(horas: number, rango: RangoPermanente): NivelTarifa {
 }
 
 /**
+ * Rango [gte, lte] de un periodo (semana/mes) en HORA DE MÉXICO (UTC−6, sin
+ * horario de verano). Los campos que se filtran en finanzas (completadoEn,
+ * creadoEn, fechaContratacion, bono.fecha) son timestamps reales; como México
+ * va 6 h atrás que UTC, de 6 p.m. a medianoche local el UTC ya es el día
+ * siguiente. Anclando el día a México, p. ej. un servicio completado el SÁBADO
+ * por la tarde cae en la semana de ESE sábado (no en la siguiente).
+ */
+function rangoMX(desde: string, hasta: string): { gte: Date; lte: Date } {
+  const gte = new Date(`${desde}T06:00:00.000Z`); // 00:00 de 'desde' en México
+  const lte = new Date(new Date(`${hasta}T06:00:00.000Z`).getTime() + 86_400_000 - 1); // 23:59:59.999 de 'hasta' en México
+  return { gte, lte };
+}
+
+/**
  * Rango de carrera según servicios de por vida (umbrales confirmados por Paula):
  * Rookie 50, Junior 80, Senior 130. Se asciende automático en el cierre de mes;
  * no baja. (Querétaro no tiene rango: el cierre lo omite.)
@@ -48,8 +62,9 @@ export class FinanzasService {
    * "pendientes" y NO entran al total.
    */
   async nomina(desde: string, hasta: string) {
-    const gte = new Date(`${desde}T00:00:00.000Z`);
-    const lte = new Date(`${hasta}T23:59:59.999Z`);
+    // Rango de la semana en hora de México: un servicio completado el sábado por
+    // la tarde/noche debe caer en la nómina de ESA semana, no en la siguiente.
+    const { gte, lte } = rangoMX(desde, hasta);
 
     const servicios = await this.prisma.servicio.findMany({
       // EGRESO (Mario 2026-09-21): el pago a la nannie se reconoce el día en que
