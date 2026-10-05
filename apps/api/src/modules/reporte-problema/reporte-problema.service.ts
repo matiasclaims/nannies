@@ -10,6 +10,12 @@ const TIPO_LABEL: Record<string, string> = {
   DUDA: 'Duda',
 };
 
+/** Correo "real" de contacto: tiene @ y no es el placeholder de login @nannies.mx.
+ *  El login de las nannies es usuario@nannies.mx; su correo PERSONAL (donde reciben
+ *  asignaciones y recordatorios) vive en Nannie.email. */
+const esCorreoReal = (e?: string | null): boolean =>
+  !!e && e.includes('@') && !e.toLowerCase().endsWith('@nannies.mx');
+
 /** Reporte de problemas del sistema: lo guarda y avisa por correo. */
 @Injectable()
 export class ReporteProblemaService {
@@ -68,9 +74,16 @@ export class ReporteProblemaService {
     // El correo del que reportó (usuarioId es string suelto, sin relación).
     const ids = [...new Set(reportes.map((r) => r.usuarioId).filter((x): x is string => !!x))];
     const usuarios = ids.length
-      ? await this.prisma.usuario.findMany({ where: { id: { in: ids } }, select: { id: true, email: true } })
+      ? await this.prisma.usuario.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, email: true, nannie: { select: { email: true } } },
+        })
       : [];
-    const correoDe = new Map(usuarios.map((u) => [u.id, u.email]));
+    // Muestra el correo al que REALMENTE llegaría el aviso: el personal de la
+    // nannie (Nannie.email) si es real; si no, el de la cuenta.
+    const correoDe = new Map(
+      usuarios.map((u) => [u.id, esCorreoReal(u.nannie?.email) ? u.nannie!.email! : u.email]),
+    );
     return reportes.map((r) => ({
       id: r.id,
       autorNombre: r.autorNombre,
@@ -106,9 +119,16 @@ export class ReporteProblemaService {
     });
 
     // Aviso por correo a quien reportó (no bloquea si falla / no hay correo).
-    const correo = r.usuarioId
-      ? (await this.prisma.usuario.findUnique({ where: { id: r.usuarioId }, select: { email: true } }))?.email
-      : null;
+    // Prefiere el correo PERSONAL de la nannie (Nannie.email), el mismo al que le
+    // llegan asignaciones y recordatorios; si no hay uno real, usa el de la cuenta.
+    let correo: string | null = null;
+    if (r.usuarioId) {
+      const u = await this.prisma.usuario.findUnique({
+        where: { id: r.usuarioId },
+        select: { email: true, nannie: { select: { email: true } } },
+      });
+      correo = esCorreoReal(u?.nannie?.email) ? u!.nannie!.email! : (u?.email ?? null);
+    }
     if (correo) {
       const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       const html = `
