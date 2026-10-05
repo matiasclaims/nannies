@@ -12,7 +12,7 @@ import {
   type DesbordeDecision,
 } from '@/lib/api';
 import { TIPO_LABEL, ESTADO_DISPONIBILIDAD } from '@/lib/dominio';
-import type { DiaSemana } from '@/lib/semana';
+import { hoyMX, type DiaSemana } from '@/lib/semana';
 import { dividirDiaNoche, horasEntre, TARIFA_NOCHE_MIN } from '@/lib/dia-noche';
 import { Avatar } from '@/components/avatar';
 import { NombreNannie } from '@/components/nombre-nannie';
@@ -122,10 +122,12 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
 
   // "Todas": solo disponibles + servicios asignados, con el nombre. Los bloqueos
   // NO se muestran aquí (reunión M3 con Paula: la vista de equipo se llenaría);
-  // sí siguen visibles en "Por nannie".
+  // sí siguen visibles en "Por nannie". Las disponibilidades ya PASADAS tampoco
+  // se muestran en "Todas" (solo hoy y a futuro); siguen visibles en "Por nannie".
+  const hoyIso = hoyMX();
   const bloquesTodas = (dia: string): Bloque[] => {
     const disp = dispon
-      .filter((x) => enDia(x.fecha, dia) && x.estado === 'DISPONIBLE')
+      .filter((x) => enDia(x.fecha, dia) && x.estado === 'DISPONIBLE' && dia >= hoyIso)
       .map<Bloque>((x) => ({
         id: 'd' + x.id,
         ini: x.horaInicio,
