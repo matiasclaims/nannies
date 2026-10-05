@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { Printer } from 'lucide-react';
 import { api, type Proyeccion } from '@/lib/api';
 import { TIPO_LABEL } from '@/lib/dominio';
+import { hoyMX } from '@/lib/semana';
+import { cn } from '@/lib/utils';
 
 /** Proyección de horas de un paquete, con marca Nannies, lista para imprimir o
  *  guardar como PDF y compartir con la familia (punto 12 · reunión M2). */
@@ -30,6 +32,8 @@ export default function ProyeccionPage() {
   if (!data) {
     return <p className="p-8 text-center text-sm text-texto-suave">Cargando…</p>;
   }
+
+  const hoy = hoyMX(); // fecha de hoy en México, para separar ocurridas vs por ocurrir
 
   return (
     <div className="mx-auto max-w-2xl bg-white p-8 text-texto-fuerte print:p-0">
@@ -68,28 +72,50 @@ export default function ProyeccionPage() {
           Aún no hay sesiones programadas para este paquete.
         </p>
       ) : (
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b-2 border-[#f0d6d5] text-left text-xs text-texto-suave">
-              <th className="py-2">Fecha</th>
-              <th className="py-2">Horario</th>
-              <th className="py-2">Servicio</th>
-              <th className="py-2">Nannie</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.sesiones.map((s, i) => (
-              <tr key={i} className="border-b border-borde">
-                <td className="py-2 capitalize">{fechaLarga(s.fecha)}</td>
-                <td className="py-2">
-                  {s.horaInicio}–{s.horaFin}
-                </td>
-                <td className="py-2">{TIPO_LABEL[s.tipoServicio]}</td>
-                <td className="py-2">{s.nannie}</td>
+        <>
+          {/* Leyenda: qué significan los colores de cada fila. */}
+          <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-texto-suave [-webkit-print-color-adjust:exact] [print-color-adjust:exact]">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm border border-[#bfe6c8] bg-[#EAF9EE]" /> Ya realizadas
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm border border-[#b5e6f0] bg-[#E6F6FA]" /> Por realizar
+            </span>
+          </div>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b-2 border-[#f0d6d5] text-left text-xs text-texto-suave">
+                <th className="px-2 py-2">Fecha</th>
+                <th className="px-2 py-2">Horario</th>
+                <th className="px-2 py-2">Servicio</th>
+                <th className="px-2 py-2">Nannie</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.sesiones.map((s, i) => {
+                // Ya ocurrió: marcada como completada o con fecha anterior a hoy
+                // (hora de México). Lo demás está por ocurrir.
+                const ocurrio = s.estado === 'COMPLETADO' || s.fecha < hoy;
+                return (
+                  <tr
+                    key={i}
+                    className={cn(
+                      'border-b border-borde [-webkit-print-color-adjust:exact] [print-color-adjust:exact]',
+                      ocurrio ? 'bg-[#EAF9EE]' : 'bg-[#E6F6FA]',
+                    )}
+                  >
+                    <td className="px-2 py-2 capitalize">{fechaLarga(s.fecha)}</td>
+                    <td className="px-2 py-2">
+                      {s.horaInicio}–{s.horaFin}
+                    </td>
+                    <td className="px-2 py-2">{TIPO_LABEL[s.tipoServicio]}</td>
+                    <td className="px-2 py-2">{s.nannie}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </>
       )}
 
       <p className="mt-6 text-center text-[11px] text-texto-suave">
