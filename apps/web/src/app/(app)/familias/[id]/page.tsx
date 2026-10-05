@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode, Package, ChevronDown, List } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode, Package, ChevronDown, List, CalendarDays } from 'lucide-react';
 import { api, type PerfilFamilia, type ServicioHist, type NinoPerfil, type NinoInput, type FamiliaInput, type NannieLite } from '@/lib/api';
 import { TIPO_LABEL, ESTADO_SERVICIO, edadLabel } from '@/lib/dominio';
 import { AREAS_TRABAJO, CONSENTIMIENTOS } from '@/lib/familia-catalogo';
 import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
 import { PaqueteFamilia } from '@/components/paquete-familia';
+import { inicioMes, diasDeMes, sumarMeses, etiquetaMes, baseHoyMX } from '@/lib/semana';
 import { cn } from '@/lib/utils';
 
 const inputCls =
@@ -184,15 +185,8 @@ export default function PerfilFamiliaPage() {
         </div>
       </div>
 
-      {/* Historial de servicios (los de paquete van colapsados por folio) */}
-      <div className="rounded-2xl bg-panel p-5 shadow-card">
-        <h2 className="mb-2 text-sm font-semibold text-texto-fuerte">Historial de servicios</h2>
-        {data.servicios.length === 0 ? (
-          <p className="text-xs text-texto-suave">Sin servicios registrados.</p>
-        ) : (
-          <HistorialServicios servicios={data.servicios} onEncuesta={setEncuestaSid} />
-        )}
-      </div>
+      {/* Servicios: lista (agrupada por folio) o calendario mensual. */}
+      <ServiciosFamilia servicios={data.servicios} onEncuesta={setEncuestaSid} />
 
       {/* Bitácora */}
       <Bitacora familiaId={id} notas={data.notas} onCambio={cargar} />
@@ -642,6 +636,126 @@ function fechaCorta(iso: string): string {
     year: 'numeric',
     timeZone: 'UTC',
   });
+}
+
+/** Tarjeta de servicios de la familia: alterna entre LISTA (agrupada por folio)
+ *  y CALENDARIO mensual. Ambas vistas muestran lo mismo (históricos + pendientes). */
+function ServiciosFamilia({
+  servicios,
+  onEncuesta,
+}: {
+  servicios: ServicioHist[];
+  onEncuesta: (id: string) => void;
+}) {
+  const [vista, setVista] = useState<'lista' | 'calendario'>('lista');
+  const btn = (v: 'lista' | 'calendario', Icon: typeof List, label: string) => (
+    <button
+      type="button"
+      onClick={() => setVista(v)}
+      aria-pressed={vista === v}
+      className={cn(
+        'flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition',
+        vista === v ? 'bg-panel text-marca-azul shadow-sm' : 'text-texto-suave hover:text-texto-fuerte',
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" /> {label}
+    </button>
+  );
+  return (
+    <div className="rounded-2xl bg-panel p-5 shadow-card">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-texto-fuerte">Historial de servicios</h2>
+        {servicios.length > 0 && (
+          <div className="flex rounded-lg border border-borde bg-fondo p-0.5">
+            {btn('lista', List, 'Lista')}
+            {btn('calendario', CalendarDays, 'Calendario')}
+          </div>
+        )}
+      </div>
+      {servicios.length === 0 ? (
+        <p className="text-xs text-texto-suave">Sin servicios registrados.</p>
+      ) : vista === 'lista' ? (
+        <HistorialServicios servicios={servicios} onEncuesta={onEncuesta} />
+      ) : (
+        <CalendarioServicios servicios={servicios} />
+      )}
+    </div>
+  );
+}
+
+/** Vista calendario de los servicios de la familia: rejilla mensual (dom–sáb)
+ *  con un chip por servicio (horario + nannie, coloreado por estado). Arranca en
+ *  el mes del servicio más reciente; se navega mes a mes. */
+function CalendarioServicios({ servicios }: { servicios: ServicioHist[] }) {
+  const [mes, setMes] = useState<Date>(() =>
+    servicios[0] ? inicioMes(new Date(`${servicios[0].fecha}T00:00:00Z`)) : inicioMes(baseHoyMX()),
+  );
+  const dias = diasDeMes(mes);
+  const porDia = new Map<string, ServicioHist[]>();
+  for (const s of servicios) {
+    const arr = porDia.get(s.fecha) ?? [];
+    arr.push(s);
+    porDia.set(s.fecha, arr);
+  }
+  // Orden dentro del día por hora de inicio.
+  for (const arr of porDia.values()) arr.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+  const blancos = dias[0] ? new Date(`${dias[0].fecha}T00:00:00Z`).getUTCDay() : 0;
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <button onClick={() => setMes(sumarMeses(mes, -1))} className="grid h-7 w-7 place-items-center rounded-lg border border-borde text-texto-suave hover:bg-fondo" aria-label="Mes anterior">
+          ‹
+        </button>
+        <span className="text-sm font-semibold capitalize text-texto-fuerte">{etiquetaMes(mes)}</span>
+        <button onClick={() => setMes(sumarMeses(mes, 1))} className="grid h-7 w-7 place-items-center rounded-lg border border-borde text-texto-suave hover:bg-fondo" aria-label="Mes siguiente">
+          ›
+        </button>
+      </div>
+      <div className="mb-1 grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-texto-suave">
+        {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => (
+          <span key={i}>{d}</span>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {Array.from({ length: blancos }).map((_, i) => (
+          <div key={`b${i}`} />
+        ))}
+        {dias.map((d) => {
+          const servs = porDia.get(d.fecha) ?? [];
+          return (
+            <div
+              key={d.fecha}
+              className={cn('min-h-16 rounded-lg border p-1', d.esHoy ? 'border-marca-azul bg-marca-azul/5' : 'border-borde')}
+            >
+              <span className={cn('text-[10px] font-semibold', d.esHoy ? 'text-marca-azul' : 'text-texto-suave')}>
+                {Number(d.fecha.slice(8, 10))}
+              </span>
+              <div className="mt-0.5 space-y-0.5">
+                {servs.map((s) => (
+                  <div
+                    key={s.id}
+                    title={`${TIPO_LABEL[s.tipoServicio]} · ${s.horaInicio}–${s.horaFin} · ${s.nannie} · ${ESTADO_SERVICIO[s.estado].label}`}
+                    className={cn('truncate rounded px-1 py-0.5 text-[9px] leading-tight', ESTADO_SERVICIO[s.estado].clase)}
+                  >
+                    {s.horaInicio} {s.nannie}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Leyenda de estados presentes en lo que se muestra. */}
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-texto-suave">
+        {[...new Set(servicios.map((s) => s.estado))].map((e) => (
+          <span key={e} className="inline-flex items-center gap-1">
+            <span className={cn('inline-block h-2.5 w-2.5 rounded-sm', ESTADO_SERVICIO[e].clase)} /> {ESTADO_SERVICIO[e].label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /** Historial de servicios: los individuales van sueltos y los de paquete se
