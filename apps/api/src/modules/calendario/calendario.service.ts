@@ -492,7 +492,9 @@ export class CalendarioService {
       throw new BadRequestException('No se puede editar un servicio cancelado o rechazado.');
     }
 
-    const nuevaDur = horasEntre(servicio.horaInicio, dto.horaFin);
+    // Se puede adelantar (o cambiar) la hora de inicio además de la de fin.
+    const inicioNuevo = dto.horaInicio ?? servicio.horaInicio;
+    const nuevaDur = horasEntre(inicioNuevo, dto.horaFin);
     if (nuevaDur == null) {
       throw new BadRequestException('El nuevo horario debe dar horas completas.');
     }
@@ -508,7 +510,7 @@ export class CalendarioService {
         throw new BadRequestException(`Una nannie de fiesta en ${p} es de ${min} a ${max} horas.`);
       }
     }
-    if (nuevaDur === servicio.duracionHoras) return servicio; // sin cambio
+    if (nuevaDur === servicio.duracionHoras && inicioNuevo === servicio.horaInicio) return servicio; // sin cambio
 
     return this.prisma.$transaction(async (tx) => {
       // Por defecto la duración/fin nuevos son los pedidos. En PAQUETE con
@@ -524,7 +526,7 @@ export class CalendarioService {
         const deltaPaquete = Math.min(delta, restantes); // lo que el saldo puede absorber
         horasDesborde = delta - deltaPaquete;
         durBase = servicio.duracionHoras + deltaPaquete;
-        finBase = horasDesborde > 0 ? sumarHoras(servicio.horaInicio, durBase) : dto.horaFin;
+        finBase = horasDesborde > 0 ? sumarHoras(inicioNuevo, durBase) : dto.horaFin;
         const consumidas = servicio.paquete.horasConsumidas + deltaPaquete;
         const seAgoto = consumidas >= servicio.paquete.horasTotales;
         await tx.paquete.update({
@@ -551,7 +553,7 @@ export class CalendarioService {
         const tzF = servicio.plaza === 'QUERETARO' ? tarifasZonaQro(servicio.zona) : null;
         nuevoCobro = redondea2((tzF ? tzF.cobroFiestaHora : COBRO_FIESTA_HORA) * durBase);
       } else if (servicio.finanza?.tarifaDia != null || servicio.finanza?.tarifaNoche != null) {
-        const { horasDia, horasNoche } = dividirDiaNoche(servicio.horaInicio, durBase);
+        const { horasDia, horasNoche } = dividirDiaNoche(inicioNuevo, durBase);
         const td = servicio.finanza.tarifaDia ? Number(servicio.finanza.tarifaDia) : 0;
         let tn = nuevaTarifaNoche ?? 0;
         if (horasNoche > 0 && tn <= 0) {
@@ -578,7 +580,7 @@ export class CalendarioService {
 
       const actualizado = await tx.servicio.update({
         where: { id: servicioId },
-        data: { horaFin: finBase, duracionHoras: durBase },
+        data: { horaInicio: inicioNuevo, horaFin: finBase, duracionHoras: durBase },
       });
       if (servicio.finanza) {
         await tx.finanzaServicio.update({

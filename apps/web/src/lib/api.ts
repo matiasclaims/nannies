@@ -1030,10 +1030,10 @@ export const api = {
   ) => req<{ ok: boolean }>(`/reportes/servicio/${servicioId}`, { method: 'PUT', body: JSON.stringify(dto) }),
   completarServicio: (servicioId: string) =>
     req<Servicio>(`/calendario/servicios/${servicioId}/completar`, { method: 'POST' }),
-  editarHorario: (servicioId: string, horaFin: string, tarifaNoche?: number, desborde?: DesbordeDecision) =>
+  editarHorario: (servicioId: string, horaFin: string, tarifaNoche?: number, desborde?: DesbordeDecision, horaInicio?: string) =>
     req<Servicio>(`/calendario/servicios/${servicioId}/horario`, {
       method: 'PATCH',
-      body: JSON.stringify({ horaFin, ...(tarifaNoche != null ? { tarifaNoche } : {}), ...(desborde ?? {}) }),
+      body: JSON.stringify({ horaFin, ...(horaInicio != null ? { horaInicio } : {}), ...(tarifaNoche != null ? { tarifaNoche } : {}), ...(desborde ?? {}) }),
     }),
   resolverDesborde: (
     servicioId: string,

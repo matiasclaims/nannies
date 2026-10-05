@@ -358,6 +358,7 @@ function AccionesServicio({
     'mt-1 w-full rounded-xl border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-marca-azul';
 
   // --- Horario (merodeo) ---
+  const [horaInicio, setHoraInicio] = useState(servicio.horaInicio);
   const [horaFin, setHoraFin] = useState(servicio.horaFin);
   const [tarifaNoche, setTarifaNoche] = useState(140);
   // Desborde de paquete al extender: si las horas exceden el saldo, se pregunta.
@@ -365,8 +366,8 @@ function AccionesServicio({
   const [desModo, setDesModo] = useState<'INDIVIDUAL' | 'PAQUETE_NUEVO' | 'POR_DEFINIR'>('POR_DEFINIR');
   const [desCobro, setDesCobro] = useState('');
   const [desPaqueteHoras, setDesPaqueteHoras] = useState(20);
-  const nuevaDur = horasEntre(servicio.horaInicio, horaFin);
-  const { horasNoche } = nuevaDur ? dividirDiaNoche(servicio.horaInicio, nuevaDur) : { horasNoche: 0 };
+  const nuevaDur = horasEntre(horaInicio, horaFin);
+  const { horasNoche } = nuevaDur ? dividirDiaNoche(horaInicio, nuevaDur) : { horasNoche: 0 };
   const cruzaNoche = horasNoche > 0;
   // Desde 1 h (Paula 2026-09-29): individuales y ludoteca admiten <3 h.
   const invalida = nuevaDur == null || nuevaDur < 1;
@@ -422,14 +423,28 @@ function AccionesServicio({
           : desModo === 'PAQUETE_NUEVO'
             ? { desbordeModo: 'PAQUETE_NUEVO', desbordePaqueteHoras: desPaqueteHoras }
             : { desbordeModo: 'POR_DEFINIR' };
-      return correr(() => api.editarHorario(servicio.id, horaFin, cruzaNoche ? tarifaNoche : undefined, decision));
+      return correr(() =>
+        api.editarHorario(
+          servicio.id,
+          horaFin,
+          cruzaNoche ? tarifaNoche : undefined,
+          decision,
+          horaInicio !== servicio.horaInicio ? horaInicio : undefined,
+        ),
+      );
     }
     // Primer intento sin decisión: si hay desborde, el backend lo pide y mostramos
     // el prompt (en vez de un error) para elegir cómo se cobran esas horas.
     setBusy(true);
     setError('');
     try {
-      await api.editarHorario(servicio.id, horaFin, cruzaNoche ? tarifaNoche : undefined);
+      await api.editarHorario(
+        servicio.id,
+        horaFin,
+        cruzaNoche ? tarifaNoche : undefined,
+        undefined,
+        horaInicio !== servicio.horaInicio ? horaInicio : undefined,
+      );
       await onGuardado();
       onClose();
     } catch (e) {
@@ -470,7 +485,9 @@ function AccionesServicio({
         <div className="mt-3 max-h-[66vh] space-y-3 overflow-y-auto pr-1">
           <section className="rounded-xl border border-borde p-3">
             <p className="mb-2 text-xs font-semibold text-texto-fuerte">Extender / cambiar horario</p>
-            <label className="block text-xs font-medium text-texto-suave">Nueva hora fin</label>
+            <label className="block text-xs font-medium text-texto-suave">Nueva hora de inicio</label>
+            <HoraSelect value={horaInicio} onChange={(v) => { setHoraInicio(v); setDesborde(false); }} className={inputCls} />
+            <label className="mt-2 block text-xs font-medium text-texto-suave">Nueva hora fin</label>
             <HoraSelect value={horaFin} onChange={(v) => { setHoraFin(v); setDesborde(false); }} className={inputCls} />
             {nuevaDur != null && !invalida && (
               <p className="mt-2 text-xs text-texto-suave">
