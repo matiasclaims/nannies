@@ -79,7 +79,7 @@ export default function ProyeccionPage() {
               <span className="inline-block h-3 w-3 rounded-sm border border-[#bfe6c8] bg-[#EAF9EE]" /> Ya realizadas
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm border border-[#b5e6f0] bg-[#E6F6FA]" /> Por realizar
+              <span className="inline-block h-3 w-3 rounded-sm border border-borde bg-white" /> Por realizar
             </span>
           </div>
           <table className="w-full border-collapse text-sm">
@@ -101,7 +101,7 @@ export default function ProyeccionPage() {
                     key={i}
                     className={cn(
                       'border-b border-borde [-webkit-print-color-adjust:exact] [print-color-adjust:exact]',
-                      ocurrio ? 'bg-[#EAF9EE]' : 'bg-[#E6F6FA]',
+                      ocurrio ? 'bg-[#EAF9EE]' : '',
                     )}
                   >
                     <td className="px-2 py-2 capitalize">{fechaLarga(s.fecha)}</td>
