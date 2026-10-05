@@ -880,9 +880,9 @@ function PanoramaNannie({ nombre }: { nombre: string }) {
             <p className="text-xs text-texto-suave">{p?.serviciosMes ?? 0} servicios completados</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-texto-suave">Tu nivel</p>
-            <p className="text-lg font-bold text-texto-fuerte">{RANGO_LABEL[p?.rangoPermanente ?? 'BASE'] ?? p?.rangoPermanente}</p>
-            <p className="text-[11px] text-texto-suave">este mes: {NIVEL_LABEL[p?.nivelMes ?? 'BASE'] ?? p?.nivelMes}</p>
+            <p className="text-xs text-texto-suave">Nivel del mes</p>
+            <p className="text-lg font-bold text-texto-fuerte">{NIVEL_LABEL[p?.nivelMes ?? 'BASE'] ?? p?.nivelMes}</p>
+            <p className="text-[11px] text-texto-suave">Rango: {RANGO_LABEL[p?.rangoPermanente ?? 'BASE'] ?? p?.rangoPermanente}</p>
           </div>
         </div>
         <Termometro horas={p?.horasMes ?? 0} />
