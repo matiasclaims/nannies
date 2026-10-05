@@ -76,7 +76,7 @@ export default function ProyeccionPage() {
           {/* Leyenda: qué significan los colores de cada fila. */}
           <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-texto-suave [-webkit-print-color-adjust:exact] [print-color-adjust:exact]">
             <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm border border-[#bfe6c8] bg-[#EAF9EE]" /> Ya realizadas
+              <span className="inline-block h-3 w-3 rounded-sm border border-[#bfe6c8] bg-[#EAF9EE]" /> Cubiertas
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="inline-block h-3 w-3 rounded-sm border border-borde bg-white" /> Por realizar
