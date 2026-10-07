@@ -654,9 +654,11 @@ function AccionesServicio({
 
 // ---------------- Rejilla de horas ----------------
 
-function offset(hhmm: string): number {
+function offset(hhmm: string, esFin = false): number {
   const [h, m] = hhmm.split(':').map(Number);
-  const hh = (h || 0) === 0 ? 24 : h; // 00:00 = medianoche = fin de día (24:00)
+  // "00:00" como FIN = medianoche = fin de día (24:00); como INICIO = principio
+  // del día (0:00). Sin esto, un bloqueo que empieza a 00:00 se iba al fondo.
+  const hh = (h || 0) === 0 && esFin ? 24 : (h || 0);
   const t = Math.max(HORA_MIN, Math.min(HORA_MAX, hh + (m || 0) / 60));
   return t - HORA_MIN;
 }
@@ -665,11 +667,11 @@ type BloqueColocado = Bloque & { carril: number; carriles: number };
 
 /** Asigna carriles a bloques que se traslapan, para mostrarlos lado a lado. */
 function carriles(items: Bloque[]): BloqueColocado[] {
-  const orden = [...items].sort((a, b) => offset(a.ini) - offset(b.ini) || offset(a.fin) - offset(b.fin));
+  const orden = [...items].sort((a, b) => offset(a.ini) - offset(b.ini) || offset(a.fin, true) - offset(b.fin, true));
   const finPorCarril: number[] = [];
   const colocados = orden.map((it) => {
     const oi = offset(it.ini);
-    const of = offset(it.fin);
+    const of = offset(it.fin, true);
     let carril = finPorCarril.findIndex((f) => f <= oi + 1e-6);
     if (carril === -1) {
       carril = finPorCarril.length;
@@ -746,7 +748,7 @@ function Rejilla({
                     ? {
                         n: ocultos.length,
                         ini: Math.min(...ocultos.map((b) => offset(b.ini))),
-                        fin: Math.max(...ocultos.map((b) => offset(b.fin))),
+                        fin: Math.max(...ocultos.map((b) => offset(b.fin, true))),
                       }
                     : null;
                   return (
@@ -761,7 +763,7 @@ function Rejilla({
                             style={{
                               position: 'absolute',
                               top: offset(b.ini) * ROW,
-                              height: Math.max(offset(b.fin) - offset(b.ini), 0.5) * ROW - 2,
+                              height: Math.max(offset(b.fin, true) - offset(b.ini), 0.5) * ROW - 2,
                               left: `calc(${(b.carril / cols) * 100}% + 1px)`,
                               width: `calc(${100 / cols}% - 2px)`,
                             }}
