@@ -782,7 +782,7 @@ function Rejilla({
                       {chip && (
                         <Link
                           href={`/dia/${d.fecha}`}
-                          title={`Ver los ${chip.n} servicios restantes de este día`}
+                          title={`Ver los ${chip.n} bloques restantes de este día (servicios y disponibilidad)`}
                           style={{
                             position: 'absolute',
                             top: chip.ini * ROW,

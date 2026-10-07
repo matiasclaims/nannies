@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CalendarDays, Package, ChevronRight, ChevronLeft, ChevronDown, NotebookPen, Printer, FileWarning } from 'lucide-react';
-import { api, type Servicio, type NannieLite, type FamiliaLite, type Plaza, type ReporteDiaItem } from '@/lib/api';
+import { CalendarDays, Package, ChevronRight, ChevronLeft, ChevronDown, NotebookPen, Printer, FileWarning, UserCheck } from 'lucide-react';
+import { api, type Servicio, type NannieLite, type FamiliaLite, type Plaza, type ReporteDiaItem, type Disponibilidad } from '@/lib/api';
 import { ESTADO_SERVICIO, TIPO_LABEL } from '@/lib/dominio';
 import { cn } from '@/lib/utils';
 
@@ -34,16 +34,20 @@ export function PanoramaDia({ iso }: { iso: string }) {
   const [nannies, setNannies] = useState<NannieLite[]>([]);
   const [familias, setFamilias] = useState<FamiliaLite[]>([]);
   const [reportes, setReportes] = useState<ReporteDiaItem[] | null>(null);
+  const [dispon, setDispon] = useState<Disponibilidad[] | null>(null);
   const esHoy = iso === hoyISO();
 
   useEffect(() => {
     setServicios(null);
     setReportes(null);
+    setDispon(null);
     api.listarServicios({ desde: iso, hasta: iso }).then(setServicios).catch(() => setServicios([]));
     api.listarNannies().then(setNannies).catch(() => undefined);
     api.listarFamilias().then(setFamilias).catch(() => undefined);
     // Reportes del día (solo coordinación; si 403, queda en []). Mario 2026-09-22.
     api.reportesDelDia(iso).then(setReportes).catch(() => setReportes([]));
+    // Disponibilidad del día: quién puede cubrir (coordinación). Si 403, queda [].
+    api.listarDisponibilidad({ desde: iso, hasta: iso }).then(setDispon).catch(() => setDispon([]));
   }, [iso]);
 
   const nombreNannie = useMemo(() => new Map(nannies.map((n) => [n.id, n.nombre])), [nannies]);
@@ -64,6 +68,13 @@ export function PanoramaDia({ iso }: { iso: string }) {
     { plaza: 'TOLUCA' as Plaza, titulo: 'Toluca', items: porPlaza('TOLUCA') },
     { plaza: 'QUERETARO' as Plaza, titulo: 'Querétaro', items: porPlaza('QUERETARO') },
   ].filter((g) => g.items.length > 0);
+
+  // Disponibilidad del día (solo las ventanas DISPONIBLE), para ver quién puede
+  // cubrir — incluye a todas, aunque en la rejilla semanal cayeran en el "+N".
+  const disponibles = (dispon ?? [])
+    .filter((d) => d.estado === 'DISPONIBLE')
+    .map((d) => ({ id: d.id, nannie: nombreNannie.get(d.nannieId) ?? '—', horaInicio: d.horaInicio, horaFin: d.horaFin }))
+    .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio) || a.nannie.localeCompare(b.nannie));
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -134,9 +145,51 @@ export function PanoramaDia({ iso }: { iso: string }) {
         </div>
       )}
 
+      {/* Disponibilidad del día: quién puede cubrir (incluye las que en la rejilla
+          semanal se resumen en "+N"). */}
+      {dispon !== null && <DisponibilidadDia items={disponibles} />}
+
       {/* Reportes del día (coordinación): seguimiento + hoja por familia para papás */}
       {reportes && reportes.length > 0 && <ReportesDelDia items={reportes} />}
     </div>
+  );
+}
+
+/** Disponibilidad del día: lista de ventanas DISPONIBLE (nannie + horario).
+ *  Colapsable; abierta por defecto. Muestra a TODAS, sin el límite de la rejilla. */
+function DisponibilidadDia({ items }: { items: { id: string; nannie: string; horaInicio: string; horaFin: string }[] }) {
+  const [abierta, setAbierta] = useState(true);
+  const nannies = new Set(items.map((d) => d.nannie)).size;
+  return (
+    <section className="rounded-2xl bg-panel p-4 shadow-card">
+      <button onClick={() => setAbierta((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-texto-fuerte">
+          <ChevronDown className={cn('h-4 w-4 text-texto-suave transition-transform', abierta && 'rotate-180')} />
+          <UserCheck className="h-4 w-4 text-marca-verde" /> Disponibilidad del día
+        </h2>
+        <span className="text-xs text-texto-suave">
+          {nannies} {nannies === 1 ? 'nannie disponible' : 'nannies disponibles'}
+        </span>
+      </button>
+      {abierta &&
+        (items.length === 0 ? (
+          <p className="mt-2 text-xs text-texto-suave">Ninguna nannie marcó disponibilidad este día.</p>
+        ) : (
+          <div className="mt-2 divide-y divide-borde">
+            {items.map((d) => (
+              <div key={d.id} className="flex items-center gap-3 py-2 text-sm">
+                <span className="w-24 shrink-0 font-semibold text-texto-fuerte">
+                  {d.horaInicio}–{d.horaFin}
+                </span>
+                <span className="min-w-0 flex-1 text-texto-fuerte">{d.nannie}</span>
+                <span className="shrink-0 rounded-full bg-marca-verde/15 px-2 py-0.5 text-[11px] font-semibold text-[#3b6d11]">
+                  Disponible
+                </span>
+              </div>
+            ))}
+          </div>
+        ))}
+    </section>
   );
 }
 
