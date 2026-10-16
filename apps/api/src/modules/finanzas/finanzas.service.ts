@@ -5,6 +5,7 @@ import { pagoDeServicio } from './pago-servicio';
 import { EditarFinanzaDto } from './dto/editar-finanza.dto';
 import { CrearBonoDto } from './dto/crear-bono.dto';
 import { reglaPorNumero, UMBRAL_STRIKES } from '../nannies/incidencias.catalogo';
+import { CLAVES_DOCUMENTOS, CLAVES_CURSOS } from '../nannies/catalogos';
 
 /**
  * Nivel-tarifa del mes entrante según horas del mes que cerró (§6.2):
@@ -57,10 +58,34 @@ export class FinanzasService {
    * no está definida (paquete/ludoteca/fuera de tramo) se listan como
    * "pendientes" y NO entran al total.
    */
+  /** Completitud de documentación/capacitación por nannie, calculada desde lo que
+   *  SUBIÓ (fuente de verdad), igual que el listado de nannies. El flag guardado
+   *  en Nannie quedó obsoleto (Mario 2026-09-25) y no se actualiza al subir. */
+  private async completitudDocs(): Promise<Map<string, { doc: boolean; cap: boolean }>> {
+    const subidos = await this.prisma.documentoNannie.findMany({ select: { nannieId: true, clave: true } });
+    const porNannie = new Map<string, { docs: Set<string>; cursos: Set<string> }>();
+    for (const d of subidos) {
+      const it = porNannie.get(d.nannieId) ?? { docs: new Set<string>(), cursos: new Set<string>() };
+      if (CLAVES_DOCUMENTOS.includes(d.clave)) it.docs.add(d.clave);
+      else if (CLAVES_CURSOS.includes(d.clave)) it.cursos.add(d.clave);
+      porNannie.set(d.nannieId, it);
+    }
+    const res = new Map<string, { doc: boolean; cap: boolean }>();
+    for (const [id, it] of porNannie) {
+      res.set(id, {
+        doc: CLAVES_DOCUMENTOS.every((c) => it.docs.has(c)),
+        cap: CLAVES_CURSOS.every((c) => it.cursos.has(c)),
+      });
+    }
+    return res;
+  }
+
   async nomina(desde: string, hasta: string) {
     // Rango de la semana en hora de México: un servicio completado el sábado por
     // la tarde/noche debe caer en la nómina de ESA semana, no en la siguiente.
     const { gte, lte } = rangoMX(desde, hasta);
+    // Documentación/capacitación: se calcula desde lo SUBIDO (no el flag viejo).
+    const comp = await this.completitudDocs();
 
     const servicios = await this.prisma.servicio.findMany({
       // EGRESO (Mario 2026-09-21): el pago a la nannie se reconoce el día en que
@@ -141,8 +166,8 @@ export class FinanzasService {
           comisiones: [],
           total: 0,
           tienePendientes: false,
-          documentacionCompleta: n.documentacionCompleta,
-          capacitacionCompleta: n.capacitacionCompleta,
+          documentacionCompleta: comp.get(n.id)?.doc ?? false,
+          capacitacionCompleta: comp.get(n.id)?.cap ?? false,
         };
         porNannie.set(n.id, grupo);
       }
@@ -198,8 +223,8 @@ export class FinanzasService {
           comisiones: [],
           total: 0,
           tienePendientes: false,
-          documentacionCompleta: n.documentacionCompleta,
-          capacitacionCompleta: n.capacitacionCompleta,
+          documentacionCompleta: comp.get(n.id)?.doc ?? false,
+          capacitacionCompleta: comp.get(n.id)?.cap ?? false,
         };
         porNannie.set(n.id, grupo);
       }
@@ -265,8 +290,8 @@ export class FinanzasService {
           comisiones: [],
           total: 0,
           tienePendientes: false,
-          documentacionCompleta: n.documentacionCompleta,
-          capacitacionCompleta: n.capacitacionCompleta,
+          documentacionCompleta: comp.get(n.id)?.doc ?? false,
+          capacitacionCompleta: comp.get(n.id)?.cap ?? false,
         });
       }
     }
