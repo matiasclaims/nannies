@@ -225,8 +225,12 @@ function AltaNannie({ onClose, onCreada }: { onClose: () => void; onCreada: () =
             {resultado.correoEnviado ? (
               <p className="flex items-start gap-2 text-sm text-texto-suave">
                 <Mail className="mt-0.5 h-4 w-4 shrink-0 text-marca-azul" />
-                Se envió un correo a <strong className="text-texto-fuerte">{resultado.correo}</strong> con su
-                contraseña temporal. La cambiará en su primer ingreso.
+                <span>
+                  Se envió el acceso a su correo personal{' '}
+                  <strong className="text-texto-fuerte">{resultado.emailEnviadoA}</strong>, con su usuario{' '}
+                  <strong className="text-texto-fuerte">{resultado.correo}</strong> y una contraseña temporal
+                  que cambiará en su primer ingreso.
+                </span>
               </p>
             ) : (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">

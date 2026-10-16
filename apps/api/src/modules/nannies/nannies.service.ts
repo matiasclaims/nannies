@@ -176,7 +176,8 @@ export class NanniesService {
       : false;
     return {
       id: nannie.id,
-      correo,
+      correo, // login usuario@nannies.mx
+      emailEnviadoA: destino, // correo PERSONAL al que se envió el acceso (o null)
       correoEnviado,
       // Respaldo cuando el correo no salió (sin correo personal o Resend sin
       // configurar): para relayarla a mano.

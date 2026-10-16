@@ -207,7 +207,8 @@ export interface EvaluacionData {
 }
 export interface AltaNannieResultado {
   id: string;
-  correo: string;
+  correo: string; // login usuario@nannies.mx
+  emailEnviadoA: string | null; // correo personal al que se envió el acceso
   correoEnviado: boolean;
   passwordTemporal?: string;
 }
