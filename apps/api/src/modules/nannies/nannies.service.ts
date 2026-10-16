@@ -166,17 +166,20 @@ export class NanniesService {
       return n;
     });
 
-    const correoEnviado = await this.mail.bienvenidaNannie(
-      correo,
-      dto.nombre.trim(),
-      temp,
-      `${APP_URL}/login`,
-    );
+    // El correo de bienvenida va al correo PERSONAL de la nannie (no al login
+    // usuario@nannies.mx, que es un placeholder que ella no revisa). El login se
+    // muestra en el cuerpo. Si no capturaron correo personal real, no se manda y
+    // se devuelve la contraseña temporal para que coordinación la relaye.
+    const destino = emailPersonal && !emailPersonal.endsWith(`@${DOMINIO_CORREO}`) ? emailPersonal : null;
+    const correoEnviado = destino
+      ? await this.mail.bienvenidaNannie(destino, dto.nombre.trim(), temp, `${APP_URL}/login`, correo)
+      : false;
     return {
       id: nannie.id,
       correo,
       correoEnviado,
-      // Respaldo cuando el correo no salió (Resend sin configurar): para relaearla a mano.
+      // Respaldo cuando el correo no salió (sin correo personal o Resend sin
+      // configurar): para relayarla a mano.
       passwordTemporal: correoEnviado ? undefined : temp,
     };
   }

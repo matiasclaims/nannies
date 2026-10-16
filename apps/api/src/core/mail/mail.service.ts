@@ -46,13 +46,16 @@ export class MailService {
     nombre: string,
     tempPassword: string,
     urlLogin: string,
+    login: string,
   ): Promise<boolean> {
+    // `to` = correo PERSONAL (destinatario real); `login` = usuario@nannies.mx
+    // que la nannie usa para entrar (se muestra en el cuerpo).
     const html = `
       <div style="font-family:Segoe UI,Arial,sans-serif;color:#0F172A;max-width:520px;margin:auto">
         <h2 style="color:#0CC0DF">Bienvenida a Nannies Child Care, ${escapar(nombre)}</h2>
         <p>Tu cuenta ya está creada. Estos son tus datos de acceso:</p>
         <p style="background:#F4F7FB;border-radius:8px;padding:12px 16px">
-          <strong>Usuario:</strong> ${escapar(to)}<br>
+          <strong>Usuario:</strong> ${escapar(login)}<br>
           <strong>Contraseña temporal:</strong> <code style="font-size:16px">${escapar(tempPassword)}</code>
         </p>
         <p>Por seguridad, el sistema te pedirá <strong>cambiar tu contraseña</strong> en tu primer ingreso.</p>
