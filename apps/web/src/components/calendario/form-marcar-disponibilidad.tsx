@@ -105,11 +105,17 @@ export function FormMarcarDisponibilidad({
     setGuardando(true);
     try {
       const r = await api.crearDisponibilidadVarias({ fechas, horaInicio, horaFin, estado });
-      const om = r.omitidas.length;
-      setMsg(
-        `Se agregaron ${r.creados} bloque${r.creados === 1 ? '' : 's'}` +
-          (om > 0 ? ` · ${om} se omitieron por traslape con lo que ya tenías.` : '.'),
-      );
+      const om = r.omitidas;
+      const fmt = (iso: string) =>
+        new Date(`${iso}T00:00:00Z`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+      let mensaje = r.creados > 0 ? `Se agregaron ${r.creados} bloque${r.creados === 1 ? '' : 's'}.` : 'No se agregó ningún bloque.';
+      if (om.length > 0) {
+        mensaje +=
+          ` ${om.length} fecha${om.length === 1 ? '' : 's'} no se ${om.length === 1 ? 'marcó' : 'marcaron'} porque ya ` +
+          `tenías un bloque que se encima en ese horario: ${om.map(fmt).join(', ')}. ` +
+          `Elimina ese bloque (o cambia la hora) para poder marcarte disponible.`;
+      }
+      setMsg(mensaje);
       await onGuardado();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'No se pudo guardar.');
