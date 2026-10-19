@@ -9,7 +9,8 @@ import { TIPO_LABEL, ESTADO_SERVICIO, edadLabel } from '@/lib/dominio';
 import { AREAS_TRABAJO, CONSENTIMIENTOS } from '@/lib/familia-catalogo';
 import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
 import { PaqueteFamilia } from '@/components/paquete-familia';
-import { inicioMes, diasDeMes, sumarMeses, etiquetaMes, baseHoyMX } from '@/lib/semana';
+import { HoraSelect } from '@/components/hora-select';
+import { inicioMes, diasDeMes, sumarMeses, etiquetaMes, baseHoyMX, hoyMX } from '@/lib/semana';
 import { cn } from '@/lib/utils';
 
 const inputCls =
@@ -146,6 +147,9 @@ export default function PerfilFamiliaPage() {
           onCambio={cargar}
         />
       </div>
+
+      {/* Próximas sesiones: ajustar horario/fecha sin ir al calendario de cada nannie. */}
+      <ProximasSesiones servicios={data.servicios} onCambio={cargar} />
 
       {editFamilia && (
         <EditarFamiliaModal
@@ -625,6 +629,180 @@ function Aviso({ texto }: { texto: string }) {
   return (
     <div className="mx-auto max-w-3xl rounded-2xl border border-dashed border-borde bg-panel p-6 text-center text-sm text-texto-suave">
       {texto}
+    </div>
+  );
+}
+
+/** Próximas sesiones (ofertadas/aceptadas, de hoy en adelante): las que la
+ *  coordinación suele ajustar cuando una mamá pide mover un horario. Permite
+ *  cambiar hora y/o fecha en el mismo lugar, sin ir al calendario de cada
+ *  nannie; en paquete, el saldo se reequilibra solo (el backend lo recalcula). */
+function ProximasSesiones({
+  servicios,
+  onCambio,
+}: {
+  servicios: ServicioHist[];
+  onCambio: () => Promise<void>;
+}) {
+  const hoy = hoyMX();
+  const proximas = servicios
+    .filter((s) => (s.estado === 'OFERTADO' || s.estado === 'ACEPTADO') && s.fecha >= hoy)
+    .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.horaInicio.localeCompare(b.horaInicio));
+
+  return (
+    <div className="rounded-2xl bg-panel p-5 shadow-card">
+      <h2 className="text-sm font-semibold text-texto-fuerte">Próximas sesiones</h2>
+      <p className="mb-3 text-xs text-texto-suave">
+        Ajusta aquí el horario o la fecha de las sesiones por venir, sin ir al calendario de cada nannie.
+      </p>
+      {proximas.length === 0 ? (
+        <p className="text-xs text-texto-suave">No hay sesiones por venir.</p>
+      ) : (
+        <div className="divide-y divide-borde">
+          {proximas.map((s) => (
+            <SesionAjustable key={s.id} s={s} onCambio={onCambio} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Una sesión próxima con editor inline para cambiar hora (inicio/fin) y/o fecha.
+ *  Mapea a los endpoints existentes: `editarHorario` (recalcula duración y saldo
+ *  del paquete) y `reprogramarServicio` (mueve de día conservando la duración). */
+function SesionAjustable({
+  s,
+  onCambio,
+}: {
+  s: ServicioHist;
+  onCambio: () => Promise<void>;
+}) {
+  const [editando, setEditando] = useState(false);
+  const [fecha, setFecha] = useState(s.fecha);
+  const [ini, setIni] = useState(s.horaInicio);
+  const [fin, setFin] = useState(s.horaFin);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  function reiniciar() {
+    setFecha(s.fecha);
+    setIni(s.horaInicio);
+    setFin(s.horaFin);
+    setError('');
+  }
+
+  async function guardar() {
+    const fechaCambio = fecha !== s.fecha;
+    const iniCambio = ini !== s.horaInicio;
+    const finCambio = fin !== s.horaFin;
+    if (!fechaCambio && !iniCambio && !finCambio) {
+      setError('No cambiaste nada.');
+      return;
+    }
+    const min = (h: string) => {
+      const [hh, mm] = h.split(':').map(Number);
+      return (hh || 0) * 60 + (mm || 0);
+    };
+    if ((fin === '00:00' ? 24 * 60 : min(fin)) <= min(ini)) {
+      setError('La hora de fin debe ser posterior a la de inicio.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      // 1) Si cambia el día: reprograma (conserva la duración; fija la hora de inicio).
+      if (fechaCambio) {
+        await api.reprogramarServicio(s.id, fecha, ini);
+      }
+      // 2) Si cambia la hora (o tras reprogramar hay que fijar el fin exacto):
+      //    editarHorario recalcula duración y reequilibra el saldo del paquete.
+      if (iniCambio || finCambio) {
+        await api.editarHorario(s.id, fin, undefined, undefined, ini);
+      }
+      setEditando(false);
+      await onCambio();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo ajustar la sesión.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const inputCls =
+    'rounded-lg border border-borde bg-white px-2 py-1 text-xs outline-none focus:border-marca-azul';
+
+  return (
+    <div className="py-2.5 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-texto-fuerte">
+            {fechaCorta(s.fecha)} · {s.horaInicio}–{s.horaFin}
+          </p>
+          <p className="truncate text-xs text-texto-suave">
+            {s.nannie}
+            {s.esPaquete && (
+              <span className="ml-1 text-marca-morado">
+                · Paquete{s.paqueteFolio != null ? ` #${s.paqueteFolio}` : ''}
+                {s.paquete ? ` · quedan ${s.paquete.remanentes} h de ${s.paquete.totales} h` : ''}
+              </span>
+            )}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', ESTADO_SERVICIO[s.estado].clase)}>
+            {ESTADO_SERVICIO[s.estado].label}
+          </span>
+          {!editando && (
+            <button
+              onClick={() => { reiniciar(); setEditando(true); }}
+              className="inline-flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Ajustar
+            </button>
+          )}
+        </div>
+      </div>
+
+      {editando && (
+        <div className="mt-2 rounded-xl border border-marca-azul/40 bg-marca-azul/5 p-3">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="block">
+              <span className="mb-0.5 block text-[11px] font-medium text-texto-suave">Fecha</span>
+              <input type="date" min={hoyMX()} value={fecha} onChange={(e) => setFecha(e.target.value)} className={inputCls} />
+            </label>
+            <label className="block">
+              <span className="mb-0.5 block text-[11px] font-medium text-texto-suave">Inicio</span>
+              <HoraSelect value={ini} onChange={setIni} className={inputCls} />
+            </label>
+            <label className="block">
+              <span className="mb-0.5 block text-[11px] font-medium text-texto-suave">Fin</span>
+              <HoraSelect value={fin} onChange={setFin} className={inputCls} />
+            </label>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={guardar}
+                disabled={busy}
+                className="rounded-lg bg-marca-azul px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95 disabled:opacity-50"
+              >
+                {busy ? 'Guardando…' : 'Guardar'}
+              </button>
+              <button
+                onClick={() => { setEditando(false); reiniciar(); }}
+                className="rounded-lg border border-borde px-3 py-1.5 text-xs text-texto-suave hover:bg-fondo"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+          {s.esPaquete && (
+            <p className="mt-2 text-[11px] text-texto-suave">
+              En paquete, acortar una sesión devuelve horas al saldo y alargar otra las consume: el saldo se reequilibra solo.
+            </p>
+          )}
+          {error && <p className="mt-2 text-xs text-marca-rojo">{error}</p>}
+        </div>
+      )}
     </div>
   );
 }
