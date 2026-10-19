@@ -22,13 +22,17 @@ import { HoraSelect } from '../hora-select';
 
 const CERRADOS = ['ACEPTADO', 'COMPLETADO', 'CANCELADO'];
 type Modo = 'todas' | 'nannie';
+// En "Todas" se muestra SOLO una capa a la vez (petición de Paula): o los
+// servicios o la disponibilidad, para que no se encime tanto y se lea.
+type Capa = 'servicios' | 'disponibilidad';
 
 // Rejilla de horas
 const HORA_MIN = 7;
 const HORA_MAX = 24;
 const HORAS = Array.from({ length: HORA_MAX - HORA_MIN }, (_, i) => HORA_MIN + i);
-const ROW = 40; // px por hora
-const HEADER = 28; // px del encabezado de día
+const ROW = 44; // px por hora
+const HEADER = 46; // px del encabezado de día (fecha + mini-resumen)
+const COL_MIN = 118; // ancho mínimo de cada columna de día (cuadros legibles)
 const MAX_CARRILES = 4; // máx. barras lado a lado; el resto se resume en "+N"
 
 interface Bloque {
@@ -37,6 +41,7 @@ interface Bloque {
   fin: string;
   clase: string;
   etiqueta: string;
+  color?: string; // color de la nannie (punto para distinguir de un vistazo)
   sub?: string; // segunda línea (p. ej. la familia), para no confundirla con la nannie
   detalle?: string; // texto completo (familia/niños/tipo/nannie) para el tooltip
   paquete?: boolean; // el servicio nació/es de un paquete de horas
@@ -73,6 +78,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'error'>('cargando');
   const [marcando, setMarcando] = useState(false);
   const [modo, setModo] = useState<Modo>('todas');
+  const [capa, setCapa] = useState<Capa>('servicios');
   const [nannieSel, setNannieSel] = useState<string>('');
   const [editando, setEditando] = useState<Servicio | null>(null);
 
@@ -115,6 +121,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
   const enDia = (iso: string, dia: string) => iso.slice(0, 10) === dia;
   const primerNombre = (id: string) =>
     (nannies.find((n) => n.id === id)?.nombre ?? 'Nannie').split(' ')[0];
+  const colorDe = (id: string): string | undefined => nannies.find((n) => n.id === id)?.color ?? undefined;
   const porAsignar = servicios.filter((s) => !s.nannieId && !CERRADOS.includes(s.estado));
   const esperando = servicios.filter((s) => s.nannieId && s.estado === 'OFERTADO');
   const rechazadas = servicios.filter((s) => s.estado === 'RECHAZADO');
@@ -126,19 +133,23 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
   // tampoco se muestran en "Todas" (la semana en curso se ve completa, aunque
   // algunos días ya pasaron); siguen visibles en "Por nannie".
   const inicioSemanaActualIso = inicioSemana(baseHoyMX()).toISOString().slice(0, 10);
+  // "Todas" muestra SOLO una capa (Paula): o la disponibilidad o los servicios,
+  // nunca las dos encimadas (así se lee y casi no hay "+N").
   const bloquesTodas = (dia: string): Bloque[] => {
-    const disp = dispon
-      .filter((x) => enDia(x.fecha, dia) && x.estado === 'DISPONIBLE' && dia >= inicioSemanaActualIso)
-      .map<Bloque>((x) => ({
-        id: 'd' + x.id,
-        ini: x.horaInicio,
-        fin: x.horaFin,
-        clase: CLASE_DISPONIBLE,
-        etiqueta: primerNombre(x.nannieId),
-      }));
-    const servs = servicios
-      // Incluye también los servicios SIN nannie (por asignar): así aparecen en
-      // la cuadrícula y se pueden abrir para asignar/cancelar/reprogramar.
+    if (capa === 'disponibilidad') {
+      return dispon
+        .filter((x) => enDia(x.fecha, dia) && x.estado === 'DISPONIBLE' && dia >= inicioSemanaActualIso)
+        .map<Bloque>((x) => ({
+          id: 'd' + x.id,
+          ini: x.horaInicio,
+          fin: x.horaFin,
+          clase: CLASE_DISPONIBLE,
+          etiqueta: primerNombre(x.nannieId),
+          color: colorDe(x.nannieId),
+        }));
+    }
+    // Capa de servicios: incluye los SIN nannie (por asignar) para poder abrirlos.
+    return servicios
       .filter(
         (s) =>
           (s.estado === 'OFERTADO' || s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') &&
@@ -152,12 +163,31 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
           fin: s.horaFin,
           clase: s.nannieId ? claseServicio(s.estado) : CLASE_SIN_ASIGNAR,
           etiqueta: quien,
+          color: s.nannieId ? colorDe(s.nannieId) : undefined,
           sub: s.familia ?? TIPO_LABEL[s.tipoServicio],
           detalle: detalleServicio(s, quien),
           paquete: s.formato === 'PAQUETE',
         };
       });
-    return [...disp, ...servs];
+  };
+
+  // Mini-resumen por día (bajo la fecha), según la capa activa en "Todas".
+  const resumenDia = (dia: string): string => {
+    if (modo !== 'todas') return '';
+    if (capa === 'disponibilidad') {
+      const libres = new Set(
+        dispon
+          .filter((x) => enDia(x.fecha, dia) && x.estado === 'DISPONIBLE' && dia >= inicioSemanaActualIso)
+          .map((x) => x.nannieId),
+      ).size;
+      return libres ? `${libres} ${libres === 1 ? 'libre' : 'libres'}` : '';
+    }
+    const servs = servicios.filter(
+      (s) => enDia(s.fecha, dia) && (s.estado === 'OFERTADO' || s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO'),
+    );
+    if (servs.length === 0) return '';
+    const sin = servs.filter((s) => !s.nannieId).length;
+    return `${servs.length} serv${sin ? ` · ${sin} sin asignar` : ''}`;
   };
 
   // "Por nannie": todo lo de esa nannie (incluye bloqueos).
@@ -171,6 +201,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
         fin: x.horaFin,
         clase: x.estado === 'DISPONIBLE' ? CLASE_DISPONIBLE : CLASE_BLOQUEADO,
         etiqueta: ESTADO_DISPONIBILIDAD[x.estado].label,
+        color: nannieActiva.color ?? undefined,
       }));
     const servs = servicios
       .filter((s) => s.nannieId === nannieActiva.id && enDia(s.fecha, dia))
@@ -212,6 +243,23 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
               Por nannie
             </button>
           </div>
+          {/* En "Todas": elegir qué capa ver (una sola, para que se lea). */}
+          {modo === 'todas' && (
+            <div className="inline-flex rounded-xl border border-borde p-0.5 text-xs">
+              {([['servicios', 'Servicios'], ['disponibilidad', 'Disponibilidad']] as const).map(([v, label]) => (
+                <button
+                  key={v}
+                  onClick={() => setCapa(v)}
+                  className={cn(
+                    'rounded-lg px-3 py-1 font-medium transition',
+                    capa === v ? 'bg-marca-azul text-white' : 'text-texto-suave hover:bg-fondo',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           {sesion.nannieId && (
             <button
               onClick={() => setMarcando((v) => !v)}
@@ -251,14 +299,17 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
             <Rejilla
               dias={dias}
               bloques={modo === 'todas' ? bloquesTodas : bloquesNannie}
+              resumen={resumenDia}
               onBloqueClick={esCoord ? abrirEditor : undefined}
             />
             {esCoord && (
               <p className="mt-1 text-[11px] text-texto-suave">
-                Toca un servicio para modificarlo (asignar, extender, reprogramar o cancelar). Los morados punteados están sin nannie.
+                {modo === 'todas' && capa === 'disponibilidad'
+                  ? 'Disponibilidad del equipo. Cambia a "Servicios" para ver y modificar asignaciones.'
+                  : 'Toca un servicio para modificarlo (asignar, extender, reprogramar o cancelar). Los morados punteados están sin nannie.'}
               </p>
             )}
-            <Leyenda modo={modo} />
+            <Leyenda modo={modo} capa={capa} />
           </>
         )}
       </div>
@@ -688,16 +739,19 @@ function carriles(items: Bloque[]): BloqueColocado[] {
 function Rejilla({
   dias,
   bloques,
+  resumen,
   onBloqueClick,
 }: {
   dias: DiaSemana[];
   bloques: (fecha: string) => Bloque[];
+  resumen?: (fecha: string) => string;
   onBloqueClick?: (id: string) => void;
 }) {
   const alto = HORAS.length * ROW;
+  const anchoMin = 48 + dias.length * COL_MIN;
   return (
     <div className="overflow-x-auto">
-      <div className="flex min-w-[720px]">
+      <div className="flex" style={{ minWidth: anchoMin }}>
         {/* Horas */}
         <div className="w-12 shrink-0" style={{ paddingTop: HEADER }}>
           {HORAS.map((h) => (
@@ -712,18 +766,21 @@ function Rejilla({
         </div>
         {/* Días */}
         <div className="flex flex-1">
-          {dias.map((d) => (
-            <div key={d.fecha} className="min-w-[92px] flex-1 border-l border-borde">
+          {dias.map((d) => {
+            const res = resumen?.(d.fecha) ?? '';
+            return (
+            <div key={d.fecha} style={{ minWidth: COL_MIN }} className="flex-1 border-l border-borde">
               <Link
                 href={`/dia/${d.fecha}`}
                 title={`Ver el detalle de ${d.etiqueta}`}
                 style={{ height: HEADER }}
                 className={cn(
-                  'flex items-center justify-center text-[11px] capitalize transition hover:bg-fondo hover:text-marca-azul',
+                  'flex flex-col items-center justify-center leading-tight transition hover:bg-fondo hover:text-marca-azul',
                   d.esHoy ? 'font-semibold text-marca-azul' : 'text-texto-suave',
                 )}
               >
-                {d.etiqueta}
+                <span className="text-xs capitalize">{d.etiqueta}</span>
+                {res && <span className="mt-0.5 text-[10px] font-normal text-texto-suave">{res}</span>}
               </Link>
               <div
                 className="relative"
@@ -768,14 +825,20 @@ function Rejilla({
                               width: `calc(${100 / cols}% - 2px)`,
                             }}
                             className={cn(
-                              'overflow-hidden rounded-md px-1 py-0.5 text-[10px] font-medium leading-tight',
+                              'overflow-hidden rounded-md px-1.5 py-0.5 text-[11px] font-medium leading-tight',
                               b.clase,
                               clickable && 'cursor-pointer hover:brightness-95',
                             )}
                           >
-                            <span className="block truncate font-semibold">
-                              {b.paquete && <Package className="mr-0.5 inline h-2.5 w-2.5 shrink-0 align-[-1px]" aria-label="Paquete" />}
-                              {b.etiqueta}
+                            <span className="flex items-center gap-1 font-semibold">
+                              {b.color && (
+                                <span
+                                  className="h-2 w-2 shrink-0 rounded-full ring-1 ring-black/10"
+                                  style={{ backgroundColor: b.color }}
+                                />
+                              )}
+                              {b.paquete && <Package className="h-2.5 w-2.5 shrink-0" aria-label="Paquete" />}
+                              <span className="truncate">{b.etiqueta}</span>
                             </span>
                             {b.sub && <span className="block truncate font-normal opacity-80">{b.sub}</span>}
                           </div>
@@ -802,27 +865,33 @@ function Rejilla({
                 })()}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
 
-function Leyenda({ modo }: { modo: Modo }) {
-  const items = [
-    { c: 'bg-amber-200', t: 'Disponible' },
-    { c: 'bg-marca-rojo/40', t: 'Asignado' },
-    { c: 'bg-marca-azul/40', t: 'Ofertado' },
-    { c: 'bg-marca-verde/40', t: 'Terminado' },
-    // Bloqueado y Rechazado solo aparecen en la vista "Por nannie".
-    ...(modo === 'nannie'
-      ? [
-          { c: 'bg-slate-300', t: 'Bloqueado' },
-          { c: 'bg-[#5B292D]/40', t: 'Rechazado' },
-        ]
-      : []),
-  ];
+function Leyenda({ modo, capa }: { modo: Modo; capa: Capa }) {
+  // En "Todas" la leyenda muestra solo lo de la capa activa (menos ruido).
+  const soloDispon = modo === 'todas' && capa === 'disponibilidad';
+  const items = soloDispon
+    ? [{ c: 'bg-amber-200', t: 'Disponible' }]
+    : [
+        { c: 'bg-marca-rojo/40', t: 'Asignado' },
+        { c: 'bg-marca-azul/40', t: 'Ofertado' },
+        { c: 'bg-marca-verde/40', t: 'Terminado' },
+        { c: 'bg-marca-morado/30', t: 'Sin asignar' },
+        // Disponible/Bloqueado/Rechazado solo en la vista "Por nannie".
+        ...(modo === 'nannie'
+          ? [
+              { c: 'bg-amber-200', t: 'Disponible' },
+              { c: 'bg-slate-300', t: 'Bloqueado' },
+              { c: 'bg-[#5B292D]/40', t: 'Rechazado' },
+            ]
+          : []),
+      ];
   return (
     <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-texto-suave">
       {items.map((i) => (
