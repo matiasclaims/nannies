@@ -178,14 +178,36 @@ export const OWNERSHIP_ENFORCED_RESOURCES = [
   'expedienteNannie',
 ] as const;
 
+/**
+ * Acciones de CONSECUENCIA económica / irreversible. PROGRAMADOR tiene acceso
+ * total de observación y operación, pero estas quedan reservadas (Directora)
+ * para que un perfil técnico no las dispare por error: cerrar el mes, aplicar
+ * descuentos por incidencia, fijar comisiones, marcar pagos, confirmar strike.
+ * (Mario 2026-10-19: "ver todo + operar, SIN consecuencia económica".)
+ */
+export const ACCIONES_CONSECUENCIA: readonly Accion[] = [
+  'finanzas.pago.marcar',
+  'finanzas.comision.fijar',
+  'finanzas.cierre.ejecutar',
+  'incidencia.descuento.aplicar',
+  'incidencia.strike.confirmarTercero',
+] as const;
+
 // --- Helpers de consulta (los guards de NestJS los usarán) ---
 
 export function puedeEjecutar(rol: Rol, accion: Accion): boolean {
+  // PROGRAMADOR (perfil técnico/observador): acceso total EXCEPTO las acciones
+  // de consecuencia económica. Así cualquier acción NUEVA queda incluida sin
+  // tener que agregarlo a cada entrada de la matriz.
+  if (rol === 'PROGRAMADOR') return !ACCIONES_CONSECUENCIA.includes(accion);
   return ACTION_POLICY[accion].includes(rol);
 }
 
 /** ¿El rol recibe este campo de este recurso? Campo no listado = visible. */
 export function campoVisible(rol: Rol, recurso: string, campo: string): boolean {
+  // PROGRAMADOR ve TODOS los campos (observa el sistema completo, incluido el
+  // margen y los datos operativos de menores). Decisión explícita de Mario.
+  if (rol === 'PROGRAMADOR') return true;
   const reglasRecurso = FIELD_ACCESS[recurso];
   if (!reglasRecurso) return true;
   const rolesPermitidos = reglasRecurso[campo];

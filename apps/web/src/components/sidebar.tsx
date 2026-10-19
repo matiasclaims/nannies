@@ -39,25 +39,43 @@ export function Sidebar() {
       <SelectorModo className="mb-4" />
 
       <nav className="flex flex-col gap-1">
-        {navPara(rolEfectivo).map((item) => {
-          const activo = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
-          const Icon = item.icon;
+        {(() => {
+          const items = navPara(rolEfectivo);
+          const operacion = items.filter((i) => !i.mantenimiento);
+          const mantenimiento = items.filter((i) => i.mantenimiento);
+          const enlace = (item: ReturnType<typeof navPara>[number]) => {
+            const activo = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition',
+                  activo
+                    ? 'bg-marca-azul/10 font-semibold text-marca-azul'
+                    : 'text-texto-suave hover:bg-fondo hover:text-texto-fuerte',
+                )}
+              >
+                <Icon className="h-[18px] w-[18px]" />
+                {item.label}
+              </Link>
+            );
+          };
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition',
-                activo
-                  ? 'bg-marca-azul/10 font-semibold text-marca-azul'
-                  : 'text-texto-suave hover:bg-fondo hover:text-texto-fuerte',
+            <>
+              {operacion.map(enlace)}
+              {mantenimiento.length > 0 && (
+                <>
+                  <p className="mt-4 mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-texto-suave">
+                    Mantenimiento del sistema
+                  </p>
+                  {mantenimiento.map(enlace)}
+                </>
               )}
-            >
-              <Icon className="h-[18px] w-[18px]" />
-              {item.label}
-            </Link>
+            </>
           );
-        })}
+        })()}
       </nav>
 
       {/* PROVISIONAL: seguimiento de avance para Paula. Solo coordinación, y solo

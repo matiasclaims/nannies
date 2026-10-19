@@ -35,7 +35,7 @@ export class EvaluacionFamiliaService {
       if (servicio.nannieId !== (user.nannieId ?? '__none__')) {
         throw new ForbiddenException('Solo puedes compartir la encuesta de tus propios servicios.');
       }
-    } else if (user.rol !== 'DIRECTORA' && user.rol !== 'SUBDIRECTORA') {
+    } else if (user.rol !== 'DIRECTORA' && user.rol !== 'SUBDIRECTORA' && user.rol !== 'PROGRAMADOR') {
       throw new ForbiddenException('No autorizado.');
     }
     // Encuesta por PAQUETE: si el servicio es de paquete, solo la última sesión
@@ -112,7 +112,7 @@ export class EvaluacionFamiliaService {
   /** Resumen para COORDINACIÓN: promedio + aviso <7.5 + respuestas individuales
    *  (con familia y comentario). Solo Directora/Subdirectora. */
   async resumenNannie(nannieId: string, user: UsuarioAutenticado) {
-    if (user.rol !== 'DIRECTORA' && user.rol !== 'SUBDIRECTORA') {
+    if (user.rol !== 'DIRECTORA' && user.rol !== 'SUBDIRECTORA' && user.rol !== 'PROGRAMADOR') {
       throw new ForbiddenException('No autorizado.');
     }
     const evals = await this.prisma.evaluacionServicio.findMany({

@@ -31,14 +31,18 @@ export function BottomNav() {
 
   // Avance: provisional, solo coordinación y solo en revisión (preview/local);
   // en producción (nannies.mx) queda oculto (igual que el sidebar).
-  const extras = [
-    ...resto.map((i) => ({ href: i.href, label: i.label, icon: i.icon })),
+  const extrasOperacion = [
+    ...resto.filter((i) => !i.mantenimiento).map((i) => ({ href: i.href, label: i.label, icon: i.icon })),
     ...(rolEfectivo && rolEfectivo !== 'NANNIE' && esRevision
       ? [{ href: '/avance', label: 'Avance del proyecto', icon: TrendingUp }]
       : []),
   ];
+  // Mantenimiento del sistema (bugs/backlog): se agrupa aparte, con etiqueta.
+  const extrasMantenimiento = resto
+    .filter((i) => i.mantenimiento)
+    .map((i) => ({ href: i.href, label: i.label, icon: i.icon }));
 
-  const activoEnMas = extras.some((e) => pathname.startsWith(e.href));
+  const activoEnMas = [...extrasOperacion, ...extrasMantenimiento].some((e) => pathname.startsWith(e.href));
 
   return (
     <>
@@ -65,7 +69,31 @@ export function BottomNav() {
             {/* Doble perfil (Jacky): alternar coordinación / nannie. */}
             {dual && <SelectorModo className="mb-2" />}
             <div className="grid grid-cols-1 gap-1">
-              {extras.map((item) => {
+              {extrasOperacion.map((item) => {
+                const activo = pathname.startsWith(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition',
+                      activo
+                        ? 'bg-marca-azul/10 font-semibold text-marca-azul'
+                        : 'text-texto-suave hover:bg-fondo hover:text-texto-fuerte',
+                    )}
+                  >
+                    <Icon className="h-[18px] w-[18px]" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+              {extrasMantenimiento.length > 0 && (
+                <p className="mt-3 mb-0.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-texto-suave">
+                  Mantenimiento del sistema
+                </p>
+              )}
+              {extrasMantenimiento.map((item) => {
                 const activo = pathname.startsWith(item.href);
                 const Icon = item.icon;
                 return (

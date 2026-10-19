@@ -313,9 +313,9 @@ export class DashboardService {
     const ingresos = await this.finanzas.ingresos(desde, hasta);
     const horasPagadas = ingresos.horasPagadas;
 
-    // --- Margen (SOLO Directora): reutiliza Finanzas (mismo número que ve en M3) ---
+    // --- Margen (Directora; PROGRAMADOR también lo observa): reutiliza Finanzas ---
     let margen: number | null = null;
-    if (user.rol === 'DIRECTORA') {
+    if (user.rol === 'DIRECTORA' || user.rol === 'PROGRAMADOR') {
       const mg = await this.finanzas.margen(desde, hasta);
       margen = mg.totales?.margenNeto ?? null;
     }
