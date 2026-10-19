@@ -96,6 +96,14 @@ export class CalendarioController {
     return this.calendario.editarHorario(id, dto);
   }
 
+  // Alargar una sesión de paquete compensando con las demás sesiones del mismo
+  // paquete (sin cambiar el total). Coordinación.
+  @RequiereAccion('servicio.asignar')
+  @Patch('servicios/:id/extender-compensado')
+  extenderCompensado(@Param('id') id: string, @Body() dto: EditarHorarioDto) {
+    return this.calendario.extenderConCompensacion(id, dto);
+  }
+
   // Reasignar un servicio a otra nannie (una nannie cubre a otra). Coordinación.
   @RequiereAccion('servicio.asignar')
   @Patch('servicios/:id/reasignar')

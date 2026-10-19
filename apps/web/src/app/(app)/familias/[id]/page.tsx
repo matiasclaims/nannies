@@ -659,9 +659,16 @@ function ProximasSesiones({
         <p className="text-xs text-texto-suave">No hay sesiones por venir.</p>
       ) : (
         <div className="divide-y divide-borde">
-          {proximas.map((s) => (
-            <SesionAjustable key={s.id} s={s} onCambio={onCambio} />
-          ))}
+          {proximas.map((s) => {
+            // Hermanas: demás sesiones del MISMO paquete aún programadas (de la
+            // más lejana a la más cercana), para la opción "compensar".
+            const hermanas = s.paqueteId
+              ? servicios
+                  .filter((x) => x.paqueteId === s.paqueteId && x.id !== s.id && (x.estado === 'OFERTADO' || x.estado === 'ACEPTADO'))
+                  .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.horaInicio.localeCompare(a.horaInicio))
+              : [];
+            return <SesionAjustable key={s.id} s={s} hermanas={hermanas} onCambio={onCambio} />;
+          })}
         </div>
       )}
     </div>
@@ -673,15 +680,18 @@ function ProximasSesiones({
  *  del paquete) y `reprogramarServicio` (mueve de día conservando la duración). */
 function SesionAjustable({
   s,
+  hermanas,
   onCambio,
 }: {
   s: ServicioHist;
+  hermanas: ServicioHist[];
   onCambio: () => Promise<void>;
 }) {
   const [editando, setEditando] = useState(false);
   const [fecha, setFecha] = useState(s.fecha);
   const [ini, setIni] = useState(s.horaInicio);
   const [fin, setFin] = useState(s.horaFin);
+  const [compensar, setCompensar] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -689,36 +699,70 @@ function SesionAjustable({
     setFecha(s.fecha);
     setIni(s.horaInicio);
     setFin(s.horaFin);
+    setCompensar(false);
     setError('');
   }
 
+  // Horas que se le suman a ESTA sesión (solo si se alarga en el mismo día).
+  const finValido = (fin === '00:00' ? 24 * 60 : hhmmMin(fin)) > hhmmMin(ini);
+  const fechaCambio = fecha !== s.fecha;
+  const delta = finValido ? horasEntreHHmm(ini, fin) - horasEntreHHmm(s.horaInicio, s.horaFin) : 0;
+  // La opción "compensar" solo aplica a paquete, al alargar, el mismo día, y si
+  // hay otras sesiones del paquete de las que tomar horas.
+  const puedeCompensar = s.esPaquete && !fechaCambio && delta > 0 && hermanas.length > 0;
+
+  /** Plan de compensación: toma hasta (duración − 1 h) de cada hermana, de la
+   *  más lejana hacia atrás, hasta cubrir `delta`. `falta` > 0 si no alcanzan. */
+  function planCompensacion() {
+    let restante = delta;
+    const plan: { s: ServicioHist; quita: number; nuevaDur: number }[] = [];
+    for (const c of hermanas) {
+      if (restante <= 0) break;
+      const dur = horasEntreHHmm(c.horaInicio, c.horaFin);
+      const puede = dur - 1;
+      if (puede <= 0) continue;
+      const quita = Math.min(puede, restante);
+      plan.push({ s: c, quita, nuevaDur: dur - quita });
+      restante -= quita;
+    }
+    return { plan, falta: Math.max(0, restante) };
+  }
+
   async function guardar() {
-    const fechaCambio = fecha !== s.fecha;
     const iniCambio = ini !== s.horaInicio;
     const finCambio = fin !== s.horaFin;
     if (!fechaCambio && !iniCambio && !finCambio) {
       setError('No cambiaste nada.');
       return;
     }
-    const min = (h: string) => {
-      const [hh, mm] = h.split(':').map(Number);
-      return (hh || 0) * 60 + (mm || 0);
-    };
-    if ((fin === '00:00' ? 24 * 60 : min(fin)) <= min(ini)) {
+    if (!finValido) {
       setError('La hora de fin debe ser posterior a la de inicio.');
       return;
+    }
+    const compensando = compensar && puedeCompensar;
+    if (compensando) {
+      const { falta } = planCompensacion();
+      if (falta > 0) {
+        setError(`No alcanzan las horas de las demás sesiones del paquete: faltan ${falta} h.`);
+        return;
+      }
     }
     setBusy(true);
     setError('');
     try {
-      // 1) Si cambia el día: reprograma (conserva la duración; fija la hora de inicio).
-      if (fechaCambio) {
-        await api.reprogramarServicio(s.id, fecha, ini);
-      }
-      // 2) Si cambia la hora (o tras reprogramar hay que fijar el fin exacto):
-      //    editarHorario recalcula duración y reequilibra el saldo del paquete.
-      if (iniCambio || finCambio) {
-        await api.editarHorario(s.id, fin, undefined, undefined, ini);
+      if (compensando) {
+        // Alarga esta sesión y resta de las demás del paquete, en una sola
+        // operación atómica (el total del paquete no cambia).
+        await api.extenderCompensado(s.id, fin, iniCambio ? ini : undefined);
+      } else {
+        // 1) Si cambia el día: reprograma (conserva la duración; fija la hora de inicio).
+        if (fechaCambio) {
+          await api.reprogramarServicio(s.id, fecha, ini);
+        }
+        // 2) Si cambia la hora: editarHorario recalcula duración y el saldo del paquete.
+        if (iniCambio || finCambio) {
+          await api.editarHorario(s.id, fin, undefined, undefined, ini);
+        }
       }
       setEditando(false);
       await onCambio();
@@ -795,9 +839,42 @@ function SesionAjustable({
               </button>
             </div>
           </div>
-          {s.esPaquete && (
+          {puedeCompensar && (
+            <div className="mt-2 rounded-lg border border-marca-morado/30 bg-marca-morado/5 p-2">
+              <label className="flex items-start gap-2 text-[11px] text-texto-fuerte">
+                <input
+                  type="checkbox"
+                  checked={compensar}
+                  onChange={(e) => setCompensar(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5"
+                />
+                <span>
+                  Compensar: restar {delta} h a las últimas sesiones del paquete (el total del paquete no cambia).
+                </span>
+              </label>
+              {compensar &&
+                (() => {
+                  const { plan, falta } = planCompensacion();
+                  return (
+                    <div className="mt-1.5 space-y-0.5 pl-5 text-[11px]">
+                      {plan.map((p) => (
+                        <p key={p.s.id} className="text-texto-suave">
+                          − {p.quita} h a <span className="text-texto-fuerte">{fechaCorta(p.s.fecha)} · {p.s.nannie}</span> (queda {p.nuevaDur} h)
+                        </p>
+                      ))}
+                      {falta > 0 && (
+                        <p className="text-marca-rojo">
+                          Faltan {falta} h: las demás sesiones no alcanzan (cada una debe quedar en mínimo 1 h).
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+            </div>
+          )}
+          {s.esPaquete && !compensar && (
             <p className="mt-2 text-[11px] text-texto-suave">
-              En paquete, acortar una sesión devuelve horas al saldo y alargar otra las consume: el saldo se reequilibra solo.
+              En paquete, cada sesión toma horas del saldo. Si alargas más de lo que queda, marca &quot;Compensar&quot; para restarlo de otras sesiones; si no, el sistema avisará que hay horas de más por resolver.
             </p>
           )}
           {error && <p className="mt-2 text-xs text-marca-rojo">{error}</p>}
@@ -814,6 +891,20 @@ function fechaCorta(iso: string): string {
     year: 'numeric',
     timeZone: 'UTC',
   });
+}
+
+/** "HH:mm" → minutos desde medianoche. */
+function hhmmMin(h: string): number {
+  const [hh, mm] = h.split(':').map(Number);
+  return (hh || 0) * 60 + (mm || 0);
+}
+
+/** Horas completas entre dos HH:mm (00:00 como fin = medianoche; cruza medianoche). */
+function horasEntreHHmm(ini: string, fin: string): number {
+  const finMin = fin === '00:00' ? 24 * 60 : hhmmMin(fin);
+  let diff = finMin - hhmmMin(ini);
+  if (diff <= 0) diff += 24 * 60;
+  return Math.round(diff / 60);
 }
 
 /** Tarjeta de servicios de la familia: alterna entre LISTA (agrupada por folio)

@@ -618,6 +618,94 @@ export class CalendarioService {
   }
 
   /**
+   * Alarga una sesión de PAQUETE y COMPENSA el aumento restándolo de las demás
+   * sesiones aún programadas del mismo paquete (de la más lejana hacia atrás),
+   * para que el total del paquete no cambie y no se genere desborde. Cada sesión
+   * de la que se resta no puede quedar en menos de 1 h; si entre todas no alcanzan,
+   * no hace nada y avisa. Todo en una transacción (todo o nada).
+   * Petición de Paula 2026-10-19: "te doy una hoy, te quito una de la última".
+   */
+  async extenderConCompensacion(servicioId: string, dto: EditarHorarioDto) {
+    const servicio = await this.prisma.servicio.findUnique({
+      where: { id: servicioId },
+      include: { paquete: true },
+    });
+    if (!servicio) throw new NotFoundException('Servicio no encontrado');
+    if (servicio.formato !== 'PAQUETE' || !servicio.paquete) {
+      throw new BadRequestException('La compensación entre sesiones solo aplica a servicios de paquete.');
+    }
+    if (servicio.estado === 'CANCELADO' || servicio.estado === 'RECHAZADO') {
+      throw new BadRequestException('No se puede editar un servicio cancelado o rechazado.');
+    }
+
+    const inicioNuevo = dto.horaInicio ?? servicio.horaInicio;
+    const nuevaDur = horasEntre(inicioNuevo, dto.horaFin);
+    if (nuevaDur == null || nuevaDur < 1) {
+      throw new BadRequestException('El nuevo horario debe dar horas completas (mínimo 1 h).');
+    }
+    const delta = nuevaDur - servicio.duracionHoras;
+    if (delta <= 0) {
+      throw new BadRequestException('Esta opción es para ALARGAR la sesión; para acortar usa el ajuste normal.');
+    }
+
+    // Candidatas a ceder horas: mismas del paquete, aún programadas (ofertadas/
+    // aceptadas), distintas de esta; de la más lejana a la más cercana.
+    const candidatas = await this.prisma.servicio.findMany({
+      where: {
+        paqueteId: servicio.paqueteId,
+        id: { not: servicioId },
+        estado: { in: ['OFERTADO', 'ACEPTADO'] },
+      },
+      include: { finanza: { select: { servicioId: true } } },
+      orderBy: [{ fecha: 'desc' }, { horaInicio: 'desc' }],
+    });
+
+    // Plan: quitar de cada una hasta (duración − 1 h), hacia atrás, hasta cubrir delta.
+    let restante = delta;
+    const reducciones: { id: string; nuevaDur: number; nuevoFin: string; tieneFinanza: boolean }[] = [];
+    for (const c of candidatas) {
+      if (restante <= 0) break;
+      const dur = horasEntre(c.horaInicio, c.horaFin);
+      if (dur == null) continue;
+      const puede = dur - 1; // nunca por debajo de 1 h
+      if (puede <= 0) continue;
+      const quita = Math.min(puede, restante);
+      const nd = dur - quita;
+      reducciones.push({ id: c.id, nuevaDur: nd, nuevoFin: sumarHoras(c.horaInicio, nd), tieneFinanza: !!c.finanza });
+      restante -= quita;
+    }
+    if (restante > 0) {
+      throw new BadRequestException(
+        `Faltan ${restante} h: las demás sesiones programadas del paquete no alcanzan para compensar el aumento (cada una debe quedar en al menos 1 h).`,
+      );
+    }
+
+    // Cobro prorrateado del paquete (precio/hora × horas), igual que editarHorario.
+    const precioHora = Number(servicio.paquete.precioTotal) / servicio.paquete.horasTotales;
+    const cobro = (h: number) => redondea2(precioHora * h);
+
+    // Neto del paquete = 0 (lo que se suma a esta sesión se resta de las otras),
+    // así que horasConsumidas del paquete no cambia: no se toca.
+    return this.prisma.$transaction(async (tx) => {
+      for (const r of reducciones) {
+        await tx.servicio.update({
+          where: { id: r.id },
+          data: { horaFin: r.nuevoFin, duracionHoras: r.nuevaDur },
+        });
+        if (r.tieneFinanza) {
+          await tx.finanzaServicio.update({ where: { servicioId: r.id }, data: { cobroFamilia: cobro(r.nuevaDur) } });
+        }
+      }
+      const actualizado = await tx.servicio.update({
+        where: { id: servicioId },
+        data: { horaInicio: inicioNuevo, horaFin: dto.horaFin, duracionHoras: nuevaDur },
+      });
+      await tx.finanzaServicio.update({ where: { servicioId }, data: { cobroFamilia: cobro(nuevaDur) } });
+      return actualizado;
+    });
+  }
+
+  /**
    * Crea el servicio de DESBORDE: las horas que un servicio de paquete pidió de
    * más y que el saldo no cubrió. Es un servicio contiguo (misma nannie/fecha,
    * arranca donde acaba la parte cubierta). Según la decisión de coordinación:

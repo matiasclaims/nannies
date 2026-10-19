@@ -1036,6 +1036,13 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ horaFin, ...(horaInicio != null ? { horaInicio } : {}), ...(tarifaNoche != null ? { tarifaNoche } : {}), ...(desborde ?? {}) }),
     }),
+  // Alarga una sesión de paquete compensando con las demás sesiones del mismo
+  // paquete (el total del paquete no cambia).
+  extenderCompensado: (servicioId: string, horaFin: string, horaInicio?: string) =>
+    req<Servicio>(`/calendario/servicios/${servicioId}/extender-compensado`, {
+      method: 'PATCH',
+      body: JSON.stringify({ horaFin, ...(horaInicio != null ? { horaInicio } : {}) }),
+    }),
   resolverDesborde: (
     servicioId: string,
     body: { modo: 'INDIVIDUAL' | 'PAQUETE_NUEVO'; cobro?: number; paqueteHoras?: number },
