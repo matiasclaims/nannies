@@ -12,6 +12,7 @@ import {
   type NinoPerfil,
   type NotaFamilia,
   type MiResumenEval,
+  type EstadoDisponibilidad,
 } from '@/lib/api';
 import { ANIMOS } from '@/lib/dominio';
 import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
@@ -753,15 +754,34 @@ function BloqueDispon({ b, onCambio }: { b: Disponibilidad; onCambio: () => Prom
   const [editando, setEditando] = useState(false);
   const [ini, setIni] = useState(b.horaInicio);
   const [fin, setFin] = useState(b.horaFin);
+  const [est, setEst] = useState<EstadoDisponibilidad>(b.estado);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  // Vuelve el formulario a los valores guardados (al abrir o cancelar).
+  function reiniciar() {
+    setIni(b.horaInicio);
+    setFin(b.horaFin);
+    setEst(b.estado);
+    setError('');
+  }
+
   async function guardar() {
-    if (fin <= ini) return;
+    // 00:00 como fin = medianoche (fin de día), igual que en el backend; el
+    // resto debe ser posterior al inicio. (Antes un simple `fin <= ini` por
+    // texto impedía guardar en silencio un bloque que termina a las 00:00.)
+    const min = (h: string) => {
+      const [hh, mm] = h.split(':').map(Number);
+      return (hh || 0) * 60 + (mm || 0);
+    };
+    if ((fin === '00:00' ? 24 * 60 : min(fin)) <= min(ini)) {
+      setError('La hora de fin debe ser posterior a la de inicio.');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
-      await api.editarDisponibilidad(b.id, { horaInicio: ini, horaFin: fin });
+      await api.editarDisponibilidad(b.id, { horaInicio: ini, horaFin: fin, estado: est });
       setEditando(false);
       await onCambio();
     } catch (err) {
@@ -784,7 +804,15 @@ function BloqueDispon({ b, onCambio }: { b: Disponibilidad; onCambio: () => Prom
 
   if (editando) {
     return (
-      <div className="text-xs">
+      <div className="space-y-1.5 text-xs">
+        <select
+          value={est}
+          onChange={(e) => setEst(e.target.value as EstadoDisponibilidad)}
+          className="w-full rounded-lg border border-borde bg-white px-2 py-1 text-xs outline-none focus:border-marca-azul"
+        >
+          <option value="DISPONIBLE">Disponible</option>
+          <option value="BLOQUEADO">Bloqueado</option>
+        </select>
         <div className="flex items-center gap-1.5">
           <HoraSelect value={ini} onChange={setIni} className={inputCls} />
           <span className="text-texto-suave">–</span>
@@ -792,11 +820,11 @@ function BloqueDispon({ b, onCambio }: { b: Disponibilidad; onCambio: () => Prom
           <button onClick={guardar} disabled={busy} className="text-marca-verde disabled:opacity-50" title="Guardar">
             <Check className="h-4 w-4" />
           </button>
-          <button onClick={() => { setEditando(false); setError(''); }} className="text-texto-suave" title="Cancelar">
+          <button onClick={() => { setEditando(false); reiniciar(); }} className="text-texto-suave" title="Cancelar">
             <X className="h-4 w-4" />
           </button>
         </div>
-        {error && <p className="mt-1 text-marca-rojo">{error}</p>}
+        {error && <p className="text-marca-rojo">{error}</p>}
       </div>
     );
   }
@@ -809,11 +837,20 @@ function BloqueDispon({ b, onCambio }: { b: Disponibilidad; onCambio: () => Prom
       <span className="text-texto-suave">
         {b.horaInicio}–{b.horaFin}
       </span>
-      <button onClick={() => setEditando(true)} className="text-texto-suave hover:text-marca-azul" title="Editar">
-        <Pencil className="h-3.5 w-3.5" />
+      <button
+        onClick={() => { reiniciar(); setEditando(true); }}
+        className="inline-flex items-center gap-1 rounded-lg border border-borde px-2 py-0.5 font-medium text-marca-azul hover:bg-fondo"
+        title="Cambiar el estado o la hora de este bloque"
+      >
+        <Pencil className="h-3 w-3" /> Editar
       </button>
-      <button onClick={eliminar} disabled={busy} className="text-texto-suave hover:text-marca-rojo disabled:opacity-50" title="Eliminar">
-        <Trash2 className="h-3.5 w-3.5" />
+      <button
+        onClick={eliminar}
+        disabled={busy}
+        className="inline-flex items-center gap-1 rounded-lg border border-borde px-2 py-0.5 font-medium text-marca-rojo hover:bg-fondo disabled:opacity-50"
+        title="Quitar este bloque"
+      >
+        <Trash2 className="h-3 w-3" /> Quitar
       </button>
     </div>
   );
