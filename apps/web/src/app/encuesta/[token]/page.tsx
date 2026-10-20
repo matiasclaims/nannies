@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { api, type EncuestaPublica } from '@/lib/api';
-import { TIPO_LABEL } from '@/lib/dominio';
+import { etiquetaServicio } from '@/lib/dominio';
 
 /** Encuesta de evaluación para la FAMILIA (M6 · 6.2, sin login, por token). */
 export default function EncuestaPage() {
@@ -61,7 +61,7 @@ export default function EncuestaPage() {
         <div>
           <h1 className="text-base font-bold text-[#17323b]">¿Cómo estuvo el servicio?</h1>
           <p className="text-xs text-texto-suave">
-            {TIPO_LABEL[data.tipoServicio]} · {fechaLarga(data.fecha)}
+            {etiquetaServicio(data.tipoServicio, data.esPaquete)} · {fechaLarga(data.fecha)}
             {data.nannie ? ` · con ${data.nannie}` : ''}
           </p>
         </div>

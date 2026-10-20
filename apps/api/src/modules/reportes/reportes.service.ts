@@ -213,7 +213,7 @@ export class ReportesService {
       this.prisma.servicio.findMany({ where: { nannieId, fecha: { gte, lt } }, select: { estado: true, duracionHoras: true, paqueteId: true } }),
       this.prisma.reporteServicio.findMany({
         where: { servicio: { nannieId, fecha: { gte, lt } } },
-        include: { servicio: { select: { fecha: true, tipoServicio: true, familia: { select: { nombreContacto: true } } } } },
+        include: { servicio: { select: { fecha: true, tipoServicio: true, paqueteId: true, familia: { select: { nombreContacto: true } } } } },
         orderBy: { servicio: { fecha: 'desc' } },
       }),
       this.prisma.evaluacionServicio.findMany({
@@ -266,6 +266,7 @@ export class ReportesService {
         familia: r.servicio.familia.nombreContacto,
         fecha: r.servicio.fecha.toISOString().slice(0, 10),
         tipoServicio: r.servicio.tipoServicio,
+        esPaquete: r.servicio.paqueteId != null,
         actividades: r.actividades,
         animoNino: r.animoNino,
         incidentes: r.incidentes,
@@ -329,6 +330,7 @@ export class ReportesService {
       ninos: s.familia.ninos.map((n) => n.nombre).filter(Boolean),
       nannie: s.nannie?.nombre ?? '—',
       tipoServicio: s.tipoServicio,
+      esPaquete: s.paqueteId != null,
       horaInicio: s.horaInicio,
       horaFin: s.horaFin,
       zona: s.zona,
@@ -365,6 +367,7 @@ export class ReportesService {
       ninos: s.familia.ninos.map((n) => n.nombre).filter(Boolean),
       nannie: s.nannie?.nombre ?? '—',
       tipoServicio: s.tipoServicio,
+      esPaquete: s.paqueteId != null,
       fecha: s.fecha.toISOString().slice(0, 10),
       horaInicio: s.horaInicio,
       horaFin: s.horaFin,

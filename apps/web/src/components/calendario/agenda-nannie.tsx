@@ -16,7 +16,7 @@ import {
 } from '@/lib/api';
 import { ANIMOS } from '@/lib/dominio';
 import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
-import { TIPO_LABEL, ESTADO_DISPONIBILIDAD, edadLabel } from '@/lib/dominio';
+import { ESTADO_DISPONIBILIDAD, edadLabel, etiquetaServicio } from '@/lib/dominio';
 import { hoyMX, type DiaSemana } from '@/lib/semana';
 import { cn } from '@/lib/utils';
 import { FormMarcarDisponibilidad } from './form-marcar-disponibilidad';
@@ -118,7 +118,7 @@ export function AgendaNannie({
         {servs.map((s) => (
           <div key={s.id} className="flex flex-wrap items-center gap-2">
             <p className="text-sm text-texto-fuerte">
-              <span className="font-medium">{TIPO_LABEL[s.tipoServicio]}</span>{' '}
+              <span className="font-medium">{etiquetaServicio(s.tipoServicio, s.formato === 'PAQUETE')}</span>{' '}
               {s.horaInicio}–{s.horaFin} · {s.zona}
             </p>
             {s.requierePlaneacion ? (
@@ -207,7 +207,7 @@ export function AgendaNannie({
             {ofertas.map((s) => (
               <div key={s.id} className="flex flex-col rounded-xl bg-panel p-2.5 shadow-card">
                 <p className="text-xs font-semibold leading-tight text-texto-fuerte">
-                  {TIPO_LABEL[s.tipoServicio]}
+                  {etiquetaServicio(s.tipoServicio, s.formato === 'PAQUETE')}
                 </p>
                 <p className="mt-0.5 text-[11px] capitalize text-texto-suave">{fechaCorta(s.fecha)}</p>
                 <p className="text-[11px] text-texto-suave">
@@ -318,7 +318,7 @@ export function AgendaNannie({
       {planeacionServ && (
         <PlaneacionModal
           servicioId={planeacionServ.id}
-          encabezado={`${TIPO_LABEL[planeacionServ.tipoServicio]} · ${planeacionServ.horaInicio}–${planeacionServ.horaFin}`}
+          encabezado={`${etiquetaServicio(planeacionServ.tipoServicio, planeacionServ.formato === 'PAQUETE')} · ${planeacionServ.horaInicio}–${planeacionServ.horaFin}`}
           onCerrar={() => setPlaneacionServ(null)}
         />
       )}
@@ -484,7 +484,7 @@ function ReporteModal({
           </button>
         </div>
         <p className="mb-3 text-xs text-texto-suave">
-          {TIPO_LABEL[servicio.tipoServicio]} · {servicio.horaInicio}–{servicio.horaFin}
+          {etiquetaServicio(servicio.tipoServicio, servicio.formato === 'PAQUETE')} · {servicio.horaInicio}–{servicio.horaFin}
         </p>
         {cargando ? (
           <p className="py-6 text-center text-sm text-texto-suave">Cargando…</p>

@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Printer } from 'lucide-react';
 import { api, type ReporteNannie } from '@/lib/api';
-import { TIPO_LABEL } from '@/lib/dominio';
+import { etiquetaServicio } from '@/lib/dominio';
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const periodo = (desde: string) => {
@@ -67,7 +67,7 @@ export default function ReporteNanniePage() {
           d.reportes.map((r, i) => (
             <div key={i} className="border-b border-borde py-2 text-sm last:border-0">
               <p className="font-medium">
-                {TIPO_LABEL[r.tipoServicio]} · {r.familia} · <span className="text-texto-suave">{r.fecha}</span> ·{' '}
+                {etiquetaServicio(r.tipoServicio, r.esPaquete)} · {r.familia} · <span className="text-texto-suave">{r.fecha}</span> ·{' '}
                 <span className="text-texto-suave">ánimo: {r.animoNino}</span>
               </p>
               <p className="text-xs text-texto-suave"><strong className="text-texto-fuerte">Actividades:</strong> {r.actividades}</p>

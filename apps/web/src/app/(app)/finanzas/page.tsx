@@ -22,7 +22,7 @@ import {
   type NannieLite,
   type Sesion,
 } from '@/lib/api';
-import { TIPO_LABEL } from '@/lib/dominio';
+import { TIPO_LABEL, etiquetaServicio } from '@/lib/dominio';
 import { inicioSemana, sumarSemanas, rangoSemana, etiquetaSemana, baseHoyMX } from '@/lib/semana';
 import { Avatar } from '@/components/avatar';
 import { NombreNannie } from '@/components/nombre-nannie';
@@ -450,7 +450,7 @@ function NominaNannieCard({
               <div key={s.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                 <div className="min-w-0">
                   <p className="truncate text-texto-fuerte">
-                    {TIPO_LABEL[s.tipoServicio]} · {s.familia}
+                    {etiquetaServicio(s.tipoServicio, s.esPaquete)} · {s.familia}
                   </p>
                   <p className="text-xs text-texto-suave">
                     {fechaCorta(s.fecha)} · {s.duracionHoras} h
@@ -711,7 +711,7 @@ function MargenFila({
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-medium text-texto-fuerte">
-            {TIPO_LABEL[s.tipoServicio]} · {s.familia}
+            {etiquetaServicio(s.tipoServicio, s.esPaquete)} · {s.familia}
           </p>
           <p className="text-xs text-texto-suave">
             {s.nannie} · servicio {fechaCorta(s.fecha)} · {s.zona}

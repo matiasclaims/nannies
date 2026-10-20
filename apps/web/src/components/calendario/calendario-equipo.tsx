@@ -11,7 +11,7 @@ import {
   type Sesion,
   type DesbordeDecision,
 } from '@/lib/api';
-import { TIPO_LABEL, ESTADO_DISPONIBILIDAD } from '@/lib/dominio';
+import { ESTADO_DISPONIBILIDAD, etiquetaServicio } from '@/lib/dominio';
 import { inicioSemana, baseHoyMX, type DiaSemana } from '@/lib/semana';
 import { dividirDiaNoche, horasEntre, TARIFA_NOCHE_MIN } from '@/lib/dia-noche';
 import { Avatar } from '@/components/avatar';
@@ -69,7 +69,7 @@ interface Bloque {
 function detalleServicio(s: Servicio, nannie: string): string {
   const ninos = s.ninos && s.ninos.length ? ` (${s.ninos.join(', ')})` : '';
   const fam = s.familia ? `${s.familia}${ninos}` : '';
-  return [fam, TIPO_LABEL[s.tipoServicio], nannie, `${s.horaInicio}–${s.horaFin}`].filter(Boolean).join(' · ');
+  return [fam, etiquetaServicio(s.tipoServicio, s.formato === 'PAQUETE'), nannie, `${s.horaInicio}–${s.horaFin}`].filter(Boolean).join(' · ');
 }
 
 // Colores estilo Google Calendar (ver dominio.ts).
@@ -194,7 +194,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
         clase: s.nannieId ? claseServicio(s.estado) : CLASE_SIN_ASIGNAR,
         etiqueta: quien,
         color: s.nannieId ? colorDe(s.nannieId) : undefined,
-        sub: s.familia ?? TIPO_LABEL[s.tipoServicio],
+        sub: s.familia ?? etiquetaServicio(s.tipoServicio, s.formato === 'PAQUETE'),
         detalle: detalleServicio(s, quien),
         paquete: s.formato === 'PAQUETE',
       });
@@ -247,8 +247,8 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
         ini: s.horaInicio,
         fin: s.horaFin,
         clase: claseServicio(s.estado),
-        etiqueta: s.familia ?? TIPO_LABEL[s.tipoServicio],
-        sub: `${TIPO_LABEL[s.tipoServicio]} · ${s.horaInicio}–${s.horaFin}`,
+        etiqueta: s.familia ?? etiquetaServicio(s.tipoServicio, s.formato === 'PAQUETE'),
+        sub: `${etiquetaServicio(s.tipoServicio, s.formato === 'PAQUETE')} · ${s.horaInicio}–${s.horaFin}`,
         detalle: detalleServicio(s, nannieActiva.nombre),
         paquete: s.formato === 'PAQUETE',
       }));
@@ -583,7 +583,7 @@ function AccionesServicio({
           </p>
         )}
         <p className="mt-0.5 text-xs text-texto-suave">
-          {TIPO_LABEL[servicio.tipoServicio]} · {fechaCorta(servicio.fecha)} · {servicio.horaInicio}–{servicio.horaFin}
+          {etiquetaServicio(servicio.tipoServicio, servicio.formato === 'PAQUETE')} · {fechaCorta(servicio.fecha)} · {servicio.horaInicio}–{servicio.horaFin}
           {servicio.zona && <> · {servicio.zona}</>}
           {nombreActual && <> · {nombreActual}</>}
         </p>
@@ -992,7 +992,7 @@ function TarjetaOfertar({
         </p>
       )}
       <p className="text-xs font-semibold text-texto-fuerte">
-        {TIPO_LABEL[servicio.tipoServicio]} · {fechaCorta(servicio.fecha)}
+        {etiquetaServicio(servicio.tipoServicio, servicio.formato === 'PAQUETE')} · {fechaCorta(servicio.fecha)}
       </p>
       <p className="mb-2 text-[11px] text-texto-suave">
         {servicio.horaInicio}–{servicio.horaFin} · {servicio.zona}
@@ -1040,7 +1040,7 @@ function TarjetaEsperando({ servicio, nombre }: { servicio: Servicio; nombre: st
   return (
     <div className="rounded-xl border border-borde p-2.5">
       <p className="text-xs font-semibold text-texto-fuerte">
-        {TIPO_LABEL[servicio.tipoServicio]} · {fechaCorta(servicio.fecha)}
+        {etiquetaServicio(servicio.tipoServicio, servicio.formato === 'PAQUETE')} · {fechaCorta(servicio.fecha)}
       </p>
       <p className="mb-1.5 text-[11px] text-texto-suave">
         Ofertado a <span className="font-medium">{nombre}</span>

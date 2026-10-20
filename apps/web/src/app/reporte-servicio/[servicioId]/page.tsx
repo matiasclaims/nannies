@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { Printer } from 'lucide-react';
 import { api, type HojaReporte } from '@/lib/api';
-import { TIPO_LABEL } from '@/lib/dominio';
+import { etiquetaServicio } from '@/lib/dominio';
 
 const fechaLarga = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString('es-MX', {
@@ -53,7 +53,7 @@ export default function HojaReportePage() {
       <div className="mb-5 grid grid-cols-2 gap-3 text-sm">
         <Campo label="Familia" valor={data.familia} />
         <Campo label={data.ninos.length === 1 ? 'Peque' : 'Peques'} valor={data.ninos.length ? data.ninos.join(', ') : '—'} />
-        <Campo label="Servicio" valor={TIPO_LABEL[data.tipoServicio]} />
+        <Campo label="Servicio" valor={etiquetaServicio(data.tipoServicio, data.esPaquete)} />
         <Campo label="Horario" valor={`${data.horaInicio}–${data.horaFin}`} />
         {data.zona && <Campo label="Zona" valor={data.zona} />}
         <Campo label="Nannie" valor={data.nannie} />

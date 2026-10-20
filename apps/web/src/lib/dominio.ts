@@ -13,6 +13,14 @@ export const TIPO_LABEL: Record<TipoServicio, string> = {
   LUDOTECA_MOVIL: 'Ludoteca móvil',
 };
 
+/** Etiqueta de un servicio para mostrar. Si es de PAQUETE se muestra "Paquete"
+ *  (paquete es su propia categoría; no es Daycare, que es individual/ocasional).
+ *  Para individuales usa el tipo de cuidado (Daycare, Nightcare, etc.).
+ *  Petición de Paula 2026-10-20. */
+export function etiquetaServicio(tipo: TipoServicio, esPaquete?: boolean | null): string {
+  return esPaquete ? 'Paquete' : TIPO_LABEL[tipo];
+}
+
 // Colores estilo Google Calendar (para que las nannies migren fácil):
 // rojo = asignado · amarillo = disponible · gris = bloqueado · azul = ofertado.
 // RECHAZADO = burdeos oscuro (#5B292D): color deliberadamente incómodo para

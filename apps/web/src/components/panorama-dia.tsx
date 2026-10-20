@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CalendarDays, Package, ChevronRight, ChevronLeft, ChevronDown, NotebookPen, Printer, FileWarning, UserCheck } from 'lucide-react';
 import { api, type Servicio, type NannieLite, type FamiliaLite, type Plaza, type ReporteDiaItem, type Disponibilidad } from '@/lib/api';
-import { ESTADO_SERVICIO, TIPO_LABEL } from '@/lib/dominio';
+import { ESTADO_SERVICIO, etiquetaServicio } from '@/lib/dominio';
 import { cn } from '@/lib/utils';
 
 /** Fecha de hoy en ISO (YYYY-MM-DD), zona local. */
@@ -243,7 +243,7 @@ function FilaReporte({ it }: { it: ReporteDiaItem }) {
               {it.ninos.length > 0 && <span className="font-normal text-texto-suave"> · {it.ninos.join(', ')}</span>}
             </p>
             <p className="text-xs text-texto-suave">
-              {it.horaInicio}–{it.horaFin} · {TIPO_LABEL[it.tipoServicio]} · {it.nannie}
+              {it.horaInicio}–{it.horaFin} · {etiquetaServicio(it.tipoServicio, it.esPaquete)} · {it.nannie}
             </p>
           </div>
         </button>
@@ -305,7 +305,7 @@ function ServicioDia({ servicio: s, nannie, familia }: { servicio: Servicio; nan
           {s.formato === 'PAQUETE' && (
             <Package className="mr-0.5 inline h-3 w-3 align-[-2px]" aria-label="Paquete" />
           )}
-          {TIPO_LABEL[s.tipoServicio]}
+          {etiquetaServicio(s.tipoServicio, s.formato === 'PAQUETE')}
           {s.zona ? ` · ${s.zona}` : ''}
         </span>
       </span>

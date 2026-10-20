@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode, Package, ChevronDown, List, CalendarDays, ListChecks } from 'lucide-react';
 import { api, type PerfilFamilia, type ServicioHist, type NinoPerfil, type NinoInput, type FamiliaInput, type NannieLite } from '@/lib/api';
-import { TIPO_LABEL, ESTADO_SERVICIO, edadLabel } from '@/lib/dominio';
+import { ESTADO_SERVICIO, edadLabel, etiquetaServicio } from '@/lib/dominio';
 import { AREAS_TRABAJO, CONSENTIMIENTOS } from '@/lib/familia-catalogo';
 import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
 import { PlaneacionModal } from '@/components/planeacion-modal';
@@ -1022,7 +1022,7 @@ function CalendarioServicios({ servicios }: { servicios: ServicioHist[] }) {
                 {servs.map((s) => (
                   <div
                     key={s.id}
-                    title={`${TIPO_LABEL[s.tipoServicio]} · ${s.horaInicio}–${s.horaFin} · ${s.nannie} · ${ESTADO_SERVICIO[s.estado].label}`}
+                    title={`${etiquetaServicio(s.tipoServicio, s.esPaquete)} · ${s.horaInicio}–${s.horaFin} · ${s.nannie} · ${ESTADO_SERVICIO[s.estado].label}`}
                     className={cn('truncate rounded px-1 py-0.5 text-[9px] leading-tight', ESTADO_SERVICIO[s.estado].clase)}
                   >
                     {s.horaInicio} {s.nannie}
@@ -1201,7 +1201,7 @@ function ServicioRow({
     <div className="py-2 text-sm">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-texto-fuerte">{TIPO_LABEL[s.tipoServicio]} · {fechaCorta(s.fecha)}</p>
+          <p className="truncate text-texto-fuerte">{etiquetaServicio(s.tipoServicio, s.esPaquete)} · {fechaCorta(s.fecha)}</p>
           <p className="text-xs text-texto-suave">{s.horaInicio}–{s.horaFin} · {s.nannie}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">

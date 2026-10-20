@@ -93,6 +93,7 @@ export class PlaneacionService {
       nannie: s.nannie?.nombre ?? '—',
       plaza: s.plaza,
       tipoServicio: s.tipoServicio,
+      esPaquete: s.paqueteId != null,
       fecha: s.fecha.toISOString().slice(0, 10),
       horaInicio: s.horaInicio,
       horaFin: s.horaFin,

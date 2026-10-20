@@ -67,7 +67,7 @@ export class EvaluacionFamiliaService {
       where: { token },
       include: {
         servicio: {
-          select: { fecha: true, tipoServicio: true, nannie: { select: { nombre: true } } },
+          select: { fecha: true, tipoServicio: true, paqueteId: true, nannie: { select: { nombre: true } } },
         },
       },
     });
@@ -76,6 +76,7 @@ export class EvaluacionFamiliaService {
       respondido: ev.respondidoEn != null,
       fecha: ev.servicio.fecha.toISOString().slice(0, 10),
       tipoServicio: ev.servicio.tipoServicio,
+      esPaquete: ev.servicio.paqueteId != null,
       nannie: ev.servicio.nannie?.nombre ?? null,
     };
   }

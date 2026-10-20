@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Printer } from 'lucide-react';
 import { api, type MiProyeccion } from '@/lib/api';
-import { TIPO_LABEL } from '@/lib/dominio';
+import { etiquetaServicio } from '@/lib/dominio';
 
 /** Proyección de fechas de la NANNIE: su agenda a futuro (confirmadas y por
  *  responder), para ver o descargar en PDF. Útil con paquetes de varios meses. */
@@ -59,7 +59,7 @@ export default function MiProyeccionPage() {
                       {s.horaInicio}–{s.horaFin}
                     </td>
                     <td className="py-2">
-                      <span className="font-medium">{TIPO_LABEL[s.tipoServicio]}</span> · {s.familia}
+                      <span className="font-medium">{etiquetaServicio(s.tipoServicio, s.esPaquete)}</span> · {s.familia}
                       {s.zona ? <span className="text-texto-suave"> · {s.zona}</span> : null}
                       {s.direccion ? <div className="text-xs text-texto-suave">{s.direccion}</div> : null}
                       {s.pendiente ? (

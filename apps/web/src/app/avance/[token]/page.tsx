@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { api, type AvancePaquete } from '@/lib/api';
-import { TIPO_LABEL } from '@/lib/dominio';
+import { etiquetaServicio } from '@/lib/dominio';
 
 const ESTADO: Record<string, { label: string; clase: string }> = {
   OFERTADO: { label: 'Programada', clase: 'bg-marca-azul/10 text-marca-azul' },
@@ -100,7 +100,7 @@ function Bloque({ titulo, sesiones, vacio }: { titulo: string; sesiones: AvanceP
                 <div className="min-w-0">
                   <p className="text-sm capitalize text-texto-fuerte">{fechaLarga(s.fecha)}</p>
                   <p className="text-xs text-texto-suave">
-                    {s.horaInicio}–{s.horaFin} · {TIPO_LABEL[s.tipoServicio]} · {s.duracionHoras} h
+                    {s.horaInicio}–{s.horaFin} · {etiquetaServicio(s.tipoServicio, true)} · {s.duracionHoras} h
                   </p>
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${e.clase}`}>{e.label}</span>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Package } from 'lucide-react';
 import { api, type MiPaquete } from '@/lib/api';
-import { ESTADO_SERVICIO, TIPO_LABEL } from '@/lib/dominio';
+import { ESTADO_SERVICIO, etiquetaServicio } from '@/lib/dominio';
 
 /** Vista NANNIE · Mis paquetes: avance (horas cubiertas/restantes) y calendario
  *  de sesiones de los paquetes donde ella participa. Solo ve los suyos; sus
@@ -87,7 +87,7 @@ function TarjetaPaquete({ p }: { p: MiPaquete }) {
                 <td className="w-24 py-1.5 capitalize text-texto-fuerte">{fechaCorta(s.fecha)}</td>
                 <td className="w-20 py-1.5 text-texto-suave">{s.horaInicio}–{s.horaFin}</td>
                 <td className="py-1.5">
-                  <span className="text-texto-fuerte">{TIPO_LABEL[s.tipoServicio]}</span>
+                  <span className="text-texto-fuerte">{etiquetaServicio(s.tipoServicio, true)}</span>
                   {s.mia ? (
                     <span className="ml-1.5 rounded bg-marca-azul px-1.5 py-0.5 text-[10px] font-semibold text-white">Tú</span>
                   ) : null}

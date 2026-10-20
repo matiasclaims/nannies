@@ -122,6 +122,7 @@ export class FinanzasService {
         servicios: {
           id: string;
           tipoServicio: string;
+          esPaquete: boolean;
           familia: string;
           fecha: string;
           duracionHoras: number;
@@ -177,6 +178,7 @@ export class FinanzasService {
       grupo.servicios.push({
         id: s.id,
         tipoServicio: s.tipoServicio,
+        esPaquete: s.formato === 'PAQUETE',
         familia: s.familia?.nombreContacto ?? '—',
         fecha: s.fecha.toISOString().slice(0, 10),
         duracionHoras: s.duracionHoras,
@@ -412,6 +414,7 @@ export class FinanzasService {
         familia: s.familia?.nombreContacto ?? '—',
         zona: s.zona,
         tipoServicio: s.tipoServicio,
+        esPaquete: s.formato === 'PAQUETE',
         fecha: s.fecha.toISOString().slice(0, 10),
         completado: s.estado === 'COMPLETADO',
         cobro,

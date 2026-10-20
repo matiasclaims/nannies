@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { Printer } from 'lucide-react';
 import { api, type HojaPlaneacion } from '@/lib/api';
-import { TIPO_LABEL } from '@/lib/dominio';
+import { etiquetaServicio } from '@/lib/dominio';
 
 /** Hoja de planeación de un servicio, con marca Nannies, lista para imprimir o
  *  guardar como PDF. Formato Hora/Actividad/Objetivo/Material. */
@@ -52,7 +52,7 @@ export default function HojaPlaneacionPage() {
         <Dato label="Nannie" valor={data.nannie} />
         <Dato label="Fecha" valor={fechaLarga(data.fecha)} />
         <Dato label="Horario" valor={`${data.horaInicio}–${data.horaFin}`} />
-        <Dato label="Servicio" valor={TIPO_LABEL[data.tipoServicio]} />
+        <Dato label="Servicio" valor={etiquetaServicio(data.tipoServicio, data.esPaquete)} />
         {data.zona && <Dato label="Zona" valor={data.zona} />}
         {data.ninos.length > 0 && (
           <div className="col-span-2">

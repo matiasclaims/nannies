@@ -480,6 +480,7 @@ export interface MiProyeccion {
     horaInicio: string;
     horaFin: string;
     tipoServicio: TipoServicio;
+    esPaquete: boolean;
     familia: string;
     zona: string;
     direccion: string | null;
@@ -529,7 +530,7 @@ export interface ReporteNannie {
   hasta: string;
   nannie: { id: string; nombre: string; color: string | null; prueba: boolean; especialidad: string | null };
   kpis: { servicios: number; horas: number; calificacionPapas: number | null; evaluacionPapasN: number; evaluacionAgencia: number | null; incidencias: number };
-  reportes: { familia: string; fecha: string; tipoServicio: TipoServicio; actividades: string; animoNino: string; incidentes: string | null; notas: string | null }[];
+  reportes: { familia: string; fecha: string; tipoServicio: TipoServicio; esPaquete: boolean; actividades: string; animoNino: string; incidentes: string | null; notas: string | null }[];
   evaluacionesPapas: { familia: string; fecha: string; calificacion: number | null; volveriaContratar: boolean | null; comentario: string | null }[];
   incidencias: { situacion: string; fecha: string; nota: string | null; condonada: boolean }[];
   evaluacionesAgencia: { fecha: string; familia: string; calificacion: number; nota: string | null }[];
@@ -563,6 +564,7 @@ export interface EncuestaPublica {
   respondido: boolean;
   fecha: string;
   tipoServicio: TipoServicio;
+  esPaquete: boolean;
   nannie: string | null;
 }
 /** Resumen propio de la nannie (solo su promedio global). */
@@ -599,6 +601,7 @@ export interface ReporteDiaItem {
   ninos: string[];
   nannie: string;
   tipoServicio: TipoServicio;
+  esPaquete: boolean;
   horaInicio: string;
   horaFin: string;
   zona: string;
@@ -614,6 +617,7 @@ export interface HojaReporte {
   ninos: string[];
   nannie: string;
   tipoServicio: TipoServicio;
+  esPaquete: boolean;
   fecha: string;
   horaInicio: string;
   horaFin: string;
@@ -659,6 +663,7 @@ export interface HojaPlaneacion {
   nannie: string;
   plaza: Plaza;
   tipoServicio: TipoServicio;
+  esPaquete: boolean;
   fecha: string;
   horaInicio: string;
   horaFin: string;
@@ -830,6 +835,7 @@ export interface Ingresos {
 export interface NominaServicio {
   id: string;
   tipoServicio: TipoServicio;
+  esPaquete: boolean;
   familia: string;
   fecha: string;
   duracionHoras: number;
@@ -876,6 +882,7 @@ export interface MargenServicio {
   familia: string;
   zona: string;
   tipoServicio: TipoServicio;
+  esPaquete: boolean;
   fecha: string; // fecha del servicio (cuándo se da)
   completado: boolean;
   cobro: number;
