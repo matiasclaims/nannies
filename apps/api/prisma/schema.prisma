@@ -554,6 +554,7 @@ model Servicio {
   ofertas OfertaRespuesta[]
   finanza FinanzaServicio?
   reporte ReporteServicio?
+  planeacion PlaneacionServicio?
   evaluacion EvaluacionServicio?
   evaluacionCoord EvaluacionCoordServicio?
 
@@ -579,6 +580,23 @@ model ReporteServicio {
   actualizadoEn DateTime @updatedAt
 
   @@map("reportes_servicio")
+}
+
+// Planeación estructurada de un servicio que la requiere (coordinación marca
+// requierePlaneacion). Filas de Hora/Actividad/Objetivo/Material; la capturan
+// tanto coordinación como la nannie asignada, queda ligada al servicio (y así
+// a la familia) y se puede imprimir en PDF con el formato Nannies.
+model PlaneacionServicio {
+  id            String   @id @default(cuid())
+  servicioId    String   @unique
+  servicio      Servicio @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  // Arreglo de filas: [{ hora, actividad, objetivo, material }]
+  items         Json
+  autorNombre   String? // quién la guardó por última vez
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  @@map("planeaciones_servicio")
 }
 
 // M6 · 6.2 — Evaluación de PAPÁS por servicio (link/QR sin login). Una por

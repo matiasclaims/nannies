@@ -56,6 +56,7 @@ export type Accion =
   | 'reporte.propio.escribir'
   | 'reporte.propio.ver'
   | 'familia.bitacora.aportar'
+  | 'planeacion.gestionar'
   | 'dashboard.ver';
 
 /** Qué roles pueden ejecutar cada acción. */
@@ -93,6 +94,9 @@ export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
   // Aportar a la bitácora de la familia: coordinación y la nannie asignada
   // (la pertenencia —servicio confirmado con esa familia— se valida en el servicio).
   'familia.bitacora.aportar': ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
+  // Planeación del servicio: la capturan coordinación Y la nannie asignada
+  // (pertenencia validada en el servicio para la nannie).
+  'planeacion.gestionar': ['DIRECTORA', 'SUBDIRECTORA', 'NANNIE'],
   'reporte.propio.ver': ['NANNIE'],
 };
 

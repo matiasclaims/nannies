@@ -638,6 +638,32 @@ export interface ServicioHist {
   portaEncuesta?: boolean;
   /** Consumo del paquete de ESA sesión (solo si esPaquete y no está cancelada). */
   paquete: { consumidas: number; remanentes: number; totales: number } | null;
+  /** El servicio requiere planeación (coordinación lo marcó). */
+  requierePlaneacion?: boolean;
+}
+export interface PlaneacionItem {
+  hora: string;
+  actividad: string;
+  objetivo: string;
+  material: string;
+}
+export interface Planeacion {
+  items: PlaneacionItem[];
+  autor: string | null;
+  fecha: string;
+}
+export interface HojaPlaneacion {
+  servicioId: string;
+  familia: string;
+  ninos: string[];
+  nannie: string;
+  plaza: Plaza;
+  tipoServicio: TipoServicio;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  zona: string;
+  planeacion: Planeacion | null;
 }
 export interface NotaFamilia {
   id: string;
@@ -1029,6 +1055,16 @@ export const api = {
     servicioId: string,
     dto: { actividades: string; animoNino: string; incidentes?: string; notas?: string },
   ) => req<{ ok: boolean }>(`/reportes/servicio/${servicioId}`, { method: 'PUT', body: JSON.stringify(dto) }),
+  // --- Planeación del servicio (Hora/Actividad/Objetivo/Material) ---
+  planeacionDeServicio: (servicioId: string) =>
+    req<Planeacion | null>(`/planeacion/servicio/${servicioId}`),
+  guardarPlaneacion: (servicioId: string, items: PlaneacionItem[]) =>
+    req<{ ok: boolean; id: string }>(`/planeacion/servicio/${servicioId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ items }),
+    }),
+  hojaPlaneacion: (servicioId: string) =>
+    req<HojaPlaneacion>(`/planeacion/servicio/${servicioId}/hoja`),
   completarServicio: (servicioId: string) =>
     req<Servicio>(`/calendario/servicios/${servicioId}/completar`, { method: 'POST' }),
   editarHorario: (servicioId: string, horaFin: string, tarifaNoche?: number, desborde?: DesbordeDecision, horaInicio?: string) =>

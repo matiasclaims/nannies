@@ -503,6 +503,9 @@ export class FamiliasService {
         // Distintivo de paquete: si nació de un paquete, cuánto consumió del
         // paquete esa sesión y cuánto quedó de saldo tras ella (Mario 2026-09-21).
         esPaquete: s.paqueteId != null,
+        // El servicio requiere planeación (coordinación lo marcó): habilita el
+        // botón de Planeación en la cédula de la familia.
+        requierePlaneacion: s.requierePlaneacion,
         // Identificador del paquete (para agrupar/colapsar el historial): id y folio.
         paqueteId: s.paqueteId ?? null,
         paqueteFolio: s.paqueteId ? folioDe.get(s.paqueteId) ?? null : null,

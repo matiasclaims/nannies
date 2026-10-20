@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode, Package, ChevronDown, List, CalendarDays } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode, Package, ChevronDown, List, CalendarDays, ListChecks } from 'lucide-react';
 import { api, type PerfilFamilia, type ServicioHist, type NinoPerfil, type NinoInput, type FamiliaInput, type NannieLite } from '@/lib/api';
 import { TIPO_LABEL, ESTADO_SERVICIO, edadLabel } from '@/lib/dominio';
 import { AREAS_TRABAJO, CONSENTIMIENTOS } from '@/lib/familia-catalogo';
 import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
+import { PlaneacionModal } from '@/components/planeacion-modal';
 import { PaqueteFamilia } from '@/components/paquete-familia';
 import { HoraSelect } from '@/components/hora-select';
 import { inicioMes, diasDeMes, sumarMeses, etiquetaMes, baseHoyMX, hoyMX } from '@/lib/semana';
@@ -29,6 +30,7 @@ export default function PerfilFamiliaPage() {
   const [nuevoNino, setNuevoNino] = useState(false);
   const [editFamilia, setEditFamilia] = useState(false);
   const [encuestaSid, setEncuestaSid] = useState<string | null>(null);
+  const [planeacionSid, setPlaneacionSid] = useState<string | null>(null);
   const [nannies, setNannies] = useState<NannieLite[]>([]);
 
   useEffect(() => {
@@ -149,7 +151,7 @@ export default function PerfilFamiliaPage() {
       </div>
 
       {/* Próximas sesiones: ajustar horario/fecha sin ir al calendario de cada nannie. */}
-      <ProximasSesiones servicios={data.servicios} onCambio={cargar} />
+      <ProximasSesiones servicios={data.servicios} onCambio={cargar} onPlaneacion={setPlaneacionSid} />
 
       {editFamilia && (
         <EditarFamiliaModal
@@ -190,12 +192,13 @@ export default function PerfilFamiliaPage() {
       </div>
 
       {/* Servicios: lista (agrupada por folio) o calendario mensual. */}
-      <ServiciosFamilia servicios={data.servicios} onEncuesta={setEncuestaSid} />
+      <ServiciosFamilia servicios={data.servicios} onEncuesta={setEncuestaSid} onPlaneacion={setPlaneacionSid} />
 
       {/* Bitácora */}
       <Bitacora familiaId={id} notas={data.notas} onCambio={cargar} />
 
       {encuestaSid && <EncuestaLinkModal servicioId={encuestaSid} onCerrar={() => setEncuestaSid(null)} />}
+      {planeacionSid && <PlaneacionModal servicioId={planeacionSid} onCerrar={() => setPlaneacionSid(null)} />}
     </div>
   );
 }
@@ -640,9 +643,11 @@ function Aviso({ texto }: { texto: string }) {
 function ProximasSesiones({
   servicios,
   onCambio,
+  onPlaneacion,
 }: {
   servicios: ServicioHist[];
   onCambio: () => Promise<void>;
+  onPlaneacion: (id: string) => void;
 }) {
   const hoy = hoyMX();
   const proximas = servicios
@@ -667,7 +672,7 @@ function ProximasSesiones({
                   .filter((x) => x.paqueteId === s.paqueteId && x.id !== s.id && (x.estado === 'OFERTADO' || x.estado === 'ACEPTADO'))
                   .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.horaInicio.localeCompare(a.horaInicio))
               : [];
-            return <SesionAjustable key={s.id} s={s} hermanas={hermanas} onCambio={onCambio} />;
+            return <SesionAjustable key={s.id} s={s} hermanas={hermanas} onCambio={onCambio} onPlaneacion={onPlaneacion} />;
           })}
         </div>
       )}
@@ -682,10 +687,12 @@ function SesionAjustable({
   s,
   hermanas,
   onCambio,
+  onPlaneacion,
 }: {
   s: ServicioHist;
   hermanas: ServicioHist[];
   onCambio: () => Promise<void>;
+  onPlaneacion: (id: string) => void;
 }) {
   const [editando, setEditando] = useState(false);
   const [fecha, setFecha] = useState(s.fecha);
@@ -797,6 +804,15 @@ function SesionAjustable({
           <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', ESTADO_SERVICIO[s.estado].clase)}>
             {ESTADO_SERVICIO[s.estado].label}
           </span>
+          {s.requierePlaneacion && !editando && (
+            <button
+              onClick={() => onPlaneacion(s.id)}
+              title="Planeación del servicio"
+              className="inline-flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
+            >
+              <ListChecks className="h-3.5 w-3.5" /> Planeación
+            </button>
+          )}
           {!editando && (
             <button
               onClick={() => { reiniciar(); setEditando(true); }}
@@ -912,9 +928,11 @@ function horasEntreHHmm(ini: string, fin: string): number {
 function ServiciosFamilia({
   servicios,
   onEncuesta,
+  onPlaneacion,
 }: {
   servicios: ServicioHist[];
   onEncuesta: (id: string) => void;
+  onPlaneacion: (id: string) => void;
 }) {
   const [vista, setVista] = useState<'lista' | 'calendario'>('lista');
   const btn = (v: 'lista' | 'calendario', Icon: typeof List, label: string) => (
@@ -944,7 +962,7 @@ function ServiciosFamilia({
       {servicios.length === 0 ? (
         <p className="text-xs text-texto-suave">Sin servicios registrados.</p>
       ) : vista === 'lista' ? (
-        <HistorialServicios servicios={servicios} onEncuesta={onEncuesta} />
+        <HistorialServicios servicios={servicios} onEncuesta={onEncuesta} onPlaneacion={onPlaneacion} />
       ) : (
         <CalendarioServicios servicios={servicios} />
       )}
@@ -1038,9 +1056,11 @@ type ItemHist =
 function HistorialServicios({
   servicios,
   onEncuesta,
+  onPlaneacion,
 }: {
   servicios: ServicioHist[];
   onEncuesta: (id: string) => void;
+  onPlaneacion: (id: string) => void;
 }) {
   // Pestañas por año (de la más reciente a la más antigua). El historial viene
   // ordenado de lo más nuevo a lo más viejo.
@@ -1098,9 +1118,9 @@ function HistorialServicios({
         <div className="divide-y divide-borde">
           {grupos.map((g) =>
             g.kind === 'paq' ? (
-              <PaqueteGrupo key={g.paqueteId} folio={g.folio} servicios={g.servicios} onEncuesta={onEncuesta} />
+              <PaqueteGrupo key={g.paqueteId} folio={g.folio} servicios={g.servicios} onEncuesta={onEncuesta} onPlaneacion={onPlaneacion} />
             ) : (
-              <IndividualesGrupo key="individuales" servicios={g.servicios} onEncuesta={onEncuesta} />
+              <IndividualesGrupo key="individuales" servicios={g.servicios} onEncuesta={onEncuesta} onPlaneacion={onPlaneacion} />
             ),
           )}
         </div>
@@ -1115,10 +1135,12 @@ function PaqueteGrupo({
   folio,
   servicios,
   onEncuesta,
+  onPlaneacion,
 }: {
   folio: number | null;
   servicios: ServicioHist[];
   onEncuesta: (id: string) => void;
+  onPlaneacion: (id: string) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   // La lista viene de más nueva a más vieja: el rango va de la última a la primera.
@@ -1154,7 +1176,7 @@ function PaqueteGrupo({
       {abierto && (
         <div className="mt-1 space-y-1 border-l-2 border-marca-morado/20 pl-3">
           {servicios.map((s) => (
-            <ServicioRow key={s.id} s={s} onEncuesta={onEncuesta} dentroDePaquete />
+            <ServicioRow key={s.id} s={s} onEncuesta={onEncuesta} onPlaneacion={onPlaneacion} dentroDePaquete />
           ))}
         </div>
       )}
@@ -1167,10 +1189,12 @@ function PaqueteGrupo({
 function ServicioRow({
   s,
   onEncuesta,
+  onPlaneacion,
   dentroDePaquete = false,
 }: {
   s: ServicioHist;
   onEncuesta: (id: string) => void;
+  onPlaneacion: (id: string) => void;
   dentroDePaquete?: boolean;
 }) {
   return (
@@ -1188,6 +1212,15 @@ function ServicioRow({
             >
               <Package className="h-3 w-3" /> Paquete{s.paqueteFolio != null ? ` #${s.paqueteFolio}` : ''}
             </span>
+          )}
+          {s.requierePlaneacion && (
+            <button
+              onClick={() => onPlaneacion(s.id)}
+              title="Planeación del servicio"
+              className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-[11px] font-medium text-marca-azul hover:bg-fondo"
+            >
+              <ListChecks className="h-3.5 w-3.5" /> Planeación
+            </button>
           )}
           {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && s.portaEncuesta !== false && (
             <button
@@ -1231,9 +1264,11 @@ function ServicioRow({
 function IndividualesGrupo({
   servicios,
   onEncuesta,
+  onPlaneacion,
 }: {
   servicios: ServicioHist[];
   onEncuesta: (id: string) => void;
+  onPlaneacion: (id: string) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   return (
@@ -1255,7 +1290,7 @@ function IndividualesGrupo({
       {abierto && (
         <div className="mt-1 divide-y divide-borde border-l-2 border-marca-azul/20 pl-3">
           {servicios.map((s) => (
-            <ServicioRow key={s.id} s={s} onEncuesta={onEncuesta} />
+            <ServicioRow key={s.id} s={s} onEncuesta={onEncuesta} onPlaneacion={onPlaneacion} />
           ))}
         </div>
       )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Pencil, Trash2, Check, X, ClipboardList, HeartPulse, NotebookPen, QrCode, Star } from 'lucide-react';
+import { Pencil, Trash2, Check, X, ClipboardList, HeartPulse, NotebookPen, QrCode, Star, ListChecks } from 'lucide-react';
 import {
   api,
   ApiError,
@@ -21,6 +21,7 @@ import { hoyMX, type DiaSemana } from '@/lib/semana';
 import { cn } from '@/lib/utils';
 import { FormMarcarDisponibilidad } from './form-marcar-disponibilidad';
 import { HoraSelect } from '@/components/hora-select';
+import { PlaneacionModal } from '@/components/planeacion-modal';
 
 /** Vista de la nannie: sus ofertas arriba + su semana como agenda + marcar disponibilidad.
  *  `nannieId` acota los datos a la nannie (necesario para el doble perfil de Jacky:
@@ -41,6 +42,7 @@ export function AgendaNannie({
   const [marcando, setMarcando] = useState(false);
   const [fichaServ, setFichaServ] = useState<Servicio | null>(null);
   const [reporteServ, setReporteServ] = useState<Servicio | null>(null);
+  const [planeacionServ, setPlaneacionServ] = useState<Servicio | null>(null);
   const [encuestaServ, setEncuestaServ] = useState<Servicio | null>(null);
   const [miEval, setMiEval] = useState<MiResumenEval | null>(null);
   // Vista mensual: día seleccionado del grid (su detalle se muestra debajo).
@@ -155,6 +157,14 @@ export function AgendaNannie({
                 className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
               >
                 <NotebookPen className="h-3.5 w-3.5" /> Reporte
+              </button>
+            )}
+            {s.requierePlaneacion && (s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && (
+              <button
+                onClick={() => setPlaneacionServ(s)}
+                className="flex items-center gap-1 rounded-lg border border-borde px-2 py-1 text-xs font-medium text-marca-azul hover:bg-fondo"
+              >
+                <ListChecks className="h-3.5 w-3.5" /> Planeación
               </button>
             )}
             {(s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO') && s.portaEncuesta !== false && (
@@ -305,6 +315,13 @@ export function AgendaNannie({
         />
       )}
       {encuestaServ && <EncuestaLinkModal servicioId={encuestaServ.id} onCerrar={() => setEncuestaServ(null)} />}
+      {planeacionServ && (
+        <PlaneacionModal
+          servicioId={planeacionServ.id}
+          encabezado={`${TIPO_LABEL[planeacionServ.tipoServicio]} · ${planeacionServ.horaInicio}–${planeacionServ.horaFin}`}
+          onCerrar={() => setPlaneacionServ(null)}
+        />
+      )}
     </div>
   );
 }

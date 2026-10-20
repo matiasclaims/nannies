@@ -17,6 +17,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { RecordatoriosModule } from './modules/recordatorios/recordatorios.module';
 import { ReporteProblemaModule } from './modules/reporte-problema/reporte-problema.module';
 import { BacklogModule } from './modules/backlog/backlog.module';
+import { PlaneacionModule } from './modules/planeacion/planeacion.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -46,6 +47,7 @@ import { HealthController } from './health.controller';
     RecordatoriosModule,
     ReporteProblemaModule,
     BacklogModule,
+    PlaneacionModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
