@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { Printer } from 'lucide-react';
 import { api, type Proyeccion } from '@/lib/api';
-import { TIPO_LABEL } from '@/lib/dominio';
 import { hoyMX } from '@/lib/semana';
 import { cn } from '@/lib/utils';
 
@@ -87,7 +86,7 @@ export default function ProyeccionPage() {
               <tr className="border-b-2 border-[#f0d6d5] text-left text-xs text-texto-suave">
                 <th className="px-2 py-2">Fecha</th>
                 <th className="px-2 py-2">Horario</th>
-                <th className="px-2 py-2">Servicio</th>
+                <th className="px-2 py-2">Horas</th>
                 <th className="px-2 py-2">Nannie</th>
               </tr>
             </thead>
@@ -108,7 +107,7 @@ export default function ProyeccionPage() {
                     <td className="px-2 py-2">
                       {s.horaInicio}–{s.horaFin}
                     </td>
-                    <td className="px-2 py-2">{TIPO_LABEL[s.tipoServicio]}</td>
+                    <td className="px-2 py-2">{horasSesion(s.horaInicio, s.horaFin)} h</td>
                     <td className="px-2 py-2">{s.nannie}</td>
                   </tr>
                 );
@@ -144,4 +143,17 @@ function fechaLarga(iso: string): string {
     month: 'long',
     timeZone: 'UTC',
   });
+}
+
+/** Horas de una sesión a partir de su horario (00:00 como fin = medianoche;
+ *  maneja cruce de medianoche y medias horas). */
+function horasSesion(ini: string, fin: string): number {
+  const min = (h: string) => {
+    const [hh, mm] = h.split(':').map(Number);
+    return (hh || 0) * 60 + (mm || 0);
+  };
+  const finMin = fin === '00:00' ? 24 * 60 : min(fin);
+  let diff = finMin - min(ini);
+  if (diff <= 0) diff += 24 * 60;
+  return Math.round((diff / 60) * 10) / 10;
 }
