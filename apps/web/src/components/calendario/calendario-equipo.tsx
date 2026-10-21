@@ -146,7 +146,10 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
   const porAsignar = servicios.filter((s) => !s.nannieId && !CERRADOS.includes(s.estado));
   const esperando = servicios.filter((s) => s.nannieId && s.estado === 'OFERTADO');
   const rechazadas = servicios.filter((s) => s.estado === 'RECHAZADO');
-  const nannieActiva = nannies.find((n) => n.id === nannieSel) ?? nannies[0];
+  // Para el selector "Por nannie" se ocultan las dadas de BAJA (contaminación
+  // visual); la lista completa sigue usándose para nombres/colores del historial.
+  const nanniesSelector = nannies.filter((n) => n.estado !== 'BAJA');
+  const nannieActiva = nannies.find((n) => n.id === nannieSel) ?? nanniesSelector[0];
 
   // "Todas": solo disponibles + servicios asignados, con el nombre. Los bloqueos
   // NO se muestran aquí (reunión M3 con Paula: la vista de equipo se llenaría);
@@ -372,7 +375,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
           <div className="rounded-2xl bg-panel p-4 shadow-card">
             <h3 className="mb-2 text-sm font-semibold text-texto-fuerte">Ver nannie</h3>
             <div className="flex flex-col gap-1">
-              {nannies.map((n) => {
+              {nanniesSelector.map((n) => {
                 const activa = n.id === (nannieActiva?.id ?? '');
                 return (
                   <button

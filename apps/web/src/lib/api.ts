@@ -346,7 +346,7 @@ export interface NannieLite {
   color: string | null;
   zonas: string[];
   plaza: Plaza;
-  estado: 'ACTIVA' | 'PAUSA' | 'PRUEBA';
+  estado: 'ACTIVA' | 'PAUSA' | 'PRUEBA' | 'BAJA';
 }
 
 // --- M2 · Asignación / M5 mínimo (Familias) ---

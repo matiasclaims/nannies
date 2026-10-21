@@ -82,6 +82,9 @@ export class CalendarioService {
     return this.prisma.disponibilidad.findMany({
       where: {
         ...(nannieId ? { nannieId } : {}),
+        // No mostrar disponibilidad de nannies dadas de BAJA (contaminación
+        // visual del calendario); su historial de servicios sí se conserva.
+        nannie: { estado: { not: 'BAJA' } },
         ...(filtro.desde || filtro.hasta
           ? { fecha: { gte: fecha(filtro.desde), lte: fecha(filtro.hasta) } }
           : {}),
