@@ -14,6 +14,7 @@ import { ResponderOfertaDto } from './dto/responder-oferta.dto';
 import { ReasignarServicioDto } from './dto/reasignar-servicio.dto';
 import { CancelarServicioDto } from './dto/cancelar-servicio.dto';
 import { ReprogramarServicioDto } from './dto/reprogramar-servicio.dto';
+import { MarcarPlaneacionDto } from './dto/marcar-planeacion.dto';
 
 @Controller('calendario')
 export class CalendarioController {
@@ -109,6 +110,13 @@ export class CalendarioController {
   @Patch('servicios/:id/reasignar')
   reasignar(@Param('id') id: string, @Body() dto: ReasignarServicioDto) {
     return this.calendario.reasignarServicio(id, dto.nannieId);
+  }
+
+  // Activar/desactivar si un servicio requiere planeación (después de crearlo). Coordinación.
+  @RequiereAccion('servicio.asignar')
+  @Patch('servicios/:id/requiere-planeacion')
+  marcarPlaneacion(@Param('id') id: string, @Body() dto: MarcarPlaneacionDto) {
+    return this.calendario.marcarRequierePlaneacion(id, dto.requiere);
   }
 
   // Resolver un adeudo por definir (desborde de paquete). Coordinación.

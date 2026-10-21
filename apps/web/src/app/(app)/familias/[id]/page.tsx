@@ -780,6 +780,20 @@ function SesionAjustable({
     }
   }
 
+  // Activar/desactivar "requiere planeación" de ESTA sesión (coordinación).
+  async function togglePlaneacion(v: boolean) {
+    setBusy(true);
+    setError('');
+    try {
+      await api.marcarRequierePlaneacion(s.id, v);
+      await onCambio();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo actualizar la planeación.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const inputCls =
     'rounded-lg border border-borde bg-white px-2 py-1 text-xs outline-none focus:border-marca-azul';
 
@@ -893,6 +907,16 @@ function SesionAjustable({
               En paquete, cada sesión toma horas del saldo. Si alargas más de lo que queda, marca &quot;Compensar&quot; para restarlo de otras sesiones; si no, el sistema avisará que hay horas de más por resolver.
             </p>
           )}
+          <label className="mt-2 flex items-center gap-2 border-t border-borde pt-2 text-xs text-texto-fuerte">
+            <input
+              type="checkbox"
+              checked={s.requierePlaneacion ?? false}
+              disabled={busy}
+              onChange={(e) => togglePlaneacion(e.target.checked)}
+              className="h-4 w-4"
+            />
+            Este servicio requiere planeación
+          </label>
           {error && <p className="mt-2 text-xs text-marca-rojo">{error}</p>}
         </div>
       )}

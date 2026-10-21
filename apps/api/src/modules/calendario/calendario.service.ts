@@ -963,6 +963,27 @@ export class CalendarioService {
   }
 
   /**
+   * Activar/desactivar si un servicio requiere planeación (coordinación). Se puede
+   * marcar después de crear el servicio (p. ej. se creó sin el flag). Habilita el
+   * botón de Planeación en la ficha de la familia y en la agenda de la nannie.
+   */
+  async marcarRequierePlaneacion(servicioId: string, requiere: boolean) {
+    const servicio = await this.prisma.servicio.findUnique({
+      where: { id: servicioId },
+      select: { id: true, estado: true },
+    });
+    if (!servicio) throw new NotFoundException('Servicio no encontrado');
+    if (servicio.estado === 'CANCELADO' || servicio.estado === 'RECHAZADO') {
+      throw new BadRequestException('No se puede editar un servicio cancelado o rechazado.');
+    }
+    await this.prisma.servicio.update({
+      where: { id: servicioId },
+      data: { requierePlaneacion: requiere },
+    });
+    return { ok: true as const, requierePlaneacion: requiere };
+  }
+
+  /**
    * Reasignar un servicio a otra nannie (una nannie cubre a otra). Coordinación.
    * Queda directamente ASIGNADO (no se re-oferta). Sirve para suelto y paquete.
    */

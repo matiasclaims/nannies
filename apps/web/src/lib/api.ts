@@ -1099,6 +1099,12 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ nannieId }),
     }),
+  // Activar/desactivar si un servicio requiere planeación (después de crearlo).
+  marcarRequierePlaneacion: (servicioId: string, requiere: boolean) =>
+    req<{ ok: true; requierePlaneacion: boolean }>(`/calendario/servicios/${servicioId}/requiere-planeacion`, {
+      method: 'PATCH',
+      body: JSON.stringify({ requiere }),
+    }),
   cancelarServicio: (servicioId: string, cobrar: boolean, motivo?: string) =>
     req<{ ok: true }>(`/calendario/servicios/${servicioId}/cancelar`, {
       method: 'PATCH',
