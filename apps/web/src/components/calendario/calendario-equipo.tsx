@@ -967,7 +967,6 @@ function TarjetaOfertar({
   const [nannieId, setNannieId] = useState('');
   const [confirmoPlaza, setConfirmoPlaza] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const [error, setError] = useState('');
   // Advertencia confirmable: la nannie elegida es de otra plaza que el servicio.
   const nannieSel = nannies.find((n) => n.id === nannieId);
   const cruzaPlaza = !!nannieSel && nannieSel.plaza !== servicio.plaza;
@@ -975,14 +974,9 @@ function TarjetaOfertar({
   async function ofertar() {
     if (!nannieId) return;
     setEnviando(true);
-    setError('');
     try {
       await api.ofertar(servicio.id, nannieId);
       await onHecho();
-    } catch (e) {
-      // Motivos posibles: la nannie ya tiene un servicio encimado, o tiene ese
-      // horario BLOQUEADO. Se muestra el mensaje del backend.
-      setError(e instanceof Error ? e.message : 'No se pudo ofertar.');
     } finally {
       setEnviando(false);
     }
@@ -1041,7 +1035,6 @@ function TarjetaOfertar({
           </span>
         </label>
       )}
-      {error && <p className="mt-2 text-[11px] text-marca-rojo">{error}</p>}
     </div>
   );
 }
