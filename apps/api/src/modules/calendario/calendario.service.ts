@@ -255,7 +255,14 @@ export class CalendarioService {
     const rows = await this.prisma.servicio.findMany({
       where: {
         ...(nannieId ? { nannieId } : {}),
-        ...(esEstadoServicio(filtro.estado) ? { estado: filtro.estado } : {}),
+        ...(esEstadoServicio(filtro.estado)
+          ? { estado: filtro.estado }
+          : // La NANNIE no ve en su calendario los que rechazó o se cancelaron
+            // (no son suyos: ensucian la vista). Coordinación sí los conserva
+            // (los re-ofrece / da seguimiento).
+            user.rol === 'NANNIE'
+            ? { estado: { notIn: ['RECHAZADO', 'CANCELADO'] } }
+            : {}),
         ...(filtro.desde || filtro.hasta
           ? { fecha: { gte: fecha(filtro.desde), lte: fecha(filtro.hasta) } }
           : {}),
@@ -1135,6 +1142,23 @@ export class CalendarioService {
       throw new BadRequestException(
         `Esta nannie ya tiene un servicio de ${choca.horaInicio} a ${choca.horaFin} ese día. ` +
           `Para evitar duplicidad, no se le puede asignar otro que se traslape.`,
+      );
+    }
+
+    // Bloqueo de disponibilidad: si la nannie marcó ese horario como BLOQUEADO
+    // (no disponible), no se le puede ofertar/reasignar. Cada quien controla su
+    // propia disponibilidad; coordinación debe elegir a otra o pedirle que libere.
+    const bloqueos = await this.prisma.disponibilidad.findMany({
+      where: { nannieId, fecha: f, estado: 'BLOQUEADO' },
+      select: { horaInicio: true, horaFin: true },
+    });
+    const bloqueado = bloqueos.find(
+      (b) => aMin(b.horaInicio) < finMin(horaInicio, horaFin) && aMin(horaInicio) < finMin(b.horaInicio, b.horaFin),
+    );
+    if (bloqueado) {
+      throw new BadRequestException(
+        `La nannie tiene BLOQUEADO ese horario (${bloqueado.horaInicio}–${bloqueado.horaFin}). ` +
+          `No se le puede asignar; elige a otra o pídele que libere ese bloqueo.`,
       );
     }
   }
