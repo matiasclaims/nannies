@@ -88,8 +88,10 @@ const hayActivo = vigentes.some((p) => p.estado === 'ACTIVO');
 const clavesNannie = [...new Set(SESIONES.map((s) => s[3]))];
 const nannieDe = new Map();
 for (const clave of clavesNannie) {
-  const ns = await prisma.nannie.findMany({ where: { nombre: { contains: clave, mode: 'insensitive' } }, select: { id: true, nombre: true } });
-  if (ns.length !== 1) { console.error(`\n✗ Nannie "${clave}" ${ns.length === 0 ? 'no coincide' : 'coincide con varias: ' + ns.map((n) => n.nombre).join(', ')}\n`); await prisma.$disconnect(); process.exit(1); }
+  // Se filtra por la plaza de la familia para desambiguar homónimas entre plazas
+  // (p. ej. "Laura C (Qro)" vs "Laura M (Tol)").
+  const ns = await prisma.nannie.findMany({ where: { nombre: { contains: clave, mode: 'insensitive' }, plaza: fam.plaza }, select: { id: true, nombre: true } });
+  if (ns.length !== 1) { console.error(`\n✗ Nannie "${clave}" (${fam.plaza}) ${ns.length === 0 ? 'no coincide' : 'coincide con varias: ' + ns.map((n) => n.nombre).join(', ')}\n`); await prisma.$disconnect(); process.exit(1); }
   nannieDe.set(clave, ns[0]);
 }
 
