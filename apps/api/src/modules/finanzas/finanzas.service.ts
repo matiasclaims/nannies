@@ -359,6 +359,49 @@ export class FinanzasService {
   }
 
   /**
+   * Pendiente TOTAL por pagar a nannies (saldo vivo de nómina) — petición de
+   * Paula: "¿cuánto tengo que tener en el banco sí o sí?". Suma la nómina
+   * (servicios + bonos + comisiones, neta) de las semanas que AÚN NO están
+   * marcadas como pagadas. Reutiliza el cálculo de la nómina semanal para que
+   * cuadre EXACTO con lo que ve y marca. Ventana de 16 semanas hacia atrás
+   * (más que suficiente; lo anterior se deja marcado como pagado con el corte).
+   */
+  async pendientePorPagar() {
+    const VENTANA = 16;
+    // Domingo de la semana actual en hora de México.
+    const hoyMX = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date());
+    const [y, m, d] = hoyMX.split('-').map(Number);
+    const hoyUTC = Date.UTC(y, m - 1, d);
+    const domActual = hoyUTC - new Date(hoyUTC).getUTCDay() * 86_400_000;
+    const iso = (utc: number) => new Date(utc).toISOString().slice(0, 10);
+
+    const acc = new Map<string, { nannieId: string; nombre: string; monto: number; semanas: number }>();
+    let total = 0;
+    for (let i = 0; i < VENTANA; i++) {
+      const domUTC = domActual - i * 7 * 86_400_000;
+      const nom = await this.nomina(iso(domUTC), iso(domUTC + 6 * 86_400_000));
+      for (const n of nom.nannies) {
+        if (n.pagado || n.total <= 0) continue; // ya pagada esa semana, o sin saldo
+        total += n.total;
+        const a = acc.get(n.nannieId) ?? { nannieId: n.nannieId, nombre: n.nombre, monto: 0, semanas: 0 };
+        a.monto += n.total; a.semanas += 1;
+        acc.set(n.nannieId, a);
+      }
+    }
+    const nannies = [...acc.values()]
+      .map((a) => ({ ...a, monto: redondea2(a.monto) }))
+      .sort((a, b) => b.monto - a.monto);
+    return {
+      total: redondea2(total),
+      nannies,
+      semanasVentana: VENTANA,
+      nanniesPendientes: nannies.length,
+    };
+  }
+
+  /**
    * 3.4 · Margen MENSUAL (SOLO Directora). Estado de resultados del mes (Mario
    * 2026-09-21): el INGRESO se reconoce por creación del servicio (`creadoEn`) y
    * el EGRESO (pago a la nannie) por completado (`completadoEn`), así que ambos

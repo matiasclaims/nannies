@@ -17,6 +17,7 @@ import {
   ApiError,
   type Ingresos,
   type Nomina,
+  type PendientePagar,
   type Margen,
   type Niveles,
   type NannieLite,
@@ -84,6 +85,7 @@ export default function FinanzasPage() {
   const [semana, setSemana] = useState<Date>(() => inicioSemana(baseHoyMX()));
   const [ingresos, setIngresos] = useState<Ingresos | null>(null);
   const [nomina, setNomina] = useState<Nomina | null>(null);
+  const [pendiente, setPendiente] = useState<PendientePagar | null>(null);
   const [margen, setMargen] = useState<Margen | null>(null);
   const [niveles, setNiveles] = useState<Niveles | null>(null);
   const [sesion, setSesion] = useState<Sesion | null>(null);
@@ -95,7 +97,9 @@ export default function FinanzasPage() {
     try {
       if (tab === 'nomina') {
         const { desde, hasta } = rangoSemana(semana);
-        setNomina(await api.nomina(desde, hasta));
+        const [nom, pend] = await Promise.all([api.nomina(desde, hasta), api.pendientePorPagar()]);
+        setNomina(nom);
+        setPendiente(pend);
       } else if (tab === 'niveles') {
         setNiveles(await api.niveles());
       } else {
@@ -189,7 +193,7 @@ export default function FinanzasPage() {
       ) : tab === 'ingresos' && ingresos ? (
         <VistaIngresos data={ingresos} nannies={nannies} esDirectora={sesion?.rol === 'DIRECTORA'} onGuardar={cargar} />
       ) : tab === 'nomina' && nomina ? (
-        <VistaNomina data={nomina} onCambio={cargar} />
+        <VistaNomina data={nomina} pendiente={pendiente} onCambio={cargar} />
       ) : tab === 'margen' && margen ? (
         <VistaMargen data={margen} nannies={nannies} onGuardar={cargar} />
       ) : tab === 'niveles' && niveles ? (
@@ -333,10 +337,58 @@ function PaqueteFila({
   );
 }
 
-function VistaNomina({ data, onCambio }: { data: Nomina; onCambio: () => Promise<void> }) {
+/** Pendiente TOTAL por pagar a nannies (saldo vivo de nómina). Petición de Paula:
+ *  el número "esto debes tener en el banco". Suma lo no marcado como pagado. */
+function PendienteCard({ pendiente }: { pendiente: PendientePagar }) {
+  const [abierto, setAbierto] = useState(false);
+  return (
+    <div className="rounded-2xl border-2 border-marca-azul/30 bg-marca-azul/5 p-5 shadow-card">
+      <p className="text-xs font-semibold uppercase tracking-wide text-marca-azul">Pendiente por pagar a nannies</p>
+      <p className="mt-1 text-3xl font-bold text-texto-fuerte">{money(pendiente.total)}</p>
+      <p className="mt-1 text-xs text-texto-suave">
+        Esto es lo que debes tener disponible para la nómina: sube cuando se completan servicios y baja cuando marcas una semana como pagada.
+        {pendiente.nanniesPendientes > 0 && ` · ${pendiente.nanniesPendientes} nannie${pendiente.nanniesPendientes === 1 ? '' : 's'} por pagar.`}
+      </p>
+      {pendiente.nannies.length > 0 && (
+        <>
+          <button onClick={() => setAbierto((v) => !v)} className="mt-2 text-xs font-medium text-marca-azul hover:underline">
+            {abierto ? 'Ocultar desglose' : 'Ver desglose por nannie'}
+          </button>
+          {abierto && (
+            <div className="mt-2 divide-y divide-borde border-t border-borde">
+              {pendiente.nannies.map((n) => (
+                <div key={n.nannieId} className="flex items-center justify-between py-1.5 text-sm">
+                  <span className="text-texto-fuerte">
+                    {n.nombre}
+                    <span className="text-texto-suave"> · {n.semanas} sem.</span>
+                  </span>
+                  <span className="font-semibold text-texto-fuerte">{money(n.monto)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      <p className="mt-2 text-[11px] text-texto-suave">
+        Importante: marca cada semana como <strong>pagada</strong> cuando pagues, para que este número sea confiable.
+      </p>
+    </div>
+  );
+}
+
+function VistaNomina({
+  data,
+  pendiente,
+  onCambio,
+}: {
+  data: Nomina;
+  pendiente: PendientePagar | null;
+  onCambio: () => Promise<void>;
+}) {
   const { nannies, total, rango } = data;
   return (
     <div className="space-y-3">
+      {pendiente && <PendienteCard pendiente={pendiente} />}
       <Tarjeta titulo="Total de la semana (pago del sábado)" monto={total} destacado />
 
       {nannies.length === 0 ? (
