@@ -409,11 +409,22 @@ function FilaReserva({
  *  nannie se le paga por semana conforme da las sesiones). */
 function ReservaCard({ reserva }: { reserva: ReservaNomina }) {
   const d = reserva.detalle;
+  const fmtDia = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const rangoSemana = `${fmtDia(reserva.semanaActual.desde)} – ${fmtDia(reserva.semanaActual.hasta)}`;
   return (
     <div className="rounded-2xl border-2 border-marca-azul/30 bg-marca-azul/5 p-5 shadow-card">
       <p className="text-xs font-semibold uppercase tracking-wide text-marca-azul">Reserva de nómina</p>
-      <p className="mt-1 text-3xl font-bold text-texto-fuerte">{money(reserva.total)}</p>
-      <p className="mt-1 text-xs text-texto-suave">
+      <div className="mt-1 flex flex-wrap items-end gap-x-10 gap-y-2">
+        <div>
+          <p className="text-3xl font-bold text-texto-fuerte">{money(reserva.total)}</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-texto-suave">Reserva total</p>
+        </div>
+        <div>
+          <p className="text-2xl font-bold text-marca-azul">{money(reserva.semanaActual.monto)}</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-texto-suave">Esta semana ({rangoSemana})</p>
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-texto-suave">
         Dinero que debes tener guardado para pagar <strong>todo</strong> lo que les debes a las nannies, sin importar si
         se paga esta semana o en varias. Incluye las horas de paquete que aún no se dan (ya cobraste ese ingreso, pero
         a la nannie se le paga conforme las da). Pica <strong>Ver detalle</strong> en cada renglón para ver qué partidas lo forman.

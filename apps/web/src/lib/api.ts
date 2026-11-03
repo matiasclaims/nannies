@@ -891,6 +891,7 @@ export interface ReservaNomina {
   paquetesReal: number;      // sesiones de paquete con nannie (dadas no pagadas + agendadas)
   paquetesEstimado: number;  // horas de paquete por dar (sin nannie), al tabulador BASE
   otros: number;             // bonos + comisiones pendientes
+  semanaActual: { desde: string; hasta: string; monto: number }; // proyección del sábado de la semana en curso
   detalle: ReservaDetalle;   // partidas que forman cada número
 }
 

@@ -573,8 +573,19 @@ export class FinanzasService {
     otros = redondea2(otros);
     const paquetes = redondea2(paquetesReal + paquetesEstimado);
     const total = redondea2(individuales + paquetes + otros);
+
+    // Semana EN CURSO (petición de Paula): además de la reserva total, lo que toca
+    // pagar esta semana = la proyección del sábado de la semana donde nos
+    // encontramos (dom–sáb, hora de México). Se reutiliza nomina() para que el
+    // número sea idéntico al de la tarjeta "Proyección del pago del sábado".
+    const desdeSem = weekSundayISO(new Date());
+    const hastaSem = new Date(Date.parse(`${desdeSem}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);
+    const nomActual = await this.nomina(desdeSem, hastaSem);
+    const semanaActual = { desde: desdeSem, hasta: hastaSem, monto: nomActual.proyeccion };
+
     return {
       total, individuales, paquetes, paquetesReal, paquetesEstimado, otros,
+      semanaActual,
       detalle: { individuales: dIndividuales, paquetesReal: dPaquetesReal, paquetesEstimado: dPaquetesEstimado, otros: dOtros },
     };
   }
