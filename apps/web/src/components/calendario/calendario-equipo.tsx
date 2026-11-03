@@ -168,20 +168,42 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
   const toggleTodos = () => setFiltros(todosOn ? new Set() : new Set(FILTROS.map((f) => f.key)));
   const algunServicioOn = filtros.has('ASIGNADO') || filtros.has('SIN_ASIGNAR') || filtros.has('OFERTADO') || filtros.has('TERMINADO');
 
+  // Disponibilidad LIBRE del día (solo "Todas"): a cada bloque de disponibilidad
+  // se le RESTA el tiempo que ya ocupa un servicio asignado de esa nannie, para
+  // no mostrar el mismo hueco como disponible y asignado a la vez (Mario). Si el
+  // servicio cubre todo el bloque, la disponibilidad desaparece; si lo cubre a
+  // medias, solo se ve el tramo que queda libre. (En "Por nannie" no se resta.)
+  const libresDelDia = (dia: string): { nannieId: string; ini: string; fin: string; dispId: string }[] => {
+    const ocupado = new Map<string, [number, number][]>();
+    for (const s of servicios) {
+      if (!s.nannieId || !enDia(s.fecha, dia)) continue;
+      if (s.estado !== 'OFERTADO' && s.estado !== 'ACEPTADO' && s.estado !== 'COMPLETADO') continue;
+      const arr = ocupado.get(s.nannieId) ?? [];
+      arr.push([aMin(s.horaInicio), aMin(s.horaFin, true)]);
+      ocupado.set(s.nannieId, arr);
+    }
+    const res: { nannieId: string; ini: string; fin: string; dispId: string }[] = [];
+    for (const x of dispon) {
+      if (!enDia(x.fecha, dia) || x.estado !== 'DISPONIBLE' || dia < inicioSemanaActualIso) continue;
+      const tramos = restarOcupados(aMin(x.horaInicio), aMin(x.horaFin, true), ocupado.get(x.nannieId) ?? []);
+      for (const [a, b] of tramos) res.push({ nannieId: x.nannieId, ini: aHHMM(a), fin: aHHMM(b), dispId: x.id });
+    }
+    return res;
+  };
+
   // "Todas": cada categoría es un interruptor; se muestran solo las prendidas
   // (uno, varios o todos). Así no se encima tanto y se puede enfocar.
   const bloquesTodas = (dia: string): Bloque[] => {
     const out: Bloque[] = [];
     if (filtros.has('DISPONIBLE')) {
-      for (const x of dispon) {
-        if (!enDia(x.fecha, dia) || x.estado !== 'DISPONIBLE' || dia < inicioSemanaActualIso) continue;
+      for (const l of libresDelDia(dia)) {
         out.push({
-          id: 'd' + x.id,
-          ini: x.horaInicio,
-          fin: x.horaFin,
+          id: 'd' + l.dispId + '_' + l.ini,
+          ini: l.ini,
+          fin: l.fin,
           clase: CLASE_DISPONIBLE,
-          etiqueta: primerNombre(x.nannieId),
-          color: colorDe(x.nannieId),
+          etiqueta: primerNombre(l.nannieId),
+          color: colorDe(l.nannieId),
         });
       }
     }
@@ -220,11 +242,8 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
       }
     }
     if (filtros.has('DISPONIBLE')) {
-      const libres = new Set(
-        dispon
-          .filter((x) => enDia(x.fecha, dia) && x.estado === 'DISPONIBLE' && dia >= inicioSemanaActualIso)
-          .map((x) => x.nannieId),
-      ).size;
+      // Cuenta nannies con tiempo AÚN libre (tras descontar servicios asignados).
+      const libres = new Set(libresDelDia(dia).map((l) => l.nannieId)).size;
       if (libres) partes.push(`${libres} ${libres === 1 ? 'libre' : 'libres'}`);
     }
     return partes.join(' · ');
@@ -767,6 +786,32 @@ function offset(hhmm: string, esFin = false): number {
   const hh = (h || 0) === 0 && esFin ? 24 : (h || 0);
   const t = Math.max(HORA_MIN, Math.min(HORA_MAX, hh + (m || 0) / 60));
   return t - HORA_MIN;
+}
+
+// Minutos desde medianoche. "00:00" como FIN = 1440 (fin de día), igual que offset.
+function aMin(hhmm: string, esFin = false): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  const hh = (h || 0) === 0 && esFin ? 24 : (h || 0);
+  return hh * 60 + (m || 0);
+}
+// Minutos → "HH:mm" (1440 → "00:00", la convención de medianoche como fin).
+function aHHMM(min: number): string {
+  const mm = ((min % 1440) + 1440) % 1440;
+  return `${String(Math.floor(mm / 60)).padStart(2, '0')}:${String(mm % 60).padStart(2, '0')}`;
+}
+/** Resta intervalos ocupados a [ini,fin) y devuelve los tramos LIBRES restantes. */
+function restarOcupados(ini: number, fin: number, ocupados: [number, number][]): [number, number][] {
+  let libres: [number, number][] = [[ini, fin]];
+  for (const [os, oe] of ocupados) {
+    const sig: [number, number][] = [];
+    for (const [ls, le] of libres) {
+      if (oe <= ls || os >= le) { sig.push([ls, le]); continue; } // sin traslape
+      if (os > ls) sig.push([ls, os]); // tramo libre antes del servicio
+      if (oe < le) sig.push([oe, le]); // tramo libre después del servicio
+    }
+    libres = sig;
+  }
+  return libres.filter(([a, b]) => b - a > 0);
 }
 
 type BloqueColocado = Bloque & { carril: number; carriles: number };
