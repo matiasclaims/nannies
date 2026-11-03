@@ -878,6 +878,12 @@ export interface Nomina {
   proyeccion: number; // lo que se espera pagar el sábado (total + porDarse)
 }
 /** Reserva de nómina: total por pagar, diferenciado individuales vs paquetes. */
+export interface ReservaDetalle {
+  individuales: { familia: string; fecha: string; estado: string; monto: number }[];
+  paquetesReal: { folio: number; familia: string; nannie: string; fecha: string; estado: string; monto: number }[];
+  paquetesEstimado: { folio: number; familia: string; horas: number; monto: number }[];
+  otros: { concepto: string; nannie: string; monto: number }[];
+}
 export interface ReservaNomina {
   total: number;
   individuales: number;
@@ -885,6 +891,7 @@ export interface ReservaNomina {
   paquetesReal: number;      // sesiones de paquete con nannie (dadas no pagadas + agendadas)
   paquetesEstimado: number;  // horas de paquete por dar (sin nannie), al tabulador BASE
   otros: number;             // bonos + comisiones pendientes
+  detalle: ReservaDetalle;   // partidas que forman cada número
 }
 
 export interface MargenServicio {

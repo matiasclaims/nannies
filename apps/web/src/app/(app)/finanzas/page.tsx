@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   ChevronLeft,
@@ -337,26 +337,78 @@ function PaqueteFila({
   );
 }
 
+/** Tabla compacta de partidas dentro del desglose de la reserva. */
+function TablaPartidas({ cols, rows }: { cols: string[]; rows: (string | number)[][] }) {
+  if (rows.length === 0) return <p className="py-2 text-[11px] text-texto-suave">Sin partidas.</p>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="mt-1 w-full text-[11px]">
+        <thead>
+          <tr className="text-texto-suave">
+            {cols.map((c, i) => (
+              <th key={c} className={`py-1 font-medium ${i === cols.length - 1 ? 'text-right' : 'text-left'}`}>{c}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, ri) => (
+            <tr key={ri} className="border-t border-borde/60 text-texto-fuerte">
+              {r.map((v, ci) => (
+                <td key={ci} className={`py-1 pr-2 ${ci === r.length - 1 ? 'text-right font-semibold' : ''}`}>{v}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Renglón del desglose que se despliega para ver sus partidas. */
+function FilaReserva({
+  etiqueta,
+  monto,
+  detalle,
+  n,
+  acento,
+  children,
+}: {
+  etiqueta: string;
+  monto: number;
+  detalle?: string;
+  n: number;
+  acento?: boolean;
+  children: ReactNode;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  return (
+    <div className="py-2">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className={`text-sm font-medium ${acento ? 'text-marca-azul' : 'text-texto-fuerte'}`}>{etiqueta}</p>
+          {detalle && <p className="text-[11px] text-texto-suave">{detalle}</p>}
+          {n > 0 ? (
+            <button onClick={() => setAbierto((v) => !v)} className="mt-0.5 text-[11px] font-medium text-marca-azul hover:underline">
+              {abierto ? 'Ocultar' : `Ver detalle (${n})`}
+            </button>
+          ) : (
+            <p className="mt-0.5 text-[11px] text-texto-suave">Sin partidas.</p>
+          )}
+        </div>
+        <span className={`shrink-0 font-semibold ${acento ? 'text-marca-azul' : 'text-texto-fuerte'}`}>{money(monto)}</span>
+      </div>
+      {abierto && n > 0 && <div className="mt-1">{children}</div>}
+    </div>
+  );
+}
+
 /** RESERVA de nómina. Petición de Paula: el número "esto debes tener guardado
  *  en el banco para pagarlo TODO", sin importar si es esta semana o en 3.
  *  Diferencia claramente lo de servicios individuales de lo de paquetes
  *  (paquetes = lo más delicado: el ingreso ya se cobró por adelantado pero a la
  *  nannie se le paga por semana conforme da las sesiones). */
 function ReservaCard({ reserva }: { reserva: ReservaNomina }) {
-  const fila = (
-    etiqueta: string,
-    monto: number,
-    detalle?: string,
-    acento?: boolean,
-  ) => (
-    <div className="flex items-start justify-between gap-3 py-2">
-      <div>
-        <p className={`text-sm font-medium ${acento ? 'text-marca-azul' : 'text-texto-fuerte'}`}>{etiqueta}</p>
-        {detalle && <p className="text-[11px] text-texto-suave">{detalle}</p>}
-      </div>
-      <span className={`shrink-0 font-semibold ${acento ? 'text-marca-azul' : 'text-texto-fuerte'}`}>{money(monto)}</span>
-    </div>
-  );
+  const d = reserva.detalle;
   return (
     <div className="rounded-2xl border-2 border-marca-azul/30 bg-marca-azul/5 p-5 shadow-card">
       <p className="text-xs font-semibold uppercase tracking-wide text-marca-azul">Reserva de nómina</p>
@@ -364,30 +416,67 @@ function ReservaCard({ reserva }: { reserva: ReservaNomina }) {
       <p className="mt-1 text-xs text-texto-suave">
         Dinero que debes tener guardado para pagar <strong>todo</strong> lo que les debes a las nannies, sin importar si
         se paga esta semana o en varias. Incluye las horas de paquete que aún no se dan (ya cobraste ese ingreso, pero
-        a la nannie se le paga conforme las da).
+        a la nannie se le paga conforme las da). Pica <strong>Ver detalle</strong> en cada renglón para ver qué partidas lo forman.
       </p>
 
       <div className="mt-3 divide-y divide-borde border-t border-borde">
-        {fila('Servicios individuales', reserva.individuales, 'Servicios sueltos completados y aún no pagados.')}
-        {fila(
-          'Paquetes',
-          reserva.paquetes,
-          'Lo que falta por pagar de todos los paquetes vivos.',
-          true,
-        )}
-        <div className="pl-4">
-          {fila(
-            '· Sesiones con nannie',
-            reserva.paquetesReal,
-            'Sesiones de paquete ya asignadas (dadas sin pagar + agendadas).',
-          )}
-          {fila(
-            '· Horas por dar (sin nannie)',
-            reserva.paquetesEstimado,
-            'Horas de paquete todavía sin agendar, estimadas al tabulador BASE.',
-          )}
+        <FilaReserva
+          etiqueta="Servicios individuales"
+          monto={reserva.individuales}
+          detalle="Servicios sueltos: completados sin pagar + agendados con nannie."
+          n={d.individuales.length}
+        >
+          <TablaPartidas
+            cols={['Familia', 'Fecha', 'Estado', 'Monto']}
+            rows={d.individuales.map((i) => [i.familia, i.fecha, i.estado, money(i.monto)])}
+          />
+        </FilaReserva>
+
+        <div className="flex items-start justify-between gap-3 py-2">
+          <div>
+            <p className="text-sm font-medium text-marca-azul">Paquetes</p>
+            <p className="text-[11px] text-texto-suave">Lo que falta por pagar de todos los paquetes vivos (suma de los dos renglones de abajo).</p>
+          </div>
+          <span className="shrink-0 font-semibold text-marca-azul">{money(reserva.paquetes)}</span>
         </div>
-        {reserva.otros > 0 && fila('Bonos y comisiones', reserva.otros, 'Bonos y comisiones a coordinación pendientes.')}
+        <div className="pl-4">
+          <FilaReserva
+            etiqueta="· Sesiones con nannie"
+            monto={reserva.paquetesReal}
+            detalle="Sesiones de paquete ya asignadas (dadas sin pagar + agendadas)."
+            n={d.paquetesReal.length}
+          >
+            <TablaPartidas
+              cols={['Folio', 'Familia', 'Nannie', 'Fecha', 'Estado', 'Monto']}
+              rows={d.paquetesReal.map((p) => [`#${p.folio}`, p.familia, p.nannie, p.fecha, p.estado, money(p.monto)])}
+            />
+          </FilaReserva>
+          <FilaReserva
+            etiqueta="· Horas por dar (sin nannie)"
+            monto={reserva.paquetesEstimado}
+            detalle="Horas de paquete todavía sin agendar, estimadas al tabulador BASE."
+            n={d.paquetesEstimado.length}
+          >
+            <TablaPartidas
+              cols={['Folio', 'Familia', 'Horas', 'Monto est.']}
+              rows={d.paquetesEstimado.map((p) => [`#${p.folio}`, p.familia, `${p.horas} h`, money(p.monto)])}
+            />
+          </FilaReserva>
+        </div>
+
+        {reserva.otros > 0 && (
+          <FilaReserva
+            etiqueta="Bonos y comisiones"
+            monto={reserva.otros}
+            detalle="Bonos y comisiones a coordinación pendientes."
+            n={d.otros.length}
+          >
+            <TablaPartidas
+              cols={['Concepto', 'Beneficiario', 'Monto']}
+              rows={d.otros.map((o) => [o.concepto, o.nannie, money(o.monto)])}
+            />
+          </FilaReserva>
+        )}
       </div>
 
       <p className="mt-3 text-[11px] text-texto-suave">

@@ -416,17 +416,26 @@ export class FinanzasService {
     const estaPagado = (nannieId: string, fecha: Date) => pagado.has(`${nannieId}|${weekSundayISO(fecha)}`);
 
     const incluirServicio = {
-      nannie: { select: { nivelTarifaMesActual: true } },
-      paquete: { select: { horasTotales: true } },
+      nannie: { select: { nivelTarifaMesActual: true, nombre: true } },
+      paquete: { select: { horasTotales: true, folio: true } },
+      familia: { select: { nombreContacto: true } },
       finanza: { select: { pagoNannie: true, descuentoNannie: true } },
     } as const;
     type ServConPago = {
+      id: string; fecha: Date;
       tipoServicio: TipoServicio; duracionHoras: number; formato: Formato; plaza: Plaza; zona: string;
       ludotecaMontaje: boolean; esHistorico: boolean;
-      nannie: { nivelTarifaMesActual: NivelTarifa } | null;
-      paquete: { horasTotales: number } | null;
+      nannie: { nivelTarifaMesActual: NivelTarifa; nombre: string } | null;
+      paquete: { horasTotales: number; folio: number } | null;
+      familia: { nombreContacto: string } | null;
       finanza: { pagoNannie: unknown; descuentoNannie: unknown } | null;
     };
+    const isoFecha = (d: Date) => d.toISOString().slice(0, 10);
+    // Partidas: el detalle de "qué exactamente estoy reservando" por categoría.
+    const dIndividuales: { familia: string; fecha: string; estado: string; monto: number }[] = [];
+    const dPaquetesReal: { folio: number; familia: string; nannie: string; fecha: string; estado: string; monto: number }[] = [];
+    const dPaquetesEstimado: { folio: number; familia: string; horas: number; monto: number }[] = [];
+    const dOtros: { concepto: string; nannie: string; monto: number }[] = [];
     const pagoReal = (s: ServConPago): number | null => {
       if (s.finanza?.pagoNannie != null) return Number(s.finanza.pagoNannie);
       if (s.esHistorico || !s.nannie) return null;
@@ -453,8 +462,14 @@ export class FinanzasService {
       if (estaPagado(s.nannieId, s.completadoEn)) continue;
       const n = neto(s);
       if (n == null) continue;
-      if (s.formato === 'PAQUETE') paquetesReal += n;
-      else individuales += n;
+      const familia = s.familia?.nombreContacto ?? '—';
+      if (s.formato === 'PAQUETE') {
+        paquetesReal += n;
+        dPaquetesReal.push({ folio: s.paquete?.folio ?? 0, familia, nannie: s.nannie?.nombre ?? '—', fecha: isoFecha(s.fecha), estado: 'Completado', monto: n });
+      } else {
+        individuales += n;
+        dIndividuales.push({ familia, fecha: isoFecha(s.fecha), estado: 'Completado', monto: n });
+      }
     }
 
     // (2) Servicios agendados con nannie, aún no dados (OFERTADO/ACEPTADO).
@@ -468,16 +483,22 @@ export class FinanzasService {
     for (const s of agendados as unknown as ServConPago[]) {
       const n = neto(s);
       if (n == null) continue;
-      if (s.formato === 'PAQUETE') paquetesReal += n;
-      else individuales += n;
+      const familia = s.familia?.nombreContacto ?? '—';
+      if (s.formato === 'PAQUETE') {
+        paquetesReal += n;
+        dPaquetesReal.push({ folio: s.paquete?.folio ?? 0, familia, nannie: s.nannie?.nombre ?? '—', fecha: isoFecha(s.fecha), estado: 'Agendado', monto: n });
+      } else {
+        individuales += n;
+        dIndividuales.push({ familia, fecha: isoFecha(s.fecha), estado: 'Agendado', monto: n });
+      }
     }
 
     // (3) Paquetes vivos: horas sin agendar (sin nannie) → estimado al tabulador BASE.
     const paquetesVivos = await this.prisma.paquete.findMany({
       where: { estado: { in: ['ACTIVO', 'EN_ESPERA'] } },
       select: {
-        horasTotales: true, horasConsumidas: true,
-        familia: { select: { plaza: true, zona: true } },
+        folio: true, horasTotales: true, horasConsumidas: true,
+        familia: { select: { nombreContacto: true, plaza: true, zona: true } },
         servicios: {
           where: { estado: { notIn: ['CANCELADO', 'RECHAZADO'] }, nannieId: null },
           select: { tipoServicio: true, duracionHoras: true },
@@ -487,33 +508,64 @@ export class FinanzasService {
     const estimarPaquete = (horas: number, horasTotales: number, plaza: Plaza, zona: string | null, tipo: TipoServicio) =>
       pagoDeServicio(tipo, horas, 'PAQUETE', 'BASE', { paqueteHoras: horasTotales, plaza, zona: zona ?? '' }).monto ?? 0;
     for (const pq of paquetesVivos) {
+      let pqHoras = 0;
+      let pqMonto = 0;
       // Sesiones sin nannie (sus horas ya cuentan en horasConsumidas): estimado.
       for (const s of pq.servicios) {
-        paquetesEstimado += estimarPaquete(s.duracionHoras, pq.horasTotales, pq.familia.plaza, pq.familia.zona, s.tipoServicio);
+        pqMonto += estimarPaquete(s.duracionHoras, pq.horasTotales, pq.familia.plaza, pq.familia.zona, s.tipoServicio);
+        pqHoras += s.duracionHoras;
       }
       // Horas que ni siquiera tienen sesión creada: estimado como Daycare.
       const sinAgendar = Math.max(0, pq.horasTotales - pq.horasConsumidas);
       if (sinAgendar > 0) {
-        paquetesEstimado += estimarPaquete(sinAgendar, pq.horasTotales, pq.familia.plaza, pq.familia.zona, 'DAYCARE');
+        pqMonto += estimarPaquete(sinAgendar, pq.horasTotales, pq.familia.plaza, pq.familia.zona, 'DAYCARE');
+        pqHoras += sinAgendar;
+      }
+      if (pqMonto > 0) {
+        paquetesEstimado += pqMonto;
+        dPaquetesEstimado.push({ folio: pq.folio, familia: pq.familia.nombreContacto, horas: pqHoras, monto: redondea2(pqMonto) });
       }
     }
 
     // (4) Otros: bonos y comisiones de coordinación NO pagados.
     let otros = 0;
     const [bonos, comServ, comPaq] = await Promise.all([
-      this.prisma.bono.findMany({ select: { nannieId: true, monto: true, fecha: true } }),
+      this.prisma.bono.findMany({ select: { nannieId: true, monto: true, fecha: true, motivo: true } }),
       this.prisma.finanzaServicio.findMany({
         where: { comision: { gt: 0 }, comisionBeneficiarioId: { not: null } },
-        select: { comision: true, comisionBeneficiarioId: true, servicio: { select: { creadoEn: true } } },
+        select: { comision: true, comisionBeneficiarioId: true, servicio: { select: { creadoEn: true, familia: { select: { nombreContacto: true } } } } },
       }),
       this.prisma.paquete.findMany({
         where: { comision: { gt: 0 }, comisionBeneficiarioId: { not: null } },
-        select: { comision: true, comisionBeneficiarioId: true, fechaContratacion: true },
+        select: { comision: true, comisionBeneficiarioId: true, fechaContratacion: true, folio: true, familia: { select: { nombreContacto: true } } },
       }),
     ]);
-    for (const b of bonos) if (!estaPagado(b.nannieId, b.fecha)) otros += Number(b.monto);
-    for (const c of comServ) if (c.comisionBeneficiarioId && !estaPagado(c.comisionBeneficiarioId, c.servicio.creadoEn)) otros += Number(c.comision);
-    for (const c of comPaq) if (c.comisionBeneficiarioId && !estaPagado(c.comisionBeneficiarioId, c.fechaContratacion)) otros += Number(c.comision);
+    // Partidas de "otros" con su beneficiario; el nombre se resuelve en bloque.
+    const otrosItems: { concepto: string; nannieId: string; monto: number }[] = [];
+    for (const b of bonos) if (!estaPagado(b.nannieId, b.fecha)) {
+      otros += Number(b.monto);
+      otrosItems.push({ concepto: `Bono · ${b.motivo}`, nannieId: b.nannieId, monto: Number(b.monto) });
+    }
+    for (const c of comServ) if (c.comisionBeneficiarioId && !estaPagado(c.comisionBeneficiarioId, c.servicio.creadoEn)) {
+      otros += Number(c.comision);
+      otrosItems.push({ concepto: `Comisión de servicio · ${c.servicio.familia.nombreContacto}`, nannieId: c.comisionBeneficiarioId, monto: Number(c.comision) });
+    }
+    for (const c of comPaq) if (c.comisionBeneficiarioId && !estaPagado(c.comisionBeneficiarioId, c.fechaContratacion)) {
+      otros += Number(c.comision);
+      otrosItems.push({ concepto: `Comisión de paquete #${c.folio} · ${c.familia.nombreContacto}`, nannieId: c.comisionBeneficiarioId, monto: Number(c.comision) });
+    }
+    const benefIds = [...new Set(otrosItems.map((i) => i.nannieId))];
+    const benefNombres = benefIds.length
+      ? await this.prisma.nannie.findMany({ where: { id: { in: benefIds } }, select: { id: true, nombre: true } })
+      : [];
+    const nombreBenef = new Map(benefNombres.map((n) => [n.id, n.nombre]));
+    for (const i of otrosItems) dOtros.push({ concepto: i.concepto, nannie: nombreBenef.get(i.nannieId) ?? '—', monto: redondea2(i.monto) });
+
+    const porMontoDesc = <T extends { monto: number }>(a: T, b: T) => b.monto - a.monto;
+    dIndividuales.sort(porMontoDesc);
+    dPaquetesReal.sort(porMontoDesc);
+    dPaquetesEstimado.sort(porMontoDesc);
+    dOtros.sort(porMontoDesc);
 
     individuales = redondea2(individuales);
     paquetesReal = redondea2(paquetesReal);
@@ -521,7 +573,10 @@ export class FinanzasService {
     otros = redondea2(otros);
     const paquetes = redondea2(paquetesReal + paquetesEstimado);
     const total = redondea2(individuales + paquetes + otros);
-    return { total, individuales, paquetes, paquetesReal, paquetesEstimado, otros };
+    return {
+      total, individuales, paquetes, paquetesReal, paquetesEstimado, otros,
+      detalle: { individuales: dIndividuales, paquetesReal: dPaquetesReal, paquetesEstimado: dPaquetesEstimado, otros: dOtros },
+    };
   }
 
   /**
