@@ -873,7 +873,9 @@ export interface NominaNannie {
 export interface Nomina {
   rango: { desde: string; hasta: string };
   nannies: NominaNannie[];
-  total: number;
+  total: number; // ya completado y por pagar esta semana
+  porDarse: number; // agendado de la semana, aún no dado
+  proyeccion: number; // lo que se espera pagar el sábado (total + porDarse)
 }
 /** Reserva de nómina: total por pagar, diferenciado individuales vs paquetes. */
 export interface ReservaNomina {

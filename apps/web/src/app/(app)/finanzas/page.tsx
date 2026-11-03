@@ -398,6 +398,29 @@ function ReservaCard({ reserva }: { reserva: ReservaNomina }) {
   );
 }
 
+/** Proyección del pago del sábado: lo ya completado + lo agendado de la semana
+ *  que todavía no se da. Petición de Mario: que Paula vea por adelantado cuánto
+ *  va a necesitar el sábado y no se gaste ese dinero. */
+function ProyeccionSemanaCard({ total, porDarse, proyeccion }: { total: number; porDarse: number; proyeccion: number }) {
+  return (
+    <div className="rounded-2xl border border-borde bg-panel p-5 shadow-card">
+      <p className="text-xs font-semibold uppercase tracking-wide text-texto-suave">Proyección del pago del sábado</p>
+      <p className="mt-1 text-3xl font-bold text-texto-fuerte">{money(proyeccion)}</p>
+      <p className="mt-1 text-xs text-texto-suave">
+        Lo que se espera pagar este sábado: lo ya completado más lo agendado de la semana que falta por darse.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-x-8 gap-y-1 border-t border-borde pt-3 text-sm">
+        <span className="text-texto-fuerte">
+          Ya completado <strong className="ml-1">{money(total)}</strong>
+        </span>
+        <span className="text-texto-suave">
+          Por darse esta semana <strong className="ml-1 text-texto-fuerte">{money(porDarse)}</strong>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function VistaNomina({
   data,
   reserva,
@@ -407,11 +430,11 @@ function VistaNomina({
   reserva: ReservaNomina | null;
   onCambio: () => Promise<void>;
 }) {
-  const { nannies, total, rango } = data;
+  const { nannies, total, porDarse, proyeccion, rango } = data;
   return (
     <div className="space-y-3">
       {reserva && <ReservaCard reserva={reserva} />}
-      <Tarjeta titulo="Total de la semana (pago del sábado)" monto={total} destacado />
+      <ProyeccionSemanaCard total={total} porDarse={porDarse} proyeccion={proyeccion} />
 
       {nannies.length === 0 ? (
         <Aviso texto="No hay servicios completados en esta semana." />

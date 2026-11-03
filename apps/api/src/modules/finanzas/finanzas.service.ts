@@ -335,10 +335,40 @@ export class FinanzasService {
       }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
+    // PROYECCIÓN del sábado (Mario): además de lo ya completado, los servicios
+    // AGENDADOS (ofertados/aceptados) cuya fecha cae en esta semana y que aún no
+    // se marcan terminados. Es lo que se SUMARÁ al pago del sábado conforme se den,
+    // para que Paula aparte ese dinero por adelantado y no se le gaste.
+    const porDarseServicios = await this.prisma.servicio.findMany({
+      where: { estado: { in: ['OFERTADO', 'ACEPTADO'] }, nannieId: { not: null }, fecha: { gte, lte } },
+      include: {
+        nannie: { select: { nivelTarifaMesActual: true } },
+        paquete: { select: { horasTotales: true } },
+        finanza: { select: { pagoNannie: true, descuentoNannie: true } },
+      },
+    });
+    let porDarse = 0;
+    for (const s of porDarseServicios) {
+      const monto = s.finanza?.pagoNannie != null
+        ? Number(s.finanza.pagoNannie)
+        : s.esHistorico || !s.nannie
+          ? null
+          : pagoDeServicio(s.tipoServicio, s.duracionHoras, s.formato, s.nannie.nivelTarifaMesActual, {
+              paqueteHoras: s.paquete?.horasTotales, ludotecaMontaje: s.ludotecaMontaje, plaza: s.plaza, zona: s.zona,
+            }).monto;
+      if (monto == null) continue;
+      const desc = s.finanza?.descuentoNannie ? Number(s.finanza.descuentoNannie) : 0;
+      porDarse += Math.max(0, monto - desc);
+    }
+    porDarse = redondea2(porDarse);
+
+    const total = redondea2(nannies.reduce((s, g) => s + g.total, 0));
     return {
       rango: { desde, hasta },
       nannies,
-      total: redondea2(nannies.reduce((s, g) => s + g.total, 0)),
+      total, // ya completado y por pagar esta semana
+      porDarse, // agendado de la semana, aún no dado
+      proyeccion: redondea2(total + porDarse), // lo que se espera pagar el sábado
     };
   }
 
@@ -427,14 +457,19 @@ export class FinanzasService {
       else individuales += n;
     }
 
-    // (2) Sesiones de PAQUETE agendadas con nannie, aún no dadas (OFERTADO/ACEPTADO) → real.
+    // (2) Servicios agendados con nannie, aún no dados (OFERTADO/ACEPTADO).
+    //     Ya hay nannie asignada, así que se pagarán conforme se den: entran a la
+    //     reserva a su pago real. Paquete → "sesiones con nannie"; individual →
+    //     se proyecta junto con los individuales (si no, la reserva se queda corta).
     const agendados = await this.prisma.servicio.findMany({
-      where: { formato: 'PAQUETE', estado: { in: ['OFERTADO', 'ACEPTADO'] }, nannieId: { not: null } },
+      where: { estado: { in: ['OFERTADO', 'ACEPTADO'] }, nannieId: { not: null } },
       include: incluirServicio,
     });
     for (const s of agendados as unknown as ServConPago[]) {
       const n = neto(s);
-      if (n != null) paquetesReal += n;
+      if (n == null) continue;
+      if (s.formato === 'PAQUETE') paquetesReal += n;
+      else individuales += n;
     }
 
     // (3) Paquetes vivos: horas sin agendar (sin nannie) → estimado al tabulador BASE.
