@@ -875,12 +875,14 @@ export interface Nomina {
   nannies: NominaNannie[];
   total: number;
 }
-/** Pendiente TOTAL por pagar a nannies (saldo vivo de nómina). */
-export interface PendientePagar {
+/** Reserva de nómina: total por pagar, diferenciado individuales vs paquetes. */
+export interface ReservaNomina {
   total: number;
-  nannies: { nannieId: string; nombre: string; monto: number; semanas: number }[];
-  semanasVentana: number;
-  nanniesPendientes: number;
+  individuales: number;
+  paquetes: number;
+  paquetesReal: number;      // sesiones de paquete con nannie (dadas no pagadas + agendadas)
+  paquetesEstimado: number;  // horas de paquete por dar (sin nannie), al tabulador BASE
+  otros: number;             // bonos + comisiones pendientes
 }
 
 export interface MargenServicio {
@@ -1212,7 +1214,7 @@ export const api = {
     req<Ingresos>(`/finanzas/ingresos${qs({ desde, hasta })}`),
   nomina: (desde: string, hasta: string) =>
     req<Nomina>(`/finanzas/nomina${qs({ desde, hasta })}`),
-  pendientePorPagar: () => req<PendientePagar>('/finanzas/nomina/pendiente'),
+  reservaNomina: () => req<ReservaNomina>('/finanzas/nomina/pendiente'),
   miReporte: () => req<MiReporte>('/finanzas/mi-reporte'),
   miPanorama: () => req<MiPanorama>('/mi-panorama'),
   miProyeccion: () => req<MiProyeccion>('/mi-proyeccion'),

@@ -17,7 +17,7 @@ import {
   ApiError,
   type Ingresos,
   type Nomina,
-  type PendientePagar,
+  type ReservaNomina,
   type Margen,
   type Niveles,
   type NannieLite,
@@ -85,7 +85,7 @@ export default function FinanzasPage() {
   const [semana, setSemana] = useState<Date>(() => inicioSemana(baseHoyMX()));
   const [ingresos, setIngresos] = useState<Ingresos | null>(null);
   const [nomina, setNomina] = useState<Nomina | null>(null);
-  const [pendiente, setPendiente] = useState<PendientePagar | null>(null);
+  const [reserva, setReserva] = useState<ReservaNomina | null>(null);
   const [margen, setMargen] = useState<Margen | null>(null);
   const [niveles, setNiveles] = useState<Niveles | null>(null);
   const [sesion, setSesion] = useState<Sesion | null>(null);
@@ -97,9 +97,9 @@ export default function FinanzasPage() {
     try {
       if (tab === 'nomina') {
         const { desde, hasta } = rangoSemana(semana);
-        const [nom, pend] = await Promise.all([api.nomina(desde, hasta), api.pendientePorPagar()]);
+        const [nom, res] = await Promise.all([api.nomina(desde, hasta), api.reservaNomina()]);
         setNomina(nom);
-        setPendiente(pend);
+        setReserva(res);
       } else if (tab === 'niveles') {
         setNiveles(await api.niveles());
       } else {
@@ -193,7 +193,7 @@ export default function FinanzasPage() {
       ) : tab === 'ingresos' && ingresos ? (
         <VistaIngresos data={ingresos} nannies={nannies} esDirectora={sesion?.rol === 'DIRECTORA'} onGuardar={cargar} />
       ) : tab === 'nomina' && nomina ? (
-        <VistaNomina data={nomina} pendiente={pendiente} onCambio={cargar} />
+        <VistaNomina data={nomina} reserva={reserva} onCambio={cargar} />
       ) : tab === 'margen' && margen ? (
         <VistaMargen data={margen} nannies={nannies} onGuardar={cargar} />
       ) : tab === 'niveles' && niveles ? (
@@ -337,40 +337,62 @@ function PaqueteFila({
   );
 }
 
-/** Pendiente TOTAL por pagar a nannies (saldo vivo de nómina). Petición de Paula:
- *  el número "esto debes tener en el banco". Suma lo no marcado como pagado. */
-function PendienteCard({ pendiente }: { pendiente: PendientePagar }) {
-  const [abierto, setAbierto] = useState(false);
+/** RESERVA de nómina. Petición de Paula: el número "esto debes tener guardado
+ *  en el banco para pagarlo TODO", sin importar si es esta semana o en 3.
+ *  Diferencia claramente lo de servicios individuales de lo de paquetes
+ *  (paquetes = lo más delicado: el ingreso ya se cobró por adelantado pero a la
+ *  nannie se le paga por semana conforme da las sesiones). */
+function ReservaCard({ reserva }: { reserva: ReservaNomina }) {
+  const fila = (
+    etiqueta: string,
+    monto: number,
+    detalle?: string,
+    acento?: boolean,
+  ) => (
+    <div className="flex items-start justify-between gap-3 py-2">
+      <div>
+        <p className={`text-sm font-medium ${acento ? 'text-marca-azul' : 'text-texto-fuerte'}`}>{etiqueta}</p>
+        {detalle && <p className="text-[11px] text-texto-suave">{detalle}</p>}
+      </div>
+      <span className={`shrink-0 font-semibold ${acento ? 'text-marca-azul' : 'text-texto-fuerte'}`}>{money(monto)}</span>
+    </div>
+  );
   return (
     <div className="rounded-2xl border-2 border-marca-azul/30 bg-marca-azul/5 p-5 shadow-card">
-      <p className="text-xs font-semibold uppercase tracking-wide text-marca-azul">Pendiente por pagar a nannies</p>
-      <p className="mt-1 text-3xl font-bold text-texto-fuerte">{money(pendiente.total)}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-marca-azul">Reserva de nómina</p>
+      <p className="mt-1 text-3xl font-bold text-texto-fuerte">{money(reserva.total)}</p>
       <p className="mt-1 text-xs text-texto-suave">
-        Esto es lo que debes tener disponible para la nómina: sube cuando se completan servicios y baja cuando marcas una semana como pagada.
-        {pendiente.nanniesPendientes > 0 && ` · ${pendiente.nanniesPendientes} nannie${pendiente.nanniesPendientes === 1 ? '' : 's'} por pagar.`}
+        Dinero que debes tener guardado para pagar <strong>todo</strong> lo que les debes a las nannies, sin importar si
+        se paga esta semana o en varias. Incluye las horas de paquete que aún no se dan (ya cobraste ese ingreso, pero
+        a la nannie se le paga conforme las da).
       </p>
-      {pendiente.nannies.length > 0 && (
-        <>
-          <button onClick={() => setAbierto((v) => !v)} className="mt-2 text-xs font-medium text-marca-azul hover:underline">
-            {abierto ? 'Ocultar desglose' : 'Ver desglose por nannie'}
-          </button>
-          {abierto && (
-            <div className="mt-2 divide-y divide-borde border-t border-borde">
-              {pendiente.nannies.map((n) => (
-                <div key={n.nannieId} className="flex items-center justify-between py-1.5 text-sm">
-                  <span className="text-texto-fuerte">
-                    {n.nombre}
-                    <span className="text-texto-suave"> · {n.semanas} sem.</span>
-                  </span>
-                  <span className="font-semibold text-texto-fuerte">{money(n.monto)}</span>
-                </div>
-              ))}
-            </div>
+
+      <div className="mt-3 divide-y divide-borde border-t border-borde">
+        {fila('Servicios individuales', reserva.individuales, 'Servicios sueltos completados y aún no pagados.')}
+        {fila(
+          'Paquetes',
+          reserva.paquetes,
+          'Lo que falta por pagar de todos los paquetes vivos.',
+          true,
+        )}
+        <div className="pl-4">
+          {fila(
+            '· Sesiones con nannie',
+            reserva.paquetesReal,
+            'Sesiones de paquete ya asignadas (dadas sin pagar + agendadas).',
           )}
-        </>
-      )}
-      <p className="mt-2 text-[11px] text-texto-suave">
-        Importante: marca cada semana como <strong>pagada</strong> cuando pagues, para que este número sea confiable.
+          {fila(
+            '· Horas por dar (sin nannie)',
+            reserva.paquetesEstimado,
+            'Horas de paquete todavía sin agendar, estimadas al tabulador BASE.',
+          )}
+        </div>
+        {reserva.otros > 0 && fila('Bonos y comisiones', reserva.otros, 'Bonos y comisiones a coordinación pendientes.')}
+      </div>
+
+      <p className="mt-3 text-[11px] text-texto-suave">
+        La parte de individuales y sesiones ya dadas baja cuando marcas la semana como <strong>pagada</strong>. La parte
+        de horas por dar baja sola conforme se agendan y pagan esas sesiones.
       </p>
     </div>
   );
@@ -378,17 +400,17 @@ function PendienteCard({ pendiente }: { pendiente: PendientePagar }) {
 
 function VistaNomina({
   data,
-  pendiente,
+  reserva,
   onCambio,
 }: {
   data: Nomina;
-  pendiente: PendientePagar | null;
+  reserva: ReservaNomina | null;
   onCambio: () => Promise<void>;
 }) {
   const { nannies, total, rango } = data;
   return (
     <div className="space-y-3">
-      {pendiente && <PendienteCard pendiente={pendiente} />}
+      {reserva && <ReservaCard reserva={reserva} />}
       <Tarjeta titulo="Total de la semana (pago del sábado)" monto={total} destacado />
 
       {nannies.length === 0 ? (

@@ -52,11 +52,12 @@ export class FinanzasController {
     return this.finanzas.marcarPago(dto.nannieId, dto.semana, dto.pagado);
   }
 
-  // Pendiente TOTAL por pagar a nannies (saldo vivo de nómina). Operativo.
+  // RESERVA de nómina: total por pagar (individuales + paquetes, incl. horas de
+  // paquete por dar). Operativo (Directora/Subdirectora).
   @RequiereAccion('finanzas.ver')
   @Get('nomina/pendiente')
-  pendientePorPagar() {
-    return this.finanzas.pendientePorPagar();
+  reservaNomina() {
+    return this.finanzas.reservaNomina();
   }
 
   // 3.4 · Margen por servicio. SOLO Directora (información sensible).
