@@ -1012,6 +1012,80 @@ function qs(params: Record<string, string | undefined>): string {
   return s ? `?${s}` : '';
 }
 
+// --- Reportes de incidente (coordinación) ---
+export interface IncidenteOpciones {
+  ninos: { id: string; nombre: string }[];
+  servicios: {
+    id: string;
+    fecha: string;
+    horaInicio: string;
+    etiqueta: string;
+    lugar: string;
+    nannieId: string | null;
+    nannieNombre: string | null;
+    paqueteId: string | null;
+    paqueteResumen: string | null;
+  }[];
+}
+export interface IncidenteResumen {
+  id: string;
+  fechaHoraIncidente: string;
+  menor: string;
+  nannie?: string;
+  familia?: string;
+  diagnostico: string | null;
+  coberturaAplico: boolean;
+}
+export interface ReporteIncidenteDetalle {
+  id: string;
+  familiaId: string;
+  familia: string;
+  servicioId: string | null;
+  ninoId: string | null;
+  menor: string;
+  nannieId: string | null;
+  nannie: string;
+  paqueteId: string | null;
+  paquete: { folio: number; horasTotales: number; fechaContratacion: string } | null;
+  fechaHoraIncidente: string;
+  lugar: string;
+  relatoNannie: string;
+  medidasInmediatas: string | null;
+  evolucionMenor: string | null;
+  doctor: string | null;
+  fechaConsulta: string | null;
+  diagnostico: string | null;
+  tratamiento: string | null;
+  documentacionEntregada: string | null;
+  medidasNannies: string | null;
+  coberturaAplico: boolean;
+  coberturaImporte: number | null;
+  anexos: string | null;
+  creadoPor: string;
+  creadoEn: string;
+}
+export interface GuardarIncidente {
+  familiaId: string;
+  servicioId?: string;
+  ninoId?: string;
+  nannieId?: string;
+  paqueteId?: string;
+  fechaHoraIncidente: string;
+  lugar: string;
+  relatoNannie: string;
+  medidasInmediatas?: string;
+  evolucionMenor?: string;
+  doctor?: string;
+  fechaConsulta?: string;
+  diagnostico?: string;
+  tratamiento?: string;
+  documentacionEntregada?: string;
+  medidasNannies?: string;
+  coberturaAplico: boolean;
+  coberturaImporte?: number;
+  anexos?: string;
+}
+
 export const api = {
   login: (email: string, password: string) =>
     req<{ rol: string }>('/auth/login', {
@@ -1185,6 +1259,21 @@ export const api = {
     req<unknown>(`/familias/${familiaId}/notas`, { method: 'POST', body: JSON.stringify({ texto }) }),
   eliminarNota: (notaId: string) =>
     req<{ ok: true }>(`/familias/notas/${notaId}`, { method: 'DELETE' }),
+
+  // Reportes de incidente (coordinación)
+  incidenteOpciones: (familiaId: string) =>
+    req<IncidenteOpciones>(`/incidentes/opciones/familia/${familiaId}`),
+  incidentesDeFamilia: (familiaId: string) =>
+    req<IncidenteResumen[]>(`/incidentes/familia/${familiaId}`),
+  incidentesDeNannie: (nannieId: string) =>
+    req<IncidenteResumen[]>(`/incidentes/nannie/${nannieId}`),
+  incidente: (id: string) => req<ReporteIncidenteDetalle>(`/incidentes/${id}`),
+  crearIncidente: (body: GuardarIncidente) =>
+    req<{ ok: true; id: string }>('/incidentes', { method: 'POST', body: JSON.stringify(body) }),
+  editarIncidente: (id: string, body: GuardarIncidente) =>
+    req<{ ok: true; id: string }>(`/incidentes/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  eliminarIncidente: (id: string) =>
+    req<{ ok: true }>(`/incidentes/${id}`, { method: 'DELETE' }),
   programarPaquete: (body: {
     paqueteId: string;
     fechas: string[];

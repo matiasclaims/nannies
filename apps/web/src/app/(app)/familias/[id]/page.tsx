@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Pencil, Trash2, Plus, HeartPulse, X, Check, QrCode, Package, ChevronDown, List, CalendarDays, ListChecks } from 'lucide-react';
-import { api, type PerfilFamilia, type ServicioHist, type NinoPerfil, type NinoInput, type FamiliaInput, type NannieLite } from '@/lib/api';
+import { api, type PerfilFamilia, type ServicioHist, type NinoPerfil, type NinoInput, type FamiliaInput, type NannieLite, type Rol } from '@/lib/api';
+import { ReportesIncidenteFamilia } from '@/components/reportes-incidente-familia';
 import { ESTADO_SERVICIO, edadLabel, etiquetaServicio } from '@/lib/dominio';
 import { AREAS_TRABAJO, CONSENTIMIENTOS } from '@/lib/familia-catalogo';
 import { EncuestaLinkModal } from '@/components/encuesta-link-modal';
@@ -32,9 +33,11 @@ export default function PerfilFamiliaPage() {
   const [encuestaSid, setEncuestaSid] = useState<string | null>(null);
   const [planeacionSid, setPlaneacionSid] = useState<string | null>(null);
   const [nannies, setNannies] = useState<NannieLite[]>([]);
+  const [rol, setRol] = useState<Rol | null>(null);
 
   useEffect(() => {
     api.listarNannies().then(setNannies).catch(() => undefined);
+    api.me().then((s) => setRol(s.rol)).catch(() => undefined);
   }, []);
 
   const cargar = useCallback(async () => {
@@ -193,6 +196,10 @@ export default function PerfilFamiliaPage() {
 
       {/* Servicios: lista (agrupada por folio) o calendario mensual. */}
       <ServiciosFamilia servicios={data.servicios} onEncuesta={setEncuestaSid} onPlaneacion={setPlaneacionSid} />
+
+      {/* Reportes de incidente (coordinación): queda registrado en la ficha de
+          la familia y en el expediente de la nannie. La nannie NO lo ve. */}
+      {rol && rol !== 'NANNIE' && <ReportesIncidenteFamilia familiaId={id} />}
 
       {/* Bitácora */}
       <Bitacora familiaId={id} notas={data.notas} onCambio={cargar} />

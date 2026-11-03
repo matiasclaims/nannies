@@ -213,6 +213,7 @@ model Nannie {
   documentos      DocumentoNannie[]
   referencias     ReferenciaNannie[]
   coloniasTrabajo NannieColonia[]
+  reportesIncidente ReporteIncidente[]
 
   @@map("nannies")
 }
@@ -424,6 +425,7 @@ model Familia {
   servicios Servicio[]
   paquetes  Paquete[]
   notas     NotaFamilia[]
+  reportesIncidente ReporteIncidente[]
 
   @@map("familias")
 }
@@ -454,6 +456,8 @@ model Nino {
   creadoEn    DateTime @default(now())
   actualizadoEn DateTime @updatedAt
 
+  reportesIncidente ReporteIncidente[]
+
   @@index([familiaId])
   @@map("ninos")
 }
@@ -470,6 +474,53 @@ model NotaFamilia {
 
   @@index([familiaId])
   @@map("notas_familia")
+}
+
+// Reporte de incidente (Paula): documento formal para los papás cuando un menor
+// sufre un incidente durante el servicio (aplique o no la cobertura médica).
+// Queda registrado en la ficha de la familia y en el expediente de la nannie.
+// Lo gestiona SOLO coordinación (datos médicos del menor = PII sensible).
+model ReporteIncidente {
+  id         String    @id @default(cuid())
+  familiaId  String
+  familia    Familia   @relation(fields: [familiaId], references: [id])
+  // Vínculos opcionales: autollenan el reporte y lo cruzan a ambos expedientes.
+  servicioId String?
+  servicio   Servicio? @relation(fields: [servicioId], references: [id])
+  ninoId     String?
+  nino       Nino?     @relation(fields: [ninoId], references: [id])
+  nannieId   String?
+  nannie     Nannie?   @relation(fields: [nannieId], references: [id])
+  paqueteId  String? // para la línea de cobertura ("paquete de 40 h contratado el …")
+  paquete    Paquete?  @relation(fields: [paqueteId], references: [id])
+
+  fechaHoraIncidente DateTime
+  lugar              String
+
+  // Cuerpo del reporte (ver template de Paula).
+  relatoNannie           String // relato de la nannie (cómo ocurrió)
+  medidasInmediatas      String?
+  evolucionMenor         String?
+  doctor                 String?
+  fechaConsulta          DateTime? @db.Date
+  diagnostico            String?
+  tratamiento            String?
+  documentacionEntregada String?
+  medidasNannies         String? // revisión interna / penalización aplicada
+
+  // Cobertura médica: aplique o no, el reporte se guarda igual.
+  coberturaAplico  Boolean  @default(false)
+  coberturaImporte Decimal? @db.Decimal(10, 2)
+  anexos           String? // lista de anexos (texto); los archivos se adjuntan aparte
+
+  creadoPor     String // quién lo elaboró (coordinación)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  @@index([familiaId])
+  @@index([nannieId])
+  @@index([servicioId])
+  @@map("reportes_incidente")
 }
 
 // ------------------------------------------------------------
@@ -557,6 +608,7 @@ model Servicio {
   planeacion PlaneacionServicio?
   evaluacion EvaluacionServicio?
   evaluacionCoord EvaluacionCoordServicio?
+  reportesIncidente ReporteIncidente[]
 
   @@index([nannieId, fecha])
   @@index([familiaId])
@@ -660,6 +712,7 @@ model Paquete {
 
   servicios Servicio[]
   evaluacionesCoord EvaluacionCoordServicio[]
+  reportesIncidente ReporteIncidente[]
 
   @@index([familiaId])
   @@map("paquetes")

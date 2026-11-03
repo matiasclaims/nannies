@@ -49,6 +49,7 @@ export type Accion =
   | 'problema.gestionar'
   | 'backlog.gestionar'
   | 'incidencia.registrar'
+  | 'incidente.gestionar'
   // Auto-servicio de la nannie (sobre lo suyo; ver PERTENENCIA)
   | 'disponibilidad.propia.editar'
   | 'oferta.responder'
@@ -84,6 +85,8 @@ export const ACTION_POLICY: Record<Accion, readonly Rol[]> = {
   'problema.gestionar': ['PROGRAMADOR'],
   'backlog.gestionar': ['PROGRAMADOR'],
   'incidencia.registrar': ['DIRECTORA', 'SUBDIRECTORA'],
+  // Reporte de incidente de un menor: datos médicos sensibles → solo coordinación.
+  'incidente.gestionar': ['DIRECTORA', 'SUBDIRECTORA'],
   'dashboard.ver': ['DIRECTORA', 'SUBDIRECTORA'],
 
   // --- Nannie sobre lo suyo (además requiere check de PERTENENCIA) ---

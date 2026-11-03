@@ -17,6 +17,7 @@ import { NombreNannie } from '@/components/nombre-nannie';
 import { FotoModal } from '@/components/foto-modal';
 import { Seccion } from '@/components/seccion';
 import { EvalPapasNannie } from '@/components/eval-papas-nannie';
+import { ReportesIncidenteNannie } from '@/components/reportes-incidente-nannie';
 import { cn } from '@/lib/utils';
 
 const input = 'w-full rounded-xl border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-marca-azul';
@@ -151,6 +152,8 @@ export default function NanniePerfilPage() {
       />
 
       <IncidenciasNannie nannieId={perfil.id} nombre={perfil.nombre} esDirectora={esDirectora} />
+
+      <ReportesIncidenteNannie nannieId={perfil.id} />
 
       <BitacoraNannie nannieId={perfil.id} />
 
