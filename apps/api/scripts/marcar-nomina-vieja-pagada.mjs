@@ -19,7 +19,12 @@ if (!process.env.DATABASE_URL && existsSync('.env')) {
   }
 }
 
-const SEMANAS_ATRAS = 40; // cuántas semanas hacia atrás del corte se marcan
+// Cuántas semanas hacia atrás del corte se marcan. 300 ≈ 5.75 años, para cubrir
+// TODA la historia (hay servicios viejos de 2024 que de otro modo quedan fuera y
+// la reserva los arrastra). Se puede sobrescribir con --semanas=N.
+const SEMANAS_ATRAS_DEFAULT = 300;
+const semanasArg = process.argv.find((a) => /^--semanas=\d+$/.test(a));
+const SEMANAS_ATRAS = semanasArg ? Number(semanasArg.split('=')[1]) : SEMANAS_ATRAS_DEFAULT;
 const corteArg = process.argv.find((a) => /^\d{4}-\d{2}-\d{2}$/.test(a));
 const APLICAR = process.argv.includes('--apply');
 if (!corteArg) {
