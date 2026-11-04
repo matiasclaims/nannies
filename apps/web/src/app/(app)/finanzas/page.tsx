@@ -418,10 +418,7 @@ function ReservaCard({ reserva }: { reserva: ReservaNomina }) {
         onClick={() => setAbierto((v) => !v)}
         className="flex w-full items-center justify-between gap-3 text-left"
       >
-        <span className="flex items-baseline gap-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-marca-azul">Reserva de nómina</span>
-          {!abierto && <span className="text-sm font-bold text-texto-fuerte">{money(reserva.total)}</span>}
-        </span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-marca-azul">Reserva de nómina</span>
         <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-marca-azul">
           {abierto ? 'Ocultar' : 'Ver reserva'}
           <ChevronDown className={`h-4 w-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
@@ -524,21 +521,40 @@ function ReservaCard({ reserva }: { reserva: ReservaNomina }) {
  *  que todavía no se da. Petición de Mario: que Paula vea por adelantado cuánto
  *  va a necesitar el sábado y no se gaste ese dinero. */
 function ProyeccionSemanaCard({ total, porDarse, proyeccion }: { total: number; porDarse: number; proyeccion: number }) {
+  const [abierto, setAbierto] = useState(false);
   return (
     <div className="rounded-2xl border border-borde bg-panel p-5 shadow-card">
-      <p className="text-xs font-semibold uppercase tracking-wide text-texto-suave">Proyección del pago del sábado</p>
-      <p className="mt-1 text-3xl font-bold text-texto-fuerte">{money(proyeccion)}</p>
-      <p className="mt-1 text-xs text-texto-suave">
-        Lo que se espera pagar este sábado: lo ya completado más lo agendado de la semana que falta por darse.
-      </p>
-      <div className="mt-3 flex flex-wrap gap-x-8 gap-y-1 border-t border-borde pt-3 text-sm">
-        <span className="text-texto-fuerte">
-          Ya completado <strong className="ml-1">{money(total)}</strong>
+      <button
+        onClick={() => setAbierto((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <span className="text-xs font-semibold uppercase tracking-wide text-texto-suave">Proyección del pago del sábado</span>
+        <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-marca-azul">
+          {abierto ? 'Ocultar' : 'Ver proyección'}
+          <ChevronDown className={`h-4 w-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
         </span>
-        <span className="text-texto-suave">
-          Por darse esta semana <strong className="ml-1 text-texto-fuerte">{money(porDarse)}</strong>
-        </span>
-      </div>
+      </button>
+      {!abierto && (
+        <p className="mt-1 text-xs text-texto-suave">
+          Lo que se espera pagar este sábado. Pica para ver el monto.
+        </p>
+      )}
+      {abierto && (
+        <>
+          <p className="mt-3 text-3xl font-bold text-texto-fuerte">{money(proyeccion)}</p>
+          <p className="mt-1 text-xs text-texto-suave">
+            Lo que se espera pagar este sábado: lo ya completado más lo agendado de la semana que falta por darse.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-x-8 gap-y-1 border-t border-borde pt-3 text-sm">
+            <span className="text-texto-fuerte">
+              Ya completado <strong className="ml-1">{money(total)}</strong>
+            </span>
+            <span className="text-texto-suave">
+              Por darse esta semana <strong className="ml-1 text-texto-fuerte">{money(porDarse)}</strong>
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
