@@ -409,12 +409,32 @@ function FilaReserva({
  *  nannie se le paga por semana conforme da las sesiones). */
 function ReservaCard({ reserva }: { reserva: ReservaNomina }) {
   const d = reserva.detalle;
+  const [abierto, setAbierto] = useState(false);
   const fmtDia = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' });
   const rangoSemana = `${fmtDia(reserva.semanaActual.desde)} – ${fmtDia(reserva.semanaActual.hasta)}`;
   return (
     <div className="rounded-2xl border-2 border-marca-azul/30 bg-marca-azul/5 p-5 shadow-card">
-      <p className="text-xs font-semibold uppercase tracking-wide text-marca-azul">Reserva de nómina</p>
-      <div className="mt-1 flex flex-wrap items-end gap-x-10 gap-y-2">
+      <button
+        onClick={() => setAbierto((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <span className="flex items-baseline gap-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-marca-azul">Reserva de nómina</span>
+          {!abierto && <span className="text-sm font-bold text-texto-fuerte">{money(reserva.total)}</span>}
+        </span>
+        <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-marca-azul">
+          {abierto ? 'Ocultar' : 'Ver reserva'}
+          <ChevronDown className={`h-4 w-4 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+        </span>
+      </button>
+      {!abierto && (
+        <p className="mt-1 text-xs text-texto-suave">
+          Dinero que debes tener guardado para pagar todo lo que les debes a las nannies. Pica para ver el desglose.
+        </p>
+      )}
+      {abierto && (
+      <>
+      <div className="mt-3 flex flex-wrap items-end gap-x-10 gap-y-2">
         <div>
           <p className="text-3xl font-bold text-texto-fuerte">{money(reserva.total)}</p>
           <p className="text-[11px] font-medium uppercase tracking-wide text-texto-suave">Reserva total</p>
@@ -494,6 +514,8 @@ function ReservaCard({ reserva }: { reserva: ReservaNomina }) {
         La parte de individuales y sesiones ya dadas baja cuando marcas la semana como <strong>pagada</strong>. La parte
         de horas por dar baja sola conforme se agendan y pagan esas sesiones.
       </p>
+      </>
+      )}
     </div>
   );
 }
