@@ -28,7 +28,7 @@ if (!process.env.DATABASE_URL && existsSync('.env')) {
 }
 
 // ============================ CONFIG ============================
-const FAMILIA_ID = '';                   // id exacto (prioritario). Vacio -> busca por FAMILIA_CLAVE.
+const FAMILIA_ID = 'cmw3xo1nv001kl9qvy3gitmea'; // Montserrat Lopez Hernández (Toluca, alta por formulario)
 const FAMILIA_CLAVE = 'Montserrat';      // busqueda en nombreContacto (debe ser unica si no hay id)
 const HORAS_TOTALES = 50;
 const FECHA_CONTRATACION = '2026-06-08'; // mes en que se reconoce el INGRESO ($4,100).
