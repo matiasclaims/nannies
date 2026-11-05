@@ -28,23 +28,24 @@ if (!process.env.DATABASE_URL && existsSync('.env')) {
 }
 
 // ============================ CONFIG ============================
-const FAMILIA_CLAVE = 'Diana Izchel';    // busqueda en nombreContacto (debe ser unica)
-const HORAS_TOTALES = 40;
-const FECHA_CONTRATACION = '2026-07-03'; // mes en que se reconoce el INGRESO ($3,800).
-                                         // Primera sesion / contratacion real (julio).
+const FAMILIA_ID = '';                   // id exacto (prioritario). Vacio -> busca por FAMILIA_CLAVE.
+const FAMILIA_CLAVE = 'Montserrat';      // busqueda en nombreContacto (debe ser unica si no hay id)
+const HORAS_TOTALES = 50;
+const FECHA_CONTRATACION = '2026-06-08'; // mes en que se reconoce el INGRESO ($4,100).
+                                         // Primera sesion / contratacion real (junio).
 // [fecha, inicio, fin, nannie, programada?]  (duracion se calcula sola)
 //   programada = true -> ACEPTADO (por ocurrir, no completada). Default false -> COMPLETADO.
 const SESIONES = [
-  ['2026-07-03', '17:00', '18:00', 'Naomi'],            // 1 h
-  ['2026-07-07', '15:00', '19:00', 'Laura'],            // 4 h
-  ['2026-07-09', '15:00', '19:00', 'Laura'],            // 4 h
-  ['2026-07-28', '15:00', '19:00', 'Valeria'],          // 4 h
-  ['2026-07-30', '15:00', '19:00', 'Laura'],            // 4 h
-  ['2026-08-11', '15:00', '19:00', 'Ivette'],           // 4 h
-  ['2026-08-13', '15:00', '19:00', 'Laura'],            // 4 h
-  ['2026-08-21', '14:00', '18:00', 'Laura'],            // 4 h
-  ['2026-09-10', '15:00', '19:00', 'Laura'],            // 4 h
-  ['2026-10-29', '14:30', '18:30', 'Laura', true],      // 4 h — PROGRAMADA (mañana)
+  ['2026-06-08', '14:00', '18:00', 'LISS'],             // 4 h
+  ['2026-06-10', '14:30', '17:30', 'LISS'],             // 3 h
+  ['2026-06-15', '14:00', '18:00', 'LISS'],             // 4 h
+  ['2026-06-17', '14:30', '17:30', 'LISS'],             // 3 h
+  ['2026-06-22', '14:00', '18:00', 'LISS'],             // 4 h
+  ['2026-06-24', '14:30', '17:30', 'LISS'],             // 3 h
+  ['2026-06-28', '13:00', '18:00', 'Naomi'],            // 5 h
+  ['2026-07-06', '14:00', '18:00', 'LISS'],             // 4 h
+  ['2026-07-13', '14:00', '18:00', 'LISS'],             // 4 h
+  ['2026-11-14', '15:00', '20:00', 'Karen', true],      // 5 h — PROGRAMADA (14-nov)
 ];
 // ===============================================================
 
@@ -58,16 +59,18 @@ const APLICAR = process.argv.includes('--apply');
 const { PrismaClient } = await import('@prisma/client');
 const prisma = new PrismaClient();
 
-// --- 1) Resolver familia (unica) ---
-const fams = await prisma.familia.findMany({
-  where: { nombreContacto: { contains: FAMILIA_CLAVE, mode: 'insensitive' } },
-  select: {
-    id: true, nombreContacto: true, apellido: true, plaza: true, zona: true,
-    paquetes: { select: { folio: true, horasTotales: true, horasConsumidas: true, estado: true }, orderBy: { folio: 'asc' } },
-  },
-});
+// --- 1) Resolver familia (por id exacto si se dio; si no, por clave, debe ser unica) ---
+const selFam = {
+  id: true, nombreContacto: true, apellido: true, plaza: true, zona: true,
+  paquetes: { select: { folio: true, horasTotales: true, horasConsumidas: true, estado: true }, orderBy: { folio: 'asc' } },
+};
+const fams = FAMILIA_ID
+  ? await prisma.familia.findMany({ where: { id: FAMILIA_ID }, select: selFam })
+  : await prisma.familia.findMany({ where: { nombreContacto: { contains: FAMILIA_CLAVE, mode: 'insensitive' } }, select: selFam });
 if (fams.length !== 1) {
-  console.error(`\n✗ "${FAMILIA_CLAVE}" ${fams.length === 0 ? 'no coincide con ninguna familia' : 'coincide con varias:\n   ' + fams.map((f) => [f.nombreContacto, f.apellido].filter(Boolean).join(' ')).join('\n   ')}\n`);
+  const quien = FAMILIA_ID ? `id "${FAMILIA_ID}"` : `"${FAMILIA_CLAVE}"`;
+  const lista = fams.map((f) => `   ${f.id}  |  ${[f.nombreContacto, f.apellido].filter(Boolean).join(' ')}  |  ${f.plaza}`).join('\n');
+  console.error(`\n✗ ${quien} ${fams.length === 0 ? 'no coincide con ninguna familia' : 'coincide con varias (copia el id correcto a FAMILIA_ID):\n' + lista}\n`);
   await prisma.$disconnect(); process.exit(1);
 }
 const fam = fams[0];
