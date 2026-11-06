@@ -118,14 +118,22 @@ export function PlaneacionModal({
             {error && <p className="mt-2 text-xs text-marca-rojo">{error}</p>}
 
             <div className="mt-4 flex items-center justify-between gap-2">
-              <a
-                href={`/planeacion/${servicioId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg border border-borde px-3 py-1.5 text-xs font-medium text-texto-suave hover:bg-fondo"
-              >
-                <Printer className="h-3.5 w-3.5" /> Ver / Imprimir PDF
-              </a>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/api/planeacion/servicio/${servicioId}/pdf`}
+                  className="inline-flex items-center gap-1 rounded-lg border border-marca-azul/50 px-3 py-1.5 text-xs font-medium text-marca-azul hover:bg-marca-azul/5"
+                >
+                  <Printer className="h-3.5 w-3.5" /> Descargar PDF
+                </a>
+                <a
+                  href={`/planeacion/${servicioId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-borde px-3 py-1.5 text-xs font-medium text-texto-suave hover:bg-fondo"
+                >
+                  Ver
+                </a>
+              </div>
               <div className="flex gap-2">
                 <button onClick={onCerrar} className="rounded-lg border border-borde px-3 py-1.5 text-sm text-texto-suave hover:bg-fondo">
                   Cancelar

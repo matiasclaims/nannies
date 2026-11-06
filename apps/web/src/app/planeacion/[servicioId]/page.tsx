@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
-import { Printer } from 'lucide-react';
+import { Printer, Download } from 'lucide-react';
 import { api, type HojaPlaneacion } from '@/lib/api';
 import { etiquetaServicio } from '@/lib/dominio';
 
@@ -93,13 +93,20 @@ export default function HojaPlaneacionPage() {
       </p>
 
       {/* Acción (no se imprime) */}
-      <div className="mt-6 flex justify-center print:hidden">
-        <button
-          onClick={() => window.print()}
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3 print:hidden">
+        <a
+          href={`/api/planeacion/servicio/${servicioId}/pdf`}
           className="flex items-center gap-2 rounded-xl bg-marca-azul px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
         >
+          <Download className="h-4 w-4" />
+          Descargar PDF
+        </a>
+        <button
+          onClick={() => window.print()}
+          className="flex items-center gap-2 rounded-xl border border-borde px-4 py-2 text-sm font-semibold text-texto-suave transition hover:bg-fondo"
+        >
           <Printer className="h-4 w-4" />
-          Imprimir / Guardar PDF
+          Imprimir
         </button>
       </div>
     </div>
