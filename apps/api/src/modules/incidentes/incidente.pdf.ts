@@ -1,5 +1,22 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import PDFDocument from 'pdfkit';
+import { PDFDocument as PdfLibDocument, StandardFonts, rgb } from 'pdf-lib';
+
+/** Un archivo de respaldo ya leído del disco, para anexarlo al PDF. */
+export interface AnexoArchivo {
+  categoria: string;
+  nombreArchivo: string;
+  ext: string; // pdf | jpg | jpeg | png | webp
+  contenido: Buffer;
+}
+
+const CATEGORIA_LABEL: Record<string, string> = {
+  COMPROBANTE_PAGO: 'Comprobante de pago',
+  ESTUDIOS: 'Estudios',
+  MEDICAMENTOS: 'Compra de medicamentos',
+  OTRO: 'Otro',
+};
 
 /** Datos que la hoja/PDF del reporte de incidencia necesita (lo que devuelve
  *  IncidentesService.uno). */
@@ -158,4 +175,71 @@ export function nombreArchivoIncidente(d: DatosIncidentePdf): string {
   const base = (d.menor || 'incidencia').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
   const fecha = d.fechaHoraIncidente.slice(0, 10);
   return `reporte-incidencia-${base}-${fecha}.pdf`;
+}
+
+/** Corre el render de pdfkit y junta su salida en un Buffer. */
+function pdfkitABuffer(dibujar: (doc: PDFKit.PDFDocument) => void): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    dibujar(doc); // la función debe llamar doc.end()
+  });
+}
+
+/** Genera el PDF del reporte y le ANEXA los archivos de respaldo al final:
+ *  una página índice + cada PDF tal cual + cada imagen (JPG/PNG) como página.
+ *  Los WEBP u otros formatos no incrustables se omiten (siguen en la app). */
+export async function componerPdfIncidente(d: DatosIncidentePdf, anexos: AnexoArchivo[]): Promise<Uint8Array> {
+  const reporte = await pdfkitABuffer((doc) => construirPdfIncidente(doc, d));
+  if (anexos.length === 0) return new Uint8Array(reporte);
+
+  const pdf = await PdfLibDocument.load(reporte);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const azul = rgb(0x17 / 255, 0x32 / 255, 0x3b / 255);
+  const suave = rgb(0x6b / 255, 0x72 / 255, 0x80 / 255);
+  const A4: [number, number] = [595.28, 841.89];
+  const M = 50;
+  const etiqueta = (a: AnexoArchivo) => `${CATEGORIA_LABEL[a.categoria] ?? a.categoria} — ${a.nombreArchivo}`;
+
+  // Página índice de anexos.
+  const indice = pdf.addPage(A4);
+  let y = A4[1] - M;
+  indice.drawText('Documentos anexos', { x: M, y: y - 12, size: 15, font: fontBold, color: azul });
+  y -= 40;
+  indice.drawText('Archivos de respaldo cargados en este reporte:', { x: M, y, size: 10, font, color: suave });
+  y -= 24;
+  anexos.forEach((a, i) => {
+    indice.drawText(`${i + 1}.  ${etiqueta(a)}`.slice(0, 110), { x: M, y, size: 10, font, color: azul });
+    y -= 18;
+  });
+
+  for (const a of anexos) {
+    const ext = a.ext.toLowerCase();
+    try {
+      if (ext === 'pdf') {
+        const src = await PdfLibDocument.load(a.contenido, { ignoreEncryption: true });
+        const copiadas = await pdf.copyPages(src, src.getPageIndices());
+        copiadas.forEach((p) => pdf.addPage(p));
+      } else if (ext === 'jpg' || ext === 'jpeg' || ext === 'png') {
+        const img = ext === 'png' ? await pdf.embedPng(a.contenido) : await pdf.embedJpg(a.contenido);
+        const page = pdf.addPage(A4);
+        page.drawText(etiqueta(a).slice(0, 110), { x: M, y: A4[1] - M + 8, size: 9, font, color: suave });
+        const maxW = A4[0] - M * 2;
+        const maxH = A4[1] - M * 2 - 10;
+        const escala = Math.min(maxW / img.width, maxH / img.height, 1);
+        const w = img.width * escala;
+        const h = img.height * escala;
+        page.drawImage(img, { x: (A4[0] - w) / 2, y: (A4[1] - h) / 2 - 10, width: w, height: h });
+      }
+      // webp / otros: no incrustables aquí; se quedan disponibles en la app.
+    } catch {
+      // Archivo corrupto o no incrustable: lo saltamos sin romper el PDF.
+    }
+  }
+
+  return pdf.save();
 }

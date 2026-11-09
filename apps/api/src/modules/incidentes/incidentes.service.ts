@@ -4,6 +4,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { LocalStorageService } from '../../core/storage/local-storage.service';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { GuardarReporteIncidenteDto } from './dto/guardar-reporte-incidente.dto';
+import {
+  componerPdfIncidente,
+  nombreArchivoIncidente,
+  type AnexoArchivo,
+  type DatosIncidentePdf,
+} from './incidente.pdf';
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 const isoDia = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
@@ -197,6 +203,24 @@ export class IncidentesService {
       await this.prisma.documentoIncidente.delete({ where: { id: doc.id } });
     }
     return { ok: true };
+  }
+
+  /** PDF del reporte con sus documentos de respaldo ANEXADOS al final. */
+  async pdfReporte(id: string): Promise<{ bytes: Uint8Array; nombre: string }> {
+    const data = (await this.uno(id)) as unknown as DatosIncidentePdf;
+    const docs = await this.prisma.documentoIncidente.findMany({
+      where: { incidenteId: id },
+      orderBy: { subidoEn: 'asc' },
+    });
+    const anexos: AnexoArchivo[] = [];
+    for (const d of docs) {
+      const contenido = await this.storage.leer(d.path).catch(() => null);
+      if (!contenido) continue;
+      const ext = (d.path.split('.').pop() ?? '').toLowerCase();
+      anexos.push({ categoria: d.categoria, nombreArchivo: d.nombreArchivo, ext, contenido });
+    }
+    const bytes = await componerPdfIncidente(data, anexos);
+    return { bytes, nombre: nombreArchivoIncidente(data) };
   }
 
   private async exigir(id: string) {
