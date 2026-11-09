@@ -1,11 +1,13 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import PDFDocument from 'pdfkit';
 import { IncidentesService } from './incidentes.service';
 import { RequiereAccion } from '../../core/auth/decorators/requiere-accion.decorator';
 import { UsuarioActual } from '../../core/auth/decorators/usuario-actual.decorator';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { GuardarReporteIncidenteDto } from './dto/guardar-reporte-incidente.dto';
 import { SubirDocumentoIncidenteDto } from './dto/subir-documento-incidente.dto';
+import { construirPdfIncidente, nombreArchivoIncidente, type DatosIncidentePdf } from './incidente.pdf';
 
 // Reporte de incidente de un menor. TODO el recurso es coordinación-only
 // (datos médicos del menor = PII sensible); la nannie NO lo ve.
@@ -39,6 +41,18 @@ export class IncidentesController {
   @Get(':id')
   uno(@Param('id') id: string) {
     return this.incidentes.uno(id);
+  }
+
+  // PDF real descargable del reporte (archivo), con marca Nannies y firma.
+  @RequiereAccion('incidente.gestionar')
+  @Get(':id/pdf')
+  async pdf(@Param('id') id: string, @Res() res: Response) {
+    const data = (await this.incidentes.uno(id)) as unknown as DatosIncidentePdf;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivoIncidente(data)}"`);
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    doc.pipe(res);
+    construirPdfIncidente(doc, data);
   }
 
   @RequiereAccion('incidente.gestionar')

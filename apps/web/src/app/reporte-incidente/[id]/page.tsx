@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
-import { Printer } from 'lucide-react';
+import { Printer, Download } from 'lucide-react';
 import { api, type ReporteIncidenteDetalle } from '@/lib/api';
+import { descargarPdf } from '@/lib/descargar-pdf';
 
 const fechaLarga = (iso: string) =>
   new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -27,6 +28,18 @@ export default function HojaIncidentePage() {
   const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<ReporteIncidenteDetalle | null>(null);
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'error'>('cargando');
+  const [bajando, setBajando] = useState(false);
+
+  async function descargar() {
+    setBajando(true);
+    try {
+      await descargarPdf(`/api/incidentes/${id}/pdf`, 'reporte-incidencia.pdf');
+    } catch {
+      /* el usuario lo vuelve a intentar */
+    } finally {
+      setBajando(false);
+    }
+  }
 
   useEffect(() => {
     api
@@ -109,13 +122,20 @@ export default function HojaIncidentePage() {
         <p className="text-xs text-texto-suave">Nannies Child Care</p>
       </div>
 
-      {/* Botón de imprimir — se oculta al imprimir */}
-      <div className="mt-6 flex justify-center print:hidden">
+      {/* Acciones — se ocultan al imprimir */}
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3 print:hidden">
+        <button
+          onClick={descargar}
+          disabled={bajando}
+          className="inline-flex items-center gap-2 rounded-xl bg-marca-azul px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:opacity-60"
+        >
+          <Download className="h-4 w-4" /> {bajando ? 'Generando…' : 'Descargar PDF'}
+        </button>
         <button
           onClick={() => window.print()}
-          className="inline-flex items-center gap-2 rounded-xl bg-marca-azul px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
+          className="inline-flex items-center gap-2 rounded-xl border border-borde px-5 py-2.5 text-sm font-semibold text-texto-suave transition hover:bg-fondo"
         >
-          <Printer className="h-4 w-4" /> Imprimir o guardar como PDF
+          <Printer className="h-4 w-4" /> Imprimir
         </button>
       </div>
     </div>
