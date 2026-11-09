@@ -35,6 +35,10 @@ const SUAVE = '#6b7280';
 const LINEA = '#e5e7eb';
 const ROSA = '#f0d6d5';
 
+// Nota al pie de toda planeación (guía flexible + materiales de la familia).
+const NOTA_PIE =
+  'La presente planeación es una guía flexible que podrá ajustarse durante la jornada, considerando las necesidades, intereses, ritmo y bienestar del niño o de los niños. Si por motivos de descanso, alimentación, salidas o juego espontáneo fuera necesario, las actividades podrán adaptarse, reprogramarse o sustituirse por otras que favorezcan igualmente su desarrollo. Asimismo, para llevar a cabo las actividades propuestas, será necesario que la familia proporcione previamente a la Nannie los materiales indicados en la última columna.';
+
 const etiquetaServicio = (tipo: string, esPaquete: boolean) =>
   esPaquete ? 'Paquete' : (TIPO_LABEL[tipo] ?? tipo);
 
@@ -156,9 +160,20 @@ export function construirPdfPlaneacion(doc: PDFKit.PDFDocument, d: DatosHoja): v
     doc.moveTo(x0, y).lineTo(x0 + ancho, y).lineWidth(0.5).strokeColor(LINEA).stroke();
   }
 
-  // --- Pie ---
+  // --- Nota al pie (guía flexible + materiales) ---
+  doc.font('Helvetica-Oblique').fontSize(8).fillColor(SUAVE);
+  const hNota = doc.heightOfString(NOTA_PIE, { width: ancho, align: 'justify' });
+  if (y + 18 + hNota + 16 > bottom) {
+    doc.addPage();
+    y = M;
+  } else {
+    y += 18;
+  }
+  doc.text(NOTA_PIE, x0, y, { width: ancho, align: 'justify' });
+  y += hNota + 10;
+
   doc.font('Helvetica').fontSize(8).fillColor(SUAVE)
-    .text('Nannies Child Care · Planeación de actividades del servicio.', x0, Math.min(y + 18, bottom), { width: ancho, align: 'center' });
+    .text('Nannies Child Care · Planeación de actividades del servicio.', x0, Math.min(y, bottom), { width: ancho, align: 'center' });
 
   doc.end();
 }

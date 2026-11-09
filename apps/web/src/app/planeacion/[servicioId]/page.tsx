@@ -88,7 +88,17 @@ export default function HojaPlaneacionPage() {
         </table>
       )}
 
-      <p className="mt-6 text-center text-[11px] text-texto-suave">
+      {items.length > 0 && (
+        <p className="mt-6 text-justify text-[11px] italic leading-relaxed text-texto-suave">
+          La presente planeación es una guía flexible que podrá ajustarse durante la jornada, considerando las
+          necesidades, intereses, ritmo y bienestar del niño o de los niños. Si por motivos de descanso, alimentación,
+          salidas o juego espontáneo fuera necesario, las actividades podrán adaptarse, reprogramarse o sustituirse por
+          otras que favorezcan igualmente su desarrollo. Asimismo, para llevar a cabo las actividades propuestas, será
+          necesario que la familia proporcione previamente a la Nannie los materiales indicados en la última columna.
+        </p>
+      )}
+
+      <p className="mt-4 text-center text-[11px] text-texto-suave">
         Nannies Child Care · Planeación de actividades del servicio.
       </p>
 
