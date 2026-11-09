@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Printer, Download } from 'lucide-react';
 import { api, type HojaPlaneacion } from '@/lib/api';
 import { etiquetaServicio } from '@/lib/dominio';
+import { descargarPdf } from '@/lib/descargar-pdf';
 
 /** Hoja de planeación de un servicio, con marca Nannies, lista para imprimir o
  *  guardar como PDF. Formato Hora/Actividad/Objetivo/Material. */
@@ -13,6 +14,18 @@ export default function HojaPlaneacionPage() {
   const { servicioId } = useParams<{ servicioId: string }>();
   const [data, setData] = useState<HojaPlaneacion | null>(null);
   const [estado, setEstado] = useState<'cargando' | 'ok' | 'error'>('cargando');
+  const [bajando, setBajando] = useState(false);
+
+  async function descargar() {
+    setBajando(true);
+    try {
+      await descargarPdf(`/api/planeacion/servicio/${servicioId}/pdf`, 'planeacion.pdf');
+    } catch {
+      /* el usuario lo vuelve a intentar */
+    } finally {
+      setBajando(false);
+    }
+  }
 
   useEffect(() => {
     api
@@ -104,13 +117,14 @@ export default function HojaPlaneacionPage() {
 
       {/* Acción (no se imprime) */}
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3 print:hidden">
-        <a
-          href={`/api/planeacion/servicio/${servicioId}/pdf`}
-          className="flex items-center gap-2 rounded-xl bg-marca-azul px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
+        <button
+          onClick={descargar}
+          disabled={bajando}
+          className="flex items-center gap-2 rounded-xl bg-marca-azul px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95 disabled:opacity-60"
         >
           <Download className="h-4 w-4" />
-          Descargar PDF
-        </a>
+          {bajando ? 'Generando…' : 'Descargar PDF'}
+        </button>
         <button
           onClick={() => window.print()}
           className="flex items-center gap-2 rounded-xl border border-borde px-4 py-2 text-sm font-semibold text-texto-suave transition hover:bg-fondo"

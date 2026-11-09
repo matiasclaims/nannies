@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { X, Plus, Trash2, Printer } from 'lucide-react';
 import { api, type PlaneacionItem } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { descargarPdf } from '@/lib/descargar-pdf';
 
 const vacia = (): PlaneacionItem => ({ hora: '', actividad: '', objetivo: '', material: '' });
 
@@ -24,7 +25,20 @@ export function PlaneacionModal({
   const [filas, setFilas] = useState<PlaneacionItem[]>([vacia()]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [bajando, setBajando] = useState(false);
   const [error, setError] = useState('');
+
+  async function descargar() {
+    setError('');
+    setBajando(true);
+    try {
+      await descargarPdf(`/api/planeacion/servicio/${servicioId}/pdf`, 'planeacion.pdf');
+    } catch {
+      setError('No se pudo descargar el PDF.');
+    } finally {
+      setBajando(false);
+    }
+  }
 
   useEffect(() => {
     api
@@ -119,12 +133,14 @@ export function PlaneacionModal({
 
             <div className="mt-4 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <a
-                  href={`/api/planeacion/servicio/${servicioId}/pdf`}
-                  className="inline-flex items-center gap-1 rounded-lg border border-marca-azul/50 px-3 py-1.5 text-xs font-medium text-marca-azul hover:bg-marca-azul/5"
+                <button
+                  type="button"
+                  onClick={descargar}
+                  disabled={bajando}
+                  className="inline-flex items-center gap-1 rounded-lg border border-marca-azul/50 px-3 py-1.5 text-xs font-medium text-marca-azul hover:bg-marca-azul/5 disabled:opacity-50"
                 >
-                  <Printer className="h-3.5 w-3.5" /> Descargar PDF
-                </a>
+                  <Printer className="h-3.5 w-3.5" /> {bajando ? 'Generando…' : 'Descargar PDF'}
+                </button>
                 <a
                   href={`/planeacion/${servicioId}`}
                   target="_blank"
