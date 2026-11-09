@@ -494,6 +494,8 @@ model ReporteIncidente {
   paqueteId  String? // para la línea de cobertura ("paquete de 40 h contratado el …")
   paquete    Paquete?  @relation(fields: [paqueteId], references: [id])
 
+  documentos DocumentoIncidente[] // archivos de respaldo (comprobantes, estudios, etc.)
+
   fechaHoraIncidente DateTime
   lugar              String
 
@@ -521,6 +523,23 @@ model ReporteIncidente {
   @@index([nannieId])
   @@index([servicioId])
   @@map("reportes_incidente")
+}
+
+// Archivo de respaldo de un reporte de incidencia (comprobante de pago, estudios,
+// compra de medicamentos, etc.). El binario vive en disco (LocalStorageService);
+// aquí la metadata. Solo coordinación (incidente.gestionar) lo sube y consulta.
+model DocumentoIncidente {
+  id            String           @id @default(cuid())
+  incidenteId   String
+  incidente     ReporteIncidente @relation(fields: [incidenteId], references: [id], onDelete: Cascade)
+  categoria     String // 'COMPROBANTE_PAGO' | 'ESTUDIOS' | 'MEDICAMENTOS' | 'OTRO'
+  path          String // ruta en el almacenamiento (incidencias/<id>/<archivo>)
+  nombreArchivo String
+  subidoPor     String
+  subidoEn      DateTime         @default(now())
+
+  @@index([incidenteId])
+  @@map("documentos_incidente")
 }
 
 // ------------------------------------------------------------

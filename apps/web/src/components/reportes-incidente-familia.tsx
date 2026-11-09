@@ -1,13 +1,31 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Plus, X, FileText, Pencil, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Plus, X, FileText, Pencil, Trash2, Paperclip, Upload } from 'lucide-react';
 import {
   api,
   type IncidenteResumen,
   type IncidenteOpciones,
   type GuardarIncidente,
+  type DocumentoIncidente,
+  type CategoriaDocIncidente,
 } from '@/lib/api';
+
+const CATEGORIAS_DOC: { valor: CategoriaDocIncidente; etiqueta: string }[] = [
+  { valor: 'COMPROBANTE_PAGO', etiqueta: 'Comprobante de pago' },
+  { valor: 'ESTUDIOS', etiqueta: 'Estudios' },
+  { valor: 'MEDICAMENTOS', etiqueta: 'Compra de medicamentos' },
+  { valor: 'OTRO', etiqueta: 'Otro' },
+];
+const etiquetaCategoria = (c: string) => CATEGORIAS_DOC.find((x) => x.valor === c)?.etiqueta ?? c;
+
+const archivoADataURL = (file: File) =>
+  new Promise<string>((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result as string);
+    r.onerror = () => rej(new Error('No se pudo leer el archivo.'));
+    r.readAsDataURL(file);
+  });
 
 const inputCls =
   'w-full rounded-lg border border-borde bg-white px-2.5 py-1.5 text-sm outline-none focus:border-marca-azul';
@@ -374,6 +392,17 @@ function IncidenteModal({
               <input value={f.anexos} onChange={(e) => set('anexos', e.target.value)} className={inputCls} />
             </Campo>
 
+            {editarId ? (
+              <DocumentosRespaldo incidenteId={editarId} />
+            ) : (
+              <div className="rounded-xl border border-dashed border-borde p-3">
+                <p className="flex items-center gap-1.5 text-[11px] text-texto-suave">
+                  <Paperclip className="h-3.5 w-3.5" /> Guarda el reporte para adjuntar documentos de respaldo
+                  (comprobantes, estudios, medicamentos).
+                </p>
+              </div>
+            )}
+
             {error && <p className="rounded-lg bg-marca-rojo/10 px-3 py-2 text-xs text-marca-rojo">{error}</p>}
 
             <div className="flex justify-end gap-2 pt-1">
@@ -401,5 +430,132 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-0.5 block text-[11px] text-texto-suave">{label}</span>
       {children}
     </label>
+  );
+}
+
+/** Documentos de respaldo del reporte (comprobantes, estudios, medicamentos).
+ *  Internos de coordinación; no se incluyen en la hoja para los papás. */
+function DocumentosRespaldo({ incidenteId }: { incidenteId: string }) {
+  const [docs, setDocs] = useState<DocumentoIncidente[] | null>(null);
+  const [categoria, setCategoria] = useState<CategoriaDocIncidente>('COMPROBANTE_PAGO');
+  const [subiendo, setSubiendo] = useState(false);
+  const [error, setError] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const cargar = useCallback(async () => {
+    try {
+      setDocs(await api.documentosIncidente(incidenteId));
+    } catch {
+      setDocs([]);
+    }
+  }, [incidenteId]);
+
+  useEffect(() => {
+    void cargar();
+  }, [cargar]);
+
+  async function subir(file: File) {
+    setError('');
+    if (file.size > 8 * 1024 * 1024) {
+      setError('El archivo no debe pasar de 8 MB.');
+      return;
+    }
+    setSubiendo(true);
+    try {
+      const contenido = await archivoADataURL(file);
+      await api.subirDocumentoIncidente(incidenteId, { categoria, nombreArchivo: file.name, contenido });
+      await cargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo subir el documento.');
+    } finally {
+      setSubiendo(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
+
+  async function eliminar(docId: string) {
+    if (!window.confirm('¿Eliminar este documento de respaldo?')) return;
+    await api.eliminarDocumentoIncidente(incidenteId, docId).catch(() => undefined);
+    await cargar();
+  }
+
+  return (
+    <div className="rounded-xl border border-borde p-3">
+      <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-texto-fuerte">
+        <Paperclip className="h-4 w-4 text-marca-azul" /> Documentos de respaldo
+      </p>
+      <p className="mb-2 text-[11px] text-texto-suave">
+        Evidencia que soporta el incidente (comprobante de pago, estudios, compra de medicamentos). Solo para
+        coordinación; no se incluyen en la hoja de los papás. PDF o imagen, máx. 8 MB.
+      </p>
+
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <select
+          value={categoria}
+          onChange={(e) => setCategoria(e.target.value as CategoriaDocIncidente)}
+          className={inputCls + ' w-auto'}
+        >
+          {CATEGORIAS_DOC.map((c) => (
+            <option key={c.valor} value={c.valor}>
+              {c.etiqueta}
+            </option>
+          ))}
+        </select>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void subir(file);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={subiendo}
+          className="inline-flex items-center gap-1 rounded-lg border border-marca-azul/50 px-3 py-1.5 text-xs font-medium text-marca-azul hover:bg-marca-azul/5 disabled:opacity-50"
+        >
+          <Upload className="h-3.5 w-3.5" /> {subiendo ? 'Subiendo…' : 'Subir documento'}
+        </button>
+      </div>
+
+      {error && <p className="mb-2 text-[11px] text-marca-rojo">{error}</p>}
+
+      {docs == null ? (
+        <div className="h-8 animate-pulse rounded-lg bg-fondo" />
+      ) : docs.length === 0 ? (
+        <p className="text-[11px] text-texto-suave">Sin documentos adjuntos.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {docs.map((d) => (
+            <li key={d.id} className="flex items-center justify-between gap-2 rounded-lg bg-fondo px-2.5 py-1.5">
+              <div className="min-w-0">
+                <a
+                  href={d.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 truncate text-xs font-medium text-marca-azul hover:underline"
+                >
+                  <FileText className="h-3.5 w-3.5 shrink-0" /> {d.nombreArchivo}
+                </a>
+                <p className="text-[10px] text-texto-suave">
+                  {etiquetaCategoria(d.categoria)} · {d.subidoPor}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => eliminar(d.id)}
+                className="shrink-0 rounded-lg border border-borde p-1 text-marca-rojo hover:bg-marca-rojo/10"
+                title="Eliminar documento"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

@@ -1,17 +1,32 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { LocalStorageService } from '../../core/storage/local-storage.service';
 import type { UsuarioAutenticado } from '../../core/auth/auth.types';
 import { GuardarReporteIncidenteDto } from './dto/guardar-reporte-incidente.dto';
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 const isoDia = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
+// Documentos de respaldo del reporte (evidencia de que ocurrió el incidente).
+export const CATEGORIAS_DOC = ['COMPROBANTE_PAGO', 'ESTUDIOS', 'MEDICAMENTOS', 'OTRO'] as const;
+const MIME_EXT: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+const MAX_BYTES = 8 * 1024 * 1024; // 8 MB por archivo
+
 /** Reporte de incidente de un menor (Paula): documento formal para los papás,
  *  registrado en la ficha de la familia y en el expediente de la nannie. Lo
  *  gestiona solo coordinación (datos médicos sensibles). */
 @Injectable()
 export class IncidentesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: LocalStorageService,
+  ) {}
 
   /** Convierte el DTO a los datos de Prisma (fechas, decimales, null explícito). */
   private datosDe(dto: GuardarReporteIncidenteDto) {
@@ -103,7 +118,84 @@ export class IncidentesService {
 
   async eliminar(id: string) {
     await this.exigir(id);
+    // El cascade borra las filas, pero los binarios del disco hay que quitarlos.
+    const docs = await this.prisma.documentoIncidente.findMany({ where: { incidenteId: id }, select: { path: true } });
+    await Promise.all(docs.map((d) => this.storage.borrar(d.path)));
     await this.prisma.reporteIncidente.delete({ where: { id } });
+    return { ok: true };
+  }
+
+  // --- Documentos de respaldo (comprobantes, estudios, medicamentos, etc.) ---
+
+  /** Lista los documentos de un reporte, con URL a su endpoint autenticado. */
+  async listarDocumentos(incidenteId: string) {
+    await this.exigir(incidenteId);
+    const docs = await this.prisma.documentoIncidente.findMany({
+      where: { incidenteId },
+      orderBy: { subidoEn: 'desc' },
+    });
+    return docs.map((d) => ({
+      id: d.id,
+      categoria: d.categoria,
+      nombreArchivo: d.nombreArchivo,
+      subidoPor: d.subidoPor,
+      subidoEn: d.subidoEn.toISOString(),
+      url: `/api/incidentes/${incidenteId}/documentos/${d.id}/archivo`,
+    }));
+  }
+
+  /** Sube un documento de respaldo (base64 data URL). */
+  async subirDocumento(
+    incidenteId: string,
+    dto: { categoria: string; nombreArchivo: string; contenido: string },
+    user: UsuarioAutenticado,
+  ) {
+    await this.exigir(incidenteId);
+    if (!CATEGORIAS_DOC.includes(dto.categoria as (typeof CATEGORIAS_DOC)[number])) {
+      throw new BadRequestException('Categoría no válida.');
+    }
+    const m = /^data:([^;]+);base64,(.+)$/s.exec(dto.contenido ?? '');
+    if (!m) throw new BadRequestException('Archivo no válido.');
+    const ext = MIME_EXT[m[1]];
+    if (!ext) throw new BadRequestException('Solo se aceptan PDF, JPG, PNG o WEBP.');
+    const buf = Buffer.from(m[2], 'base64');
+    if (buf.length > MAX_BYTES) throw new BadRequestException('El archivo no debe pasar de 8 MB.');
+
+    const path = `incidencias/${incidenteId}/${randomUUID()}.${ext}`;
+    await this.storage.subir(path, buf, m[1]);
+    const doc = await this.prisma.documentoIncidente.create({
+      data: {
+        incidenteId,
+        categoria: dto.categoria,
+        path,
+        nombreArchivo: (dto.nombreArchivo?.trim() || `archivo.${ext}`).slice(0, 200),
+        subidoPor: user.nombre,
+      },
+      select: { id: true },
+    });
+    return { ok: true, id: doc.id };
+  }
+
+  /** Binario de un documento (para servirlo). Valida que sea del reporte dado. */
+  async archivoDocumento(incidenteId: string, docId: string) {
+    const doc = await this.prisma.documentoIncidente.findFirst({ where: { id: docId, incidenteId } });
+    if (!doc) throw new NotFoundException('Documento no encontrado');
+    const buf = await this.storage.leer(doc.path).catch(() => {
+      throw new NotFoundException('Archivo no encontrado');
+    });
+    const ext = (doc.path.split('.').pop() ?? '').toLowerCase();
+    const mime =
+      ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    return { buf, mime, nombre: doc.nombreArchivo };
+  }
+
+  /** Borra un documento de respaldo (archivo + fila). */
+  async borrarDocumento(incidenteId: string, docId: string) {
+    const doc = await this.prisma.documentoIncidente.findFirst({ where: { id: docId, incidenteId } });
+    if (doc) {
+      await this.storage.borrar(doc.path);
+      await this.prisma.documentoIncidente.delete({ where: { id: doc.id } });
+    }
     return { ok: true };
   }
 

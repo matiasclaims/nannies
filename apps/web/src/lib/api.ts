@@ -1086,6 +1086,16 @@ export interface GuardarIncidente {
   anexos?: string;
 }
 
+export type CategoriaDocIncidente = 'COMPROBANTE_PAGO' | 'ESTUDIOS' | 'MEDICAMENTOS' | 'OTRO';
+export interface DocumentoIncidente {
+  id: string;
+  categoria: CategoriaDocIncidente;
+  nombreArchivo: string;
+  subidoPor: string;
+  subidoEn: string;
+  url: string;
+}
+
 export const api = {
   login: (email: string, password: string) =>
     req<{ rol: string }>('/auth/login', {
@@ -1274,6 +1284,15 @@ export const api = {
     req<{ ok: true; id: string }>(`/incidentes/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   eliminarIncidente: (id: string) =>
     req<{ ok: true }>(`/incidentes/${id}`, { method: 'DELETE' }),
+  // Documentos de respaldo del reporte de incidente (coordinación)
+  documentosIncidente: (id: string) =>
+    req<DocumentoIncidente[]>(`/incidentes/${id}/documentos`),
+  subirDocumentoIncidente: (
+    id: string,
+    body: { categoria: CategoriaDocIncidente; nombreArchivo: string; contenido: string },
+  ) => req<{ ok: true; id: string }>(`/incidentes/${id}/documentos`, { method: 'POST', body: JSON.stringify(body) }),
+  eliminarDocumentoIncidente: (id: string, docId: string) =>
+    req<{ ok: true }>(`/incidentes/${id}/documentos/${docId}`, { method: 'DELETE' }),
   programarPaquete: (body: {
     paqueteId: string;
     fechas: string[];
