@@ -52,13 +52,14 @@ export class AsignacionService {
    * Ranking (inicial): equidad de carga (menos servicios la semana) + rango.
    * El ranking fino (historial, evaluaciones) se suma con M4/M5/M6.
    */
-  async recomendar(dto: RecomendarDto): Promise<{ candidatas: Candidata[]; total: number }> {
+  async recomendar(dto: RecomendarDto): Promise<{ candidatas: Candidata[]; total: number; motivo?: string }> {
     const fecha = fechaUTC(dto.fecha);
     const { desde, hasta } = rangoSemana(dto.fecha);
     const dia = dto.fecha;
 
     const [nannies, disp, servs] = await Promise.all([
-      this.prisma.nannie.findMany({ where: { estado: { not: 'PAUSA' } } }),
+      // Ni en pausa ni dadas de baja (antes BAJA sí podía salir sugerida).
+      this.prisma.nannie.findMany({ where: { estado: { notIn: ['PAUSA', 'BAJA'] } } }),
       this.prisma.disponibilidad.findMany({ where: { fecha } }),
       this.prisma.servicio.findMany({ where: { fecha: { gte: desde, lte: hasta } } }),
     ]);
@@ -85,6 +86,10 @@ export class AsignacionService {
     }
 
     const candidatas: Candidata[] = [];
+    // Embudo, para explicar por qué no hay sugerencias: cuántas pasan ubicación
+    // y cuántas además tienen disponibilidad que cubra el horario.
+    let cerca = 0;
+    let conDisp = 0;
 
     for (const n of nannies) {
       let distanciaKm: number | null = null;
@@ -103,6 +108,7 @@ export class AsignacionService {
         // Querétaro (y compatibilidad): match por nombre de zona.
         if (!n.zonas.some((z) => norm(z) === zona)) continue;
       }
+      cerca++;
 
       const susBloques = disp.filter((d) => d.nannieId === n.id);
 
@@ -120,6 +126,7 @@ export class AsignacionService {
         }
       }
       if (!mejor) continue;
+      conDisp++;
       const cubre = mejor.bloque;
 
       // Bloqueo (definitivo o temporal) que traslape el horario → fuera.
@@ -169,7 +176,26 @@ export class AsignacionService {
         RANGO_ORDEN[b.rango] - RANGO_ORDEN[a.rango],
     );
 
-    return { candidatas, total: candidatas.length };
+    // Sin sugerencias: decir POR QUÉ (en vez de solo "no hay nannies").
+    let motivo: string | undefined;
+    if (candidatas.length === 0) {
+      const losDias = ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'][diaSemana];
+      if (dto.plaza === 'TOLUCA' && !esGeoToluca && cerca === 0) {
+        motivo = 'La colonia del servicio no está en el catálogo. Elígela de la lista para que el sistema busque nannies cercanas.';
+      } else if (esGeoToluca && (coloniaServ?.lat == null || coloniaServ?.lng == null)) {
+        motivo = 'La colonia del servicio no tiene ubicación registrada, así que no se puede buscar por cercanía.';
+      } else if (cerca === 0) {
+        motivo = esGeoToluca
+          ? `Ninguna nannie trabaja a ${RADIO_KM} km o menos de esa colonia los ${losDias}.`
+          : `Ninguna nannie cubre la zona "${dto.zona}".`;
+      } else if (conDisp === 0) {
+        motivo = `${cerca} ${cerca === 1 ? 'nannie trabaja' : 'nannies trabajan'} cerca, pero ninguna marcó disponibilidad que cubra ese horario.`;
+      } else {
+        motivo = 'Las nannies cercanas con disponibilidad ya tienen un bloqueo u otro servicio a esa hora.';
+      }
+    }
+
+    return { candidatas, total: candidatas.length, motivo };
   }
 
   /**

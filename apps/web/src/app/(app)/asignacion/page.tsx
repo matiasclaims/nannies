@@ -195,6 +195,7 @@ export default function AsignacionPage() {
     requierePlaneacion: true,
   });
   const [candidatas, setCandidatas] = useState<Candidata[] | null>(null);
+  const [motivoVacio, setMotivoVacio] = useState<string | undefined>(undefined);
   const [buscando, setBuscando] = useState(false);
   const [asignando, setAsignando] = useState(false);
   const [error, setError] = useState('');
@@ -343,7 +344,7 @@ export default function AsignacionPage() {
       return setError('El horario debe dar al menos 1 hora.');
     setBuscando(true);
     try {
-      const { candidatas } = await api.recomendar({
+      const { candidatas, motivo } = await api.recomendar({
         plaza: form.plaza,
         zona: form.zona,
         coloniaId: esQro ? undefined : form.coloniaId || undefined,
@@ -353,6 +354,7 @@ export default function AsignacionPage() {
         tipoServicio: form.tipoServicio,
       });
       setCandidatas(candidatas);
+      setMotivoVacio(motivo);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo recomendar.');
     } finally {
@@ -771,10 +773,12 @@ export default function AsignacionPage() {
           </h2>
 
           {candidatas.length === 0 ? (
-            <p className="text-sm text-texto-suave">
-              Ninguna nannie cumple zona + disponibilidad para ese horario. Puedes ofertar de todos
-              modos a alguien más abajo (override).
-            </p>
+            <div className="space-y-1 text-sm text-texto-suave">
+              <p className="font-medium text-texto-fuerte">
+                {motivoVacio ?? 'Ninguna nannie cumple zona + disponibilidad para ese horario.'}
+              </p>
+              <p>Puedes ofertar de todos modos a alguien más abajo (override).</p>
+            </div>
           ) : (
             <ul className="space-y-2">
               {candidatas.map((c, i) => (

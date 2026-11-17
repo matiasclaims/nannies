@@ -1320,7 +1320,7 @@ export const api = {
     horaInicio: string;
     horaFin: string;
     tipoServicio?: TipoServicio;
-  }) => req<{ candidatas: Candidata[]; total: number }>('/asignacion/recomendar', {
+  }) => req<{ candidatas: Candidata[]; total: number; motivo?: string }>('/asignacion/recomendar', {
     method: 'POST',
     body: JSON.stringify(body),
   }),
