@@ -172,7 +172,7 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
   // se le RESTA el tiempo que ya ocupa un servicio asignado de esa nannie, para
   // no mostrar el mismo hueco como disponible y asignado a la vez (Mario). Si el
   // servicio cubre todo el bloque, la disponibilidad desaparece; si lo cubre a
-  // medias, solo se ve el tramo que queda libre. (En "Por nannie" no se resta.)
+  // medias, solo se ve el tramo que queda libre. ("Por nannie" aplica la misma resta.)
   const libresDelDia = (dia: string): { nannieId: string; ini: string; fin: string; dispId: string }[] => {
     const ocupado = new Map<string, [number, number][]>();
     for (const s of servicios) {
@@ -249,19 +249,36 @@ export function CalendarioEquipo({ dias, sesion }: { dias: DiaSemana[]; sesion: 
     return partes.join(' · ');
   };
 
-  // "Por nannie": todo lo de esa nannie (incluye bloqueos).
+  // "Por nannie": todo lo de esa nannie (incluye bloqueos). A su disponibilidad
+  // también se le RESTA el tiempo de sus servicios (ofertado/aceptado/completado),
+  // igual que en "Todas": ya con servicio, ese hueco deja de verse disponible
+  // (Paula). Los bloqueos se muestran tal cual.
   const bloquesNannie = (dia: string): Bloque[] => {
     if (!nannieActiva) return [];
+    const ocupado: [number, number][] = servicios
+      .filter(
+        (s) =>
+          s.nannieId === nannieActiva.id &&
+          enDia(s.fecha, dia) &&
+          (s.estado === 'OFERTADO' || s.estado === 'ACEPTADO' || s.estado === 'COMPLETADO'),
+      )
+      .map((s) => [aMin(s.horaInicio), aMin(s.horaFin, true)]);
     const disp = dispon
       .filter((x) => x.nannieId === nannieActiva.id && enDia(x.fecha, dia))
-      .map<Bloque>((x) => ({
-        id: 'd' + x.id,
-        ini: x.horaInicio,
-        fin: x.horaFin,
-        clase: x.estado === 'DISPONIBLE' ? CLASE_DISPONIBLE : CLASE_BLOQUEADO,
-        etiqueta: ESTADO_DISPONIBILIDAD[x.estado].label,
-        color: nannieActiva.color ?? undefined,
-      }));
+      .flatMap<Bloque>((x) => {
+        const base = {
+          clase: x.estado === 'DISPONIBLE' ? CLASE_DISPONIBLE : CLASE_BLOQUEADO,
+          etiqueta: ESTADO_DISPONIBILIDAD[x.estado].label,
+          color: nannieActiva.color ?? undefined,
+        };
+        if (x.estado !== 'DISPONIBLE') return [{ id: 'd' + x.id, ini: x.horaInicio, fin: x.horaFin, ...base }];
+        return restarOcupados(aMin(x.horaInicio), aMin(x.horaFin, true), ocupado).map(([a, b]) => ({
+          id: 'd' + x.id + '_' + a,
+          ini: aHHMM(a),
+          fin: aHHMM(b),
+          ...base,
+        }));
+      });
     const servs = servicios
       .filter((s) => s.nannieId === nannieActiva.id && enDia(s.fecha, dia))
       .map<Bloque>((s) => ({
