@@ -79,6 +79,9 @@ export default function MiProyeccionPage() {
       <p className="mt-6 text-[11px] text-texto-suave">
         Fechas confirmadas y por responder. Cualquier ajuste, coordínalo con Paula o Jackie.
       </p>
+      <p className="mt-4 text-center text-[11px] text-texto-suave">
+        Nannies Child Care · Cuidamos a lo más importante.
+      </p>
 
       <div className="mt-6 flex justify-center print:hidden">
         <button

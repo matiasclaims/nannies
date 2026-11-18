@@ -173,7 +173,7 @@ export function construirPdfPlaneacion(doc: PDFKit.PDFDocument, d: DatosHoja): v
   y += hNota + 10;
 
   doc.font('Helvetica').fontSize(8).fillColor(SUAVE)
-    .text('Nannies Child Care · Planeación de actividades del servicio.', x0, Math.min(y, bottom), { width: ancho, align: 'center' });
+    .text('Nannies Child Care · Cuidamos a lo más importante.', x0, Math.min(y, bottom), { width: ancho, align: 'center' });
 
   doc.end();
 }

@@ -881,6 +881,9 @@ function PanoramaNannie({ nombre }: { nombre: string }) {
         <Termometro horas={p?.horasMes ?? 0} />
       </div>
 
+      {/* Strikes activos: solo el número (sin detalle), para que estén al tanto. */}
+      {p && <TarjetaStrikes strikes={p.strikes} />}
+
       {/* Gráficas: horas por semana + histórico por mes */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-2xl bg-panel p-4 shadow-card">
@@ -902,6 +905,23 @@ function PanoramaNannie({ nombre }: { nombre: string }) {
         <CalendarDays className="h-5 w-5" />
         Ir a mi calendario (disponibilidad y ofertas)
       </Link>
+    </div>
+  );
+}
+
+/** Strikes activos de la nannie: verde sin strikes, ámbar 1–2, rojo 3 o más. */
+function TarjetaStrikes({ strikes }: { strikes: number }) {
+  const color = strikes === 0 ? 'text-[#3b6d11]' : strikes < 3 ? 'text-amber-600' : 'text-marca-rojo';
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl bg-panel p-5 shadow-card">
+      <div className="flex items-center gap-3">
+        <AlertCircle className={`h-6 w-6 shrink-0 ${color}`} />
+        <div>
+          <p className="text-xs text-texto-suave">Strikes</p>
+          <p className="text-[11px] text-texto-suave">Al juntar 3 strikes se descuenta el 20% de tu próximo servicio</p>
+        </div>
+      </div>
+      <p className={`text-4xl font-bold ${color}`}>{strikes}</p>
     </div>
   );
 }

@@ -122,6 +122,10 @@ export default function HojaIncidentePage() {
         <p className="text-xs text-texto-suave">Nannies Child Care</p>
       </div>
 
+      <p className="mt-8 border-t border-borde pt-4 text-center text-[11px] text-texto-suave">
+        Nannies Child Care · Cuidamos a lo más importante.
+      </p>
+
       {/* Acciones — se ocultan al imprimir */}
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3 print:hidden">
         <button

@@ -467,6 +467,7 @@ export interface MiPanorama {
   horasMes: number;
   serviciosMes: number;
   ofertas: number;
+  strikes: number;
   calificacionPapas: { promedio: number | null; total: number };
   calificacionAgencia: { promedio: number | null; total: number };
   horasPorSemana: { semana: string; horas: number }[];

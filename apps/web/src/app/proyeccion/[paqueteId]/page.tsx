@@ -118,8 +118,11 @@ export default function ProyeccionPage() {
       )}
 
       <p className="mt-6 text-center text-[11px] text-texto-suave">
-        Nannies Child Care · Este documento es una proyección de las fechas programadas de tu
-        paquete. Cualquier ajuste, contáctanos.
+        Este documento es una proyección de las fechas programadas de tu paquete. Cualquier ajuste,
+        contáctanos.
+      </p>
+      <p className="mt-2 text-center text-[11px] text-texto-suave">
+        Nannies Child Care · Cuidamos a lo más importante.
       </p>
 
       {/* Acción (no se imprime) */}

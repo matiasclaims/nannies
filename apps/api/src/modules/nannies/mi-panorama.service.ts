@@ -1,5 +1,8 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { REGLAS_INCIDENCIA } from './incidencias.catalogo';
+
+const REGLAS_STRIKE = REGLAS_INCIDENCIA.filter((r) => r.esStrike).map((r) => r.numero);
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
@@ -21,7 +24,7 @@ export class MiPanoramaService {
     const finMesExcl = new Date(Date.UTC(y, m + 1, 1));
     const inicio12 = new Date(Date.UTC(y, m - 11, 1)); // 12 meses hacia atrás
 
-    const [nannie, serviciosMesActual, ofertasPendientes, serviciosHist, evalPapas, evalAgencia] = await Promise.all([
+    const [nannie, serviciosMesActual, ofertasPendientes, serviciosHist, evalPapas, evalAgencia, strikes] = await Promise.all([
       this.prisma.nannie.findUnique({
         where: { id: nannieId },
         select: { nombre: true, foto: true, especialidad: true, rangoPermanente: true, nivelTarifaMesActual: true },
@@ -44,6 +47,9 @@ export class MiPanoramaService {
       // Calificación de agencia = promedio de las evaluaciones POR SERVICIO
       // (Paula 2026-09-03; las semanales viejas quedan como histórico aparte).
       this.prisma.evaluacionCoordServicio.findMany({ where: { nannieId }, select: { calificacion: true } }),
+      // Strikes ACTIVOS: los que van acumulando hacia el descuento (vuelve a 0 al
+      // aplicarse o condonarse). Solo el número, sin detalle (Paula 2026-11-18).
+      this.prisma.incidencia.count({ where: { nannieId, estado: 'ACUMULANDO', regla: { in: REGLAS_STRIKE } } }),
     ]);
 
     const completadosMes = serviciosMesActual.filter((s) => s.estado === 'COMPLETADO');
@@ -87,6 +93,7 @@ export class MiPanoramaService {
       horasMes,
       serviciosMes: completadosMes.length,
       ofertas,
+      strikes,
       calificacionPapas: { promedio: prom(evalPapas.map((e) => e.calificacion ?? 0)), total: evalPapas.length },
       calificacionAgencia: { promedio: prom(evalAgencia.map((e) => Number(e.calificacion))), total: evalAgencia.length },
       horasPorSemana: buckSem.map((b) => ({ semana: b.semana, horas: b.horas })),

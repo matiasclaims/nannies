@@ -74,7 +74,7 @@ export default function HojaReportePage() {
       )}
 
       <footer className="mt-8 border-t border-borde pt-4 text-center text-xs text-texto-suave">
-        Nannies Child Care · Gracias por confiar en nosotros.
+        Nannies Child Care · Cuidamos a lo más importante.
       </footer>
 
       {/* Botón de imprimir — se oculta al imprimir */}

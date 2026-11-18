@@ -112,7 +112,7 @@ export default function HojaPlaneacionPage() {
       )}
 
       <p className="mt-4 text-center text-[11px] text-texto-suave">
-        Nannies Child Care · Planeación de actividades del servicio.
+        Nannies Child Care · Cuidamos a lo más importante.
       </p>
 
       {/* Acción (no se imprime) */}

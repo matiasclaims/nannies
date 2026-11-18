@@ -157,7 +157,7 @@ export function construirPdfIncidente(doc: PDFKit.PDFDocument, d: DatosIncidente
   // --- Nota institucional + firma ---
   doc.font('Helvetica').fontSize(9).fillColor(SUAVE);
   const hNota = doc.heightOfString(NOTA_PIE, { width: ancho, align: 'center' });
-  espacio(hNota + 70);
+  espacio(hNota + 100);
   y += 10;
   doc.text(NOTA_PIE, x0, y, { width: ancho, align: 'center' });
   y = doc.y + 24;
@@ -166,6 +166,9 @@ export function construirPdfIncidente(doc: PDFKit.PDFDocument, d: DatosIncidente
   doc.font('Helvetica-Bold').fontSize(11).fillColor(AZUL).text('MCEF Paula Ileana Novales Pérez', x0, y, { width: ancho, align: 'center' });
   y = doc.y + 2;
   doc.font('Helvetica').fontSize(9).fillColor(SUAVE).text('Nannies Child Care', x0, y, { width: ancho, align: 'center' });
+  y = doc.y + 20;
+  doc.font('Helvetica').fontSize(8).fillColor(SUAVE)
+    .text('Nannies Child Care · Cuidamos a lo más importante.', x0, y, { width: ancho, align: 'center' });
 
   doc.end();
 }

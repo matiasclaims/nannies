@@ -122,6 +122,10 @@ export default function ReporteNanniePage() {
         )}
       </Seccion>
 
+      <p className="mt-6 text-center text-[11px] text-texto-suave">
+        Nannies Child Care · Cuidamos a lo más importante.
+      </p>
+
       <div className="mt-6 flex justify-center print:hidden">
         <button
           onClick={() => window.print()}
